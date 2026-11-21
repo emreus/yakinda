@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
-import { categoriesApi, eventsApi, usersApi, type MyEventsRole, type NearbyParams } from '@/api/endpoints';
+import { categoriesApi, eventsApi, notificationsApi, usersApi, type MyEventsRole, type NearbyParams } from '@/api/endpoints';
 import type { NearbyFilters } from '@/state/NearbyFilters';
 import { roundCoords, type Coords } from './useCurrentLocation';
 
@@ -14,6 +14,10 @@ export const queryKeys = {
   me: ['me'] as const,
   user: (id: string) => ['user', id] as const,
   myEvents: (role: MyEventsRole) => ['myEvents', role] as const,
+  /** Tüm bildirim sorgularının ortak öneki (liste + okunmamış sayısı) */
+  notifications: ['notifications'] as const,
+  notificationList: ['notifications', 'list'] as const,
+  unreadNotifications: ['notifications', 'unread'] as const,
 };
 
 export function useCategories() {
@@ -75,6 +79,30 @@ export function useUserProfile(id: string) {
 
 export function useMyEvents(role: MyEventsRole) {
   return useQuery({ queryKey: queryKeys.myEvents(role), queryFn: () => usersApi.myEvents(role) });
+}
+
+/** Bildirim listesi, en yeni önce (sonsuz kaydırma). */
+export function useNotifications() {
+  return useInfiniteQuery({
+    queryKey: queryKeys.notificationList,
+    initialPageParam: 1,
+    queryFn: ({ pageParam }) => notificationsApi.list(pageParam),
+    getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
+  });
+}
+
+/**
+ * Sekmedeki rozet. Push olmasa da (Expo Go) yeni bildirimler 30 saniye içinde görünsün diye
+ * periyodik olarak sorulur; istek tek bir indeksli COUNT olduğu için ucuz.
+ */
+export function useUnreadNotificationCount(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.unreadNotifications,
+    queryFn: () => notificationsApi.unreadCount(),
+    enabled,
+    refetchInterval: 30_000,
+    staleTime: 10_000,
+  });
 }
 
 /** Bir etkinlikte değişiklik olduğunda ilgili tüm önbellekleri tazeler. */

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ApiError, setAuthBridge } from '@/api/client';
 import { authApi } from '@/api/endpoints';
 import type { AuthResponse, AuthUser } from '@/api/types';
+import { unregisterPushAsync } from '@/notifications/push';
 
 // Refresh token cihazın güvenli deposunda (iOS Keychain / Android Keystore) saklanır.
 // Access token sadece bellekte tutulur; uygulama açılışında refresh token ile yenilenir.
@@ -97,9 +98,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   );
 
+  /** Önce bu cihazın push token'ı silinir (access token hâlâ geçerliyken), sonra oturum kapanır. */
+  const signOut = useCallback(async () => {
+    try {
+      await unregisterPushAsync();
+    } catch {
+      // Ağ hatası: token sunucuda kalır; bu cihazda başka hesapla giriş yapılınca o hesaba taşınır.
+    }
+    await clearSession();
+  }, [clearSession]);
+
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, signIn, signUp, signOut: clearSession }),
-    [status, user, signIn, signUp, clearSession],
+    () => ({ status, user, signIn, signUp, signOut }),
+    [status, user, signIn, signUp, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

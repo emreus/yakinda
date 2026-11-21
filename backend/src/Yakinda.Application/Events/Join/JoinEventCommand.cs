@@ -3,6 +3,7 @@ using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Notifications;
 using Yakinda.Domain.Events;
 
 namespace Yakinda.Application.Events.Join;
@@ -15,6 +16,8 @@ public sealed record JoinEventResult(ParticipantStatus Status);
 internal sealed class JoinEventCommandHandler(
     IEventRepository events,
     IParticipantRepository participants,
+    IUserRepository users,
+    INotificationRepository notifications,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<JoinEventCommand, JoinEventResult>
@@ -43,6 +46,14 @@ internal sealed class JoinEventCommandHandler(
 
         ev.Touch(now);
         await events.UpdateAsync(ev, cancellationToken);
+
+        // Organizatöre bildirim: onaylı etkinlikte "istek geldi", açık etkinlikte "katıldı"
+        var actor = await users.GetByIdAsync(userId, cancellationToken);
+        var actorName = actor?.DisplayName ?? "Bir kullanıcı";
+        var content = status == ParticipantStatus.Pending
+            ? NotificationTexts.JoinRequested(actorName, ev.Title)
+            : NotificationTexts.ParticipantJoined(actorName, ev.Title);
+        await notifications.AddAsync(ev.OrganizerId, content, ev.Id, userId, now, cancellationToken);
 
         // Katılımcı sayısı (etkinlik) ve "katıldığı etkinlik" sayısı (kullanıcı) değişebilir
         cacheInvalidator.InvalidateAfterCommit(CacheTag.Event(ev.Id), CacheTag.User(userId));

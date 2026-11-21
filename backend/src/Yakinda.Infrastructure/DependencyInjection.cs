@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Headers;
 using System.Text;
 using Dapper;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -12,6 +14,7 @@ using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Persistence;
 using Yakinda.Infrastructure.Auth;
 using Yakinda.Infrastructure.Caching;
+using Yakinda.Infrastructure.Notifications;
 using Yakinda.Infrastructure.Persistence;
 using Yakinda.Infrastructure.Persistence.Repositories;
 using ZiggyCreatures.Caching.Fusion;
@@ -30,6 +33,7 @@ public static class DependencyInjection
         AddPersistence(services, configuration);
         AddAuth(services, configuration);
         AddCaching(services, configuration);
+        AddNotifications(services, configuration);
 
         services.AddSingleton(TimeProvider.System);
 
@@ -63,6 +67,33 @@ public static class DependencyInjection
         }
 
         services.AddSingleton<ICacheService, FusionCacheService>();
+    }
+
+    /// <summary>
+    /// Bildirimler: repository'ler (command tarafı), zamanlanmış bildirim üreticisi ve
+    /// Expo Push gönderici. İkisi de arka plan servisi (BackgroundService) olarak API ile birlikte çalışır.
+    /// </summary>
+    private static void AddNotifications(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddScoped<INotificationRepository, NotificationRepository>();
+        services.AddScoped<IDeviceTokenRepository, DeviceTokenRepository>();
+
+        services.AddOptions<PushOptions>().Bind(configuration.GetSection(PushOptions.SectionName));
+
+        services.AddHttpClient(ExpoPushClient.HttpClientName, client =>
+            {
+                client.BaseAddress = new Uri("https://exp.host/");
+                client.Timeout = TimeSpan.FromSeconds(15);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            })
+            .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+            {
+                AutomaticDecompression = DecompressionMethods.All
+            });
+
+        services.AddSingleton<ExpoPushClient>();
+        services.AddHostedService<ScheduledNotificationService>();
+        services.AddHostedService<PushDispatcher>();
     }
 
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)

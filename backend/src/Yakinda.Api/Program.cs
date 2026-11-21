@@ -48,5 +48,6 @@ api.MapAuthEndpoints();
 api.MapCategoryEndpoints();
 api.MapEventEndpoints();
 api.MapUserEndpoints();
+api.MapNotificationEndpoints();
 
 app.Run();

@@ -3,6 +3,7 @@ using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Notifications;
 
 namespace Yakinda.Application.Events.Participants;
 
@@ -15,6 +16,7 @@ public sealed record ReviewParticipantCommand(Guid EventId, Guid UserId, bool Ap
 internal sealed class ReviewParticipantCommandHandler(
     IEventRepository events,
     IParticipantRepository participants,
+    INotificationRepository notifications,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<ReviewParticipantCommand, Unit>
@@ -35,17 +37,23 @@ internal sealed class ReviewParticipantCommandHandler(
         var participant = await participants.GetAsync(ev.Id, request.UserId, cancellationToken)
             ?? throw EventErrors.ParticipantNotFound();
 
+        NotificationContent content;
         if (request.Approve)
         {
             participant.Approve(now);
             ev.AddApprovedParticipant(); // kontenjan doluysa hata fırlatır, transaction geri alınır
+            content = NotificationTexts.RequestApproved(ev.Title);
         }
-        else if (participant.Reject(now))
+        else
         {
-            ev.RemoveApprovedParticipant();
+            var wasApproved = participant.Reject(now);
+            if (wasApproved)
+                ev.RemoveApprovedParticipant();
+            content = NotificationTexts.RequestRejected(ev.Title, wasApproved);
         }
 
         await participants.UpsertAsync(participant, cancellationToken);
+        await notifications.AddAsync(request.UserId, content, ev.Id, organizerId, now, cancellationToken);
 
         ev.Touch(now);
         await events.UpdateAsync(ev, cancellationToken);

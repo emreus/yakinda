@@ -18,6 +18,13 @@
       "expo-secure-store",
       "@react-native-community/datetimepicker",
       [
+        "expo-notifications",
+        {
+          "color": "#5B3FD9",
+          "defaultChannel": "default"
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Yakınındaki etkinlikleri gösterebilmek ve etkinlik konumunu seçebilmen için konumuna ihtiyacımız var."
