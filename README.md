@@ -117,12 +117,14 @@ API `http://0.0.0.0:5080` adresinde dinler; OpenAPI dokümanı: `http://localhos
 ### 3) Mobil
 ```bash
 cd mobile
-cp .env.example .env          # EXPO_PUBLIC_API_URL = bilgisayarınızın yerel IP'si
 npm install
 npm run setup                 # paket sürümlerini Expo SDK 58'e göre hizalar (değişiklik yoksa bir şey yapmaz)
-npx expo start
+npx expo start                # a: Android emülatör, i: iOS simülatör, QR: telefondaki Expo Go
 ```
-> Telefonda `localhost` bilgisayarınızı göstermez. `.env` içine bilgisayarın Wi-Fi IP'sini yazın (Android emülatör: `10.0.2.2`).
+> API adresi için ayar gerekmez: uygulama, Expo'nun çalıştığı bilgisayarın adresini kullanır
+> (`http://<bilgisayarın IP'si>:5080`). Farklı bir sunucu için `.env.example` dosyasını `.env` olarak
+> kopyalayıp `EXPO_PUBLIC_API_URL` yazın. macOS "dotnet gelen bağlantıları kabul etsin mi?" diye
+> sorarsa izin verin.
 
 ---
 

@@ -1,6 +1,27 @@
+import Constants from 'expo-constants';
 import type { ApiProblem } from './types';
 
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:5080').replace(/\/$/, '');
+const API_PORT = 5080;
+
+/**
+ * API adresi şu sırayla belirlenir:
+ * 1. EXPO_PUBLIC_API_URL tanımlıysa o (canlı ortam ya da özel durumlar için).
+ * 2. Geliştirmede Expo'nun uygulamayı yüklediği bilgisayarın adresi (hostUri, ör. "192.168.1.34:8081").
+ *    Backend aynı bilgisayarda 5080'de çalıştığı için iOS simülatör, Android emülatör ve aynı
+ *    Wi-Fi'daki telefon; .env, 10.0.2.2 ya da adb reverse gerekmeden backend'e ulaşır.
+ * 3. İkisi de yoksa localhost.
+ */
+function resolveApiUrl(): string {
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv) return fromEnv;
+
+  const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
+  if (devHost) return `http://${devHost}:${API_PORT}`;
+
+  return `http://localhost:${API_PORT}`;
+}
+
+export const API_URL = resolveApiUrl().replace(/\/$/, '');
 
 export class ApiError extends Error {
   readonly status: number;
