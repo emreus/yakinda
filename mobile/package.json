@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "setup": "expo install react-native-screens react-native-maps @react-native-community/datetimepicker && expo install --fix",
+    "setup": "expo install --fix",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -12,6 +12,7 @@
     "doctor": "npx expo-doctor"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "9.2.1",
     "@tanstack/react-query": "^5.62.0",
     "expo": "~58.0.0",
     "expo-constants": "~58.0.0",
@@ -23,7 +24,9 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "~0.88.0",
-    "react-native-safe-area-context": "~5.11.1"
+    "react-native-maps": "1.29.11",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1"
   },
   "devDependencies": {
     "@types/react": "^19.2.0",

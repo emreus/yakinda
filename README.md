@@ -119,7 +119,7 @@ API `http://0.0.0.0:5080` adresinde dinler; OpenAPI dokümanı: `http://localhos
 cd mobile
 cp .env.example .env          # EXPO_PUBLIC_API_URL = bilgisayarınızın yerel IP'si
 npm install
-npm run setup                 # maps, screens, datetimepicker'ı SDK 58 uyumlu sürümlerle kurar + sürümleri hizalar
+npm run setup                 # paket sürümlerini Expo SDK 58'e göre hizalar (değişiklik yoksa bir şey yapmaz)
 npx expo start
 ```
 > Telefonda `localhost` bilgisayarınızı göstermez. `.env` içine bilgisayarın Wi-Fi IP'sini yazın (Android emülatör: `10.0.2.2`).
