@@ -1,0 +1,14 @@
+# Satır sonları repoda her zaman LF; Windows'ta çalışan biri olsa da diff'ler temiz kalır.
+* text=auto eol=lf
+
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.ttf  binary
+*.otf  binary
