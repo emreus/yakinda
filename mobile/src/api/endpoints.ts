@@ -1,5 +1,6 @@
 import { apiRequest } from './client';
 import type {
+  AppNotification,
   AuthResponse,
   Category,
   CreateEventInput,
@@ -82,4 +83,20 @@ export const usersApi = {
   get: (id: string) => apiRequest<UserProfile>(`/api/users/${id}`),
   myEvents: (role: MyEventsRole) =>
     apiRequest<EventListItem[]>('/api/users/me/events', { query: { role, includePast: true } }),
+};
+
+export const notificationsApi = {
+  list: (page = 1) =>
+    apiRequest<PagedResult<AppNotification>>('/api/notifications', { query: { page, pageSize: 20 } }),
+  unreadCount: () => apiRequest<{ count: number }>('/api/notifications/unread-count'),
+  markRead: (id: string) => apiRequest<void>(`/api/notifications/${id}/read`, { method: 'POST' }),
+  markAllRead: () => apiRequest<void>('/api/notifications/read-all', { method: 'POST' }),
+};
+
+export type PushPlatform = 'ios' | 'android';
+
+export const devicesApi = {
+  register: (token: string, platform: PushPlatform) =>
+    apiRequest<void>('/api/devices', { method: 'POST', body: { token, platform } }),
+  unregister: (token: string) => apiRequest<void>('/api/devices', { method: 'DELETE', query: { token } }),
 };

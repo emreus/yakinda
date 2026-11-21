@@ -122,6 +122,27 @@ export interface UserProfile {
   ratingDistribution: number[];
 }
 
+export type NotificationType =
+  | 'JoinRequested'
+  | 'ParticipantJoined'
+  | 'RequestApproved'
+  | 'RequestRejected'
+  | 'EventCancelled'
+  | 'EventReminder'
+  | 'RatingPrompt';
+
+/** Uygulama içi bildirim. (Tarayıcıdaki global `Notification` tipiyle karışmasın diye bu ad.) */
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  /** Dokununca açılacak etkinlik */
+  eventId: string | null;
+  title: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+}
+
 export interface PagedResult<T> {
   items: T[];
   page: number;

@@ -24,6 +24,16 @@ export function formatEventDate(iso: string): string {
   return `${day} ${timeFormat.format(date)}`;
 }
 
+/** Bildirimler için: "az önce", "5 dk önce", "3 sa önce", "Dün 14:05", "Cmt 22 Kas 19:00" */
+export function formatRelativeTime(iso: string): string {
+  const date = new Date(iso);
+  const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
+  if (minutes < 1) return 'az önce';
+  if (minutes < 60) return `${minutes} dk önce`;
+  if (startOfDay(date) === startOfDay(new Date())) return `${Math.floor(minutes / 60)} sa önce`;
+  return formatEventDate(iso);
+}
+
 export function formatDateTimeLong(value: string | Date): string {
   return fullFormat.format(typeof value === 'string' ? new Date(value) : value);
 }

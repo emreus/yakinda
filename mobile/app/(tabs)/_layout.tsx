@@ -2,6 +2,8 @@ import { Redirect, Tabs } from 'expo-router';
 import { Text } from 'react-native';
 import { useAuth } from '@/auth/AuthContext';
 import { FullScreenLoader } from '@/components/ui';
+import { useUnreadNotificationCount } from '@/hooks/queries';
+import { usePushNotifications } from '@/notifications/usePushNotifications';
 import { NearbyFiltersProvider } from '@/state/NearbyFilters';
 import { colors } from '@/theme';
 
@@ -11,6 +13,12 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 
 export default function TabsLayout() {
   const { status } = useAuth();
+  const signedIn = status === 'signedIn';
+
+  // Hook'lar erken return'lerden önce çağrılmalı
+  const unread = useUnreadNotificationCount(signedIn);
+  usePushNotifications(signedIn);
+  const unreadCount = unread.data?.count ?? 0;
 
   if (status === 'loading') return <FullScreenLoader />;
   if (status === 'signedOut') return <Redirect href="/login" />;
@@ -35,6 +43,15 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="create"
           options={{ title: 'Oluştur', tabBarIcon: ({ focused }) => <TabIcon emoji="➕" focused={focused} /> }}
+        />
+        <Tabs.Screen
+          name="notifications"
+          options={{
+            title: 'Bildirimler',
+            tabBarIcon: ({ focused }) => <TabIcon emoji="🔔" focused={focused} />,
+            tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
+            tabBarBadgeStyle: { backgroundColor: colors.danger },
+          }}
         />
         <Tabs.Screen
           name="profile"
