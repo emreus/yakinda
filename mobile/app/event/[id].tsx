@@ -145,6 +145,22 @@ function InfoRow({ icon, text }: { icon: string; text: string }) {
 
 // ------------------------------------------------------------------ Katıl / Ayrıl / İptal
 
+/**
+ * Katıl butonu gösterilmediğinde kullanıcıya nedenini söyler. Organizatör, zaten katılan/bekleyen
+ * ya da reddedilen kullanıcı için null döner (onların durumu ayrıca gösteriliyor).
+ */
+function joinBlockedReason(event: EventDetail): string | null {
+  if (event.canJoin || event.isOrganizer || event.status === 'Cancelled') return null;
+  if (event.myParticipationStatus === 'Approved' || event.myParticipationStatus === 'Pending') return null;
+  if (event.myParticipationStatus === 'Rejected') return null;
+
+  if (new Date(event.startsAt).getTime() <= Date.now()) {
+    return 'Etkinlik başladı, artık yeni katılım alınmıyor.';
+  }
+  if (event.spotsLeft === 0) return 'Kontenjan dolu, şu an katılım alınmıyor.';
+  return null;
+}
+
 function ActionPanel({ event }: { event: EventDetail }) {
   const invalidate = useInvalidateEvent();
   const onError = (error: unknown) => Alert.alert('İşlem yapılamadı', errorMessage(error));
@@ -176,9 +192,12 @@ function ActionPanel({ event }: { event: EventDetail }) {
           ? 'Katılım isteğin kabul edilmedi'
           : null;
 
+  const blockedReason = joinBlockedReason(event);
+
   return (
     <View style={styles.actions}>
       {statusText ? <Text style={styles.statusText}>{statusText}</Text> : null}
+      {blockedReason ? <Text style={[font.small, styles.blockedText]}>{blockedReason}</Text> : null}
 
       {event.canJoin ? (
         <Button
@@ -412,6 +431,7 @@ const styles = StyleSheet.create({
   description: { fontSize: 15, lineHeight: 22, color: colors.text },
   actions: { gap: spacing.sm },
   statusText: { fontSize: 15, fontWeight: '600', color: colors.text, textAlign: 'center' },
+  blockedText: { textAlign: 'center' },
   panel: { gap: spacing.md },
   participantRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   participantInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
