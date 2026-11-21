@@ -1,9 +1,11 @@
 services:
   db:
     # PostgreSQL 17 + PostGIS 3.5
-    # Apple Silicon (M1/M2/M3) Mac'lerde bu imaj emülasyonla çalışır; sorun yaşarsanız
-    # çok mimarili alternatif: imresamu/postgis:17-3.5
+    # Resmi PostGIS imajı yalnızca amd64 (Intel) için yayınlanıyor. platform satırı olmadan
+    # Apple Silicon (M1/M2/M3...) Mac'lerde "no matching manifest for linux/arm64/v8" hatası alınır;
+    # bu satırla Docker Desktop imajı emülasyonla (Rosetta) çalıştırır. Intel ve Linux x64'te etkisi yok.
     image: postgis/postgis:17-3.5
+    platform: linux/amd64
     container_name: yakinda-db
     restart: unless-stopped
     environment:
