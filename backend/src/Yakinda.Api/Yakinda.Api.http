@@ -69,3 +69,25 @@ Content-Type: application/json
 ### Profilim (organizatör puan ortalaması dahil)
 GET {{host}}/api/users/me
 Authorization: Bearer {{token}}
+
+### Bildirimlerim (en yeni önce)
+GET {{host}}/api/notifications?page=1&pageSize=20
+Authorization: Bearer {{token}}
+
+### Okunmamış bildirim sayısı
+GET {{host}}/api/notifications/unread-count
+Authorization: Bearer {{token}}
+
+### Tüm bildirimleri okundu yap
+POST {{host}}/api/notifications/read-all
+Authorization: Bearer {{token}}
+
+### Push token'ı kaydet (development build'de uygulama kendisi yapar)
+POST {{host}}/api/devices
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
+  "platform": "android"
+}
