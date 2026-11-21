@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------- .NET
+bin/
+obj/
+*.user
+*.suo
+*.DotSettings.user
+.vs/
+TestResults/
+*.binlog
+
+# IDE (Rider / Visual Studio / VS Code kişisel ayarları)
+.idea/
+.vscode/
+*.swp
+
+# Yerel ayar dosyaları (sırları buraya koyun, repoya girmez)
+appsettings.*.local.json
+
+# ---------------------------------------------------------------- Node / Expo
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+npm-debug.log*
+yarn-error.log*
+
+# Expo prebuild ile üretilen native klasörler (CNG: app.json'dan yeniden oluşturulur)
+ios/
+android/
+
+# İmzalama anahtarları ve sertifikalar
+*.jks
+*.keystore
+*.p8
+*.p12
+*.key
+*.pem
+*.mobileprovision
+
+# ---------------------------------------------------------------- Ortam değişkenleri
+# .env.example repoya girer, gerçek .env girmez
+.env
+.env.local
+.env.*.local
+
+# ---------------------------------------------------------------- İşletim sistemi
+.DS_Store
+Thumbs.db

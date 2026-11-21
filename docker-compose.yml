@@ -1,0 +1,37 @@
+services:
+  db:
+    # PostgreSQL 17 + PostGIS 3.5
+    # Apple Silicon (M1/M2/M3) Mac'lerde bu imaj emülasyonla çalışır; sorun yaşarsanız
+    # çok mimarili alternatif: imresamu/postgis:17-3.5
+    image: postgis/postgis:17-3.5
+    container_name: yakinda-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yakinda
+      POSTGRES_USER: yakinda
+      POSTGRES_PASSWORD: yakinda_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - yakinda-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yakinda -d yakinda"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    # Cache (L2) ve instance'lar arası cache senkronizasyonu (backplane, Pub/Sub)
+    image: redis:8.6
+    container_name: yakinda-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  yakinda-pgdata:
