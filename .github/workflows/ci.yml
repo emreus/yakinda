@@ -34,6 +34,9 @@ jobs:
       - run: npm install
       # Harita, ekran ve tarih seçici paketlerini SDK 58 uyumlu sürümlerle kurar
       - run: npm run setup
+      # Setup package.json'da bir sürümü değiştirdiyse burada görünür (boşsa repo güncel)
+      - name: Setup'ın package.json'a yaptığı değişiklikler
+        run: git --no-pager diff -- package.json
       # Expo bu dosyayı "expo start" sırasında üretir; CI'da elle oluşturulur (process.env tipleri için)
       - run: echo '/// <reference types="expo/types" />' > expo-env.d.ts
       - run: npx tsc --noEmit

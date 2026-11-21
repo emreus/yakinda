@@ -37,7 +37,14 @@ export default function EventDetailScreen() {
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={eventQuery.isRefetching} onRefresh={() => eventQuery.refetch()} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={eventQuery.isRefetching}
+            onRefresh={() => {
+              eventQuery.refetch();
+            }}
+          />
+        }
       >
         <Header event={event} />
         <ActionPanel event={event} />

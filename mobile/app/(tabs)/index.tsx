@@ -102,7 +102,7 @@ export default function NearbyScreen() {
       ItemSeparatorComponent={Separator}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
-      ListFooterComponent={query.isFetchingNextPage ? <ActivityIndicator style={styles.footer} color={colors.primary} /> : null}
+      ListFooterComponent={query.isFetchingNextPage ? <ActivityIndicator style={styles.footer} color={colors.primary} /> : undefined}
       contentContainerStyle={styles.list}
       onEndReachedThreshold={0.4}
       onEndReached={() => {
