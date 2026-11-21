@@ -88,7 +88,7 @@ export default function NotificationsScreen() {
           <Text style={styles.headerAction}>Tümünü okundu yap</Text>
         </Pressable>
       </View>
-    ) : null;
+    ) : undefined;
 
   const empty = query.isLoading ? (
     <ActivityIndicator style={styles.spinner} color={colors.primary} />

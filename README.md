@@ -20,6 +20,7 @@ Kullanıcının yakınındaki etkinlikleri gösteren, etkinlik oluşturmayı ve 
 - **Katılım**: katıl / istek gönder / ayrıl; organizatör onaylar-reddeder; kontenjan yarışına karşı satır kilidi
 - **Puanlama**: sadece onaylı katılımcılar, 1–5 yıldız + yorum, sonradan güncellenebilir
 - **Organizatör puanı**: kullanıcının düzenlediği etkinliklere verilen *her oy* ortalamasını etkiler; profilde ortalama + yıldız dağılımı
+- **Bildirimler**: katılım isteği / yeni katılımcı, onay / ret, iptal, başlamadan 1 saat önce hatırlatma, bitince "puanla"; uygulama içi liste + push
 
 ---
 
@@ -176,6 +177,44 @@ Redis 1 saniyeden fazla gecikirse istek beklemez.
 
 ---
 
+## Bildirimler
+
+| Olay | Kime | Nasıl üretilir |
+|---|---|---|
+| Katılım isteği / yeni katılımcı | Organizatör | `JoinEventCommand` |
+| İstek onaylandı / reddedildi, etkinlikten çıkarıldın | Katılımcı | `ReviewParticipantCommand` |
+| Etkinlik iptal edildi | Onaylı + bekleyen katılımcılar | `CancelEventCommand` |
+| 1 saat içinde başlıyor | Onaylı katılımcılar + organizatör | `ScheduledNotificationService` (dakikada bir) |
+| Etkinlik bitti, puanla | Henüz oy vermemiş onaylı katılımcılar | `ScheduledNotificationService` |
+
+**Nasıl çalışıyor?** Bildirim, ona yol açan işlemle **aynı transaction'da** `notifications` tablosuna yazılır; işlem geri alınırsa
+bildirim de oluşmaz. Bu tablo aynı zamanda push için *outbox*: `PushDispatcher` (arka plan servisi) birkaç saniyede bir
+işlenmemiş kayıtları alır, kullanıcının kayıtlı cihazlarına **Expo Push** servisiyle gönderir (Expo, Android'de FCM'e, iOS'ta
+APNs'e iletir). Expo'ya ulaşılamazsa artan aralıklarla tekrar dener; geçersiz token'ları siler. Zamanlanmış bildirimler her
+etkinlik için bir kez gider (`events.reminder_sent_at`, `rating_prompt_sent_at`). Birden fazla API instance'ı çalışsa da
+`FOR UPDATE SKIP LOCKED` sayesinde aynı bildirim iki kez üretilmez ya da gönderilmez.
+
+**Uygulama içi liste** her yerde çalışır (Expo Go dahil): Bildirimler sekmesi, okunmamış sayısını 30 saniyede bir sorar.
+
+**Push (telefonun bildirim çubuğu)** Expo Go'da çalışmaz (SDK 53'ten beri); bir *development build* gerekir. Expo Go'da
+uygulama push'u sessizce atlar. Push'u açmak için:
+
+1. Expo hesabı açın ve projeyi bağlayın: `cd mobile && npx eas-cli@latest login && npx eas-cli@latest init`
+   (`app.json` içine `extra.eas.projectId` yazılır; uygulama push token'ını bununla alır).
+2. `app.json` içindeki `ios.bundleIdentifier` ve `android.package` değerlerini kendinize göre değiştirin (`com.example.*` olmasın).
+3. **Android**: Firebase'de proje açıp Android uygulaması ekleyin (paket adı 2. adımdaki ile aynı), `google-services.json`
+   dosyasını `mobile/` altına koyup `app.json` → `android.googleServicesFile: "./google-services.json"` ekleyin. FCM V1
+   servis hesabı anahtarını `npx eas-cli@latest credentials` ile Expo'ya yükleyin.
+4. **iOS**: Apple Developer üyeliği gerekir; push anahtarını `eas credentials` (ya da ilk build) sizin için oluşturur.
+5. Development build alın ve kurun: `npx eas-cli@latest build --profile development --platform android` (ya da `ios`),
+   sonra `npx expo start --dev-client`.
+
+Backend tarafında ek ayar gerekmez. Expo hesabında *Enhanced security for push notifications* açıksa erişim anahtarını
+`Push:ExpoAccessToken` ayarına (ya da `Push__ExpoAccessToken` ortam değişkenine) koyun. Push göndermeyi tamamen kapatmak için
+`Push:Enabled = false`.
+
+---
+
 ## API
 
 Tüm uç noktalar (auth ve kategoriler hariç) `Authorization: Bearer <accessToken>` ister. Hatalar RFC 7807 `ProblemDetails`
@@ -198,6 +237,11 @@ formatındadır ve makine tarafından okunabilir bir `code` alanı içerir (ör.
 | GET | `/api/events/{id}/ratings` | Yorumlar |
 | GET | `/api/users/me` · `/api/users/{id}` | Profil + organizatör puanı + dağılım |
 | GET | `/api/users/me/events?role=organizing\|attending` | Etkinliklerim |
+| GET | `/api/notifications?page&pageSize` | Bildirimlerim (en yeni önce) |
+| GET | `/api/notifications/unread-count` | `{ count }` okunmamış sayısı |
+| POST | `/api/notifications/{id}/read` · `/api/notifications/read-all` | Okundu yap |
+| POST | `/api/devices` | `{ token, platform }` Expo push token'ını kaydet |
+| DELETE | `/api/devices?token=...` | Token'ı sil (çıkış yaparken) |
 
 ---
 
@@ -221,7 +265,7 @@ kütüphanesine geçebilirsiniz. Mimari aynı kalır.
 
 ## Sonraki adımlar için öneriler
 
-1. **Bildirimler** (expo-notifications): katılım isteği geldi, onaylandın, etkinlik yarın, "oy vermeyi unutma".
+1. **Bildirim tercihleri**: kullanıcı hangi bildirimleri almak istediğini seçebilsin; eski bildirimleri temizleyen bir iş.
 2. **Etkinlik düzenleme** ve organizatör ile katılımcılar arası basit **mesajlaşma**.
 3. **Güven & güvenlik**: kullanıcı engelleme/şikayet, telefon doğrulama, rate limiting (`AddRateLimiter`).
 4. **Sıralamada Bayesian ortalama**: tek oyla 5,0 alan organizatörün 200 oyla 4,8 alanın önüne geçmemesi için
