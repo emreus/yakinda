@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Domain katmanı hiçbir pakete bağımlı değildir. -->
+
+</Project>

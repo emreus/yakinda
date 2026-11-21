@@ -1,0 +1,71 @@
+### Visual Studio / Rider / VS Code (REST Client) ile denemek için
+@host = http://localhost:5080
+@token = buraya-login-yanitindaki-accessToken
+
+### Sağlık kontrolü
+GET {{host}}/health
+
+### Kayıt
+POST {{host}}/api/auth/register
+Content-Type: application/json
+
+{
+  "email": "ayse@example.com",
+  "password": "Sifre1234",
+  "displayName": "Ayşe"
+}
+
+### Giriş
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "ayse@example.com",
+  "password": "Sifre1234"
+}
+
+### Kategoriler
+GET {{host}}/api/categories
+
+### Okeye 4. aranıyor (capacity = 1)
+POST {{host}}/api/events
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "categoryId": 1,
+  "title": "Okeye 4. aranıyor",
+  "description": "Moda'da çay bahçesindeyiz, 3 kişiyiz.",
+  "startsAt": "2026-12-01T17:00:00Z",
+  "latitude": 40.9862,
+  "longitude": 29.0253,
+  "placeName": "Moda Çay Bahçesi",
+  "capacity": 1,
+  "joinPolicy": "Open"
+}
+
+### Yakınımdaki etkinlikler (Kadıköy, 5 km)
+GET {{host}}/api/events/nearby?lat=40.9903&lng=29.0290&radiusKm=5
+Authorization: Bearer {{token}}
+
+### Etkinlik detayı
+GET {{host}}/api/events/00000000-0000-0000-0000-000000000000
+Authorization: Bearer {{token}}
+
+### Katıl
+POST {{host}}/api/events/00000000-0000-0000-0000-000000000000/join
+Authorization: Bearer {{token}}
+
+### Oy ver (1-5)
+PUT {{host}}/api/events/00000000-0000-0000-0000-000000000000/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "score": 5,
+  "comment": "Çok keyifliydi!"
+}
+
+### Profilim (organizatör puan ortalaması dahil)
+GET {{host}}/api/users/me
+Authorization: Bearer {{token}}

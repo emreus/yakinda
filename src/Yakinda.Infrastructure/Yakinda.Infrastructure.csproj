@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Yakinda.Application\Yakinda.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IConfiguration, IOptions, ILogger, authentication vb. için -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" />
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="ZiggyCreatures.FusionCache" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.SystemTextJson" />
+    <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" />
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- SQL migration dosyaları assembly içine gömülür, uygulama açılışında sırayla çalıştırılır. -->
+    <EmbeddedResource Include="Persistence\Migrations\*.sql" />
+  </ItemGroup>
+
+</Project>

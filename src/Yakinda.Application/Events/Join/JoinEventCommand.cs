@@ -1,0 +1,52 @@
+using MediatR;
+using Yakinda.Application.Abstractions.Auth;
+using Yakinda.Application.Abstractions.Caching;
+using Yakinda.Application.Abstractions.Messaging;
+using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Domain.Events;
+
+namespace Yakinda.Application.Events.Join;
+
+public sealed record JoinEventCommand(Guid EventId) : ICommand<JoinEventResult>;
+
+/// <param name="Status">Approved = katıldın, Pending = organizatör onayı bekleniyor.</param>
+public sealed record JoinEventResult(ParticipantStatus Status);
+
+internal sealed class JoinEventCommandHandler(
+    IEventRepository events,
+    IParticipantRepository participants,
+    ICurrentUser currentUser,
+    ICacheInvalidator cacheInvalidator,
+    TimeProvider timeProvider) : IRequestHandler<JoinEventCommand, JoinEventResult>
+{
+    public async Task<JoinEventResult> Handle(JoinEventCommand request, CancellationToken cancellationToken)
+    {
+        var userId = currentUser.RequireUserId();
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        // Satır kilidi: aynı anda son boş yere iki kişi katılmaya çalışırsa biri bekler,
+        // sonra kontenjanı dolu görür. (Okeye 4. aranıyor senaryosu.)
+        var ev = await events.GetForUpdateAsync(request.EventId, cancellationToken)
+            ?? throw EventErrors.NotFound();
+
+        var participant = await participants.GetAsync(ev.Id, userId, cancellationToken);
+        participant?.EnsureCanRejoin();
+
+        var status = ev.Admit(userId, now);
+
+        if (participant is null)
+            participant = EventParticipant.Create(ev.Id, userId, status, now);
+        else
+            participant.Rejoin(status, now);
+
+        await participants.UpsertAsync(participant, cancellationToken);
+
+        ev.Touch(now);
+        await events.UpdateAsync(ev, cancellationToken);
+
+        // Katılımcı sayısı (etkinlik) ve "katıldığı etkinlik" sayısı (kullanıcı) değişebilir
+        cacheInvalidator.InvalidateAfterCommit(CacheTag.Event(ev.Id), CacheTag.User(userId));
+
+        return new JoinEventResult(status);
+    }
+}

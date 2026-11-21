@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Yakinda.Domain/Yakinda.Domain.csproj" />
+    <Project Path="src/Yakinda.Application/Yakinda.Application.csproj" />
+    <Project Path="src/Yakinda.Infrastructure/Yakinda.Infrastructure.csproj" />
+    <Project Path="src/Yakinda.Api/Yakinda.Api.csproj" />
+  </Folder>
+</Solution>
