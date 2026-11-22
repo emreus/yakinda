@@ -266,8 +266,87 @@ App__AndroidPackage=com.emreus.yakinda
 App__AndroidSha256Fingerprints__0=AA:BB:...        # eas credentials → Android → SHA-256
 ```
 
-ve `app.json`'a `ios.associatedDomains: ["applinks:api.alanadin.com"]` ile Android `intentFilters` (autoVerify) eklenir
-(sunucuya taşıma bölümünde).
+Uygulama tarafında `mobile/app.config.js`, derlemede `APP_LINK_DOMAIN` verilirse (bkz. `mobile/eas.json`) iOS
+`associatedDomains` ve Android `intentFilters` (autoVerify) ayarlarını ekler. Sunucuda bu değerler `deploy/.env`'deki
+`APPLE_APP_ID` ve `ANDROID_SHA256_FINGERPRINT` alanlarıdır.
+
+---
+
+## Yayına alma
+
+Sırayla: **1) sunucu** (API'nin herkese açık bir https adresi olsun), **2) mobil derleme** (uygulama bu adresle derlenir),
+**3) mağaza başvurusu**. Hesap açma ve ödemeler (sunucu, alan adı, Apple Developer, Google Play Console) senin adına yapılamaz.
+
+### 1) Sunucu (Docker + Caddy)
+
+`deploy/docker-compose.prod.yml` dört servis kurar: PostGIS, Redis, API (`backend/Dockerfile`) ve Caddy. Caddy alan adın için
+Let's Encrypt sertifikasını kendisi alır ve yeniler. Dışarıya yalnız 80/443 portları açılır; veritabanı ve API iç ağda kalır.
+Kurulum her `git push` sonrası CI'da da denenir: imaj derlenir, veritabanıyla açılır ve `/health` kontrol edilir.
+
+**Gerekenler:** Docker kurulu bir Linux sunucu (x86/amd64, en az 2 GB RAM; resmi PostGIS imajı ARM için yok), bir alan adı ve
+`api.alanadin.com` için sunucunun IP'sini gösteren bir DNS **A** kaydı.
+
+```bash
+git clone https://github.com/emreus/yakinda.git && cd yakinda/deploy
+cp .env.example .env
+openssl rand -hex 24    # → POSTGRES_PASSWORD
+openssl rand -hex 32    # → JWT_SIGNING_KEY
+nano .env               # API_DOMAIN, şifreler, SMTP, destek e-postası
+docker compose -f docker-compose.prod.yml up -d --build
+curl https://api.alanadin.com/health          # {"status":"ok"}
+```
+
+- **Güncelleme:** `git pull && docker compose -f docker-compose.prod.yml up -d --build`. Migration'lar açılışta kendiliğinden çalışır.
+- **Loglar:** `docker compose -f docker-compose.prod.yml logs -f api`. Eksik ayar varsa (SMTP, örnek destek adresi) açılışta uyarı yazılır.
+- **Yedek:** `./backup.sh` veritabanını ve görselleri `deploy/backups/` altına alır (dosyanın başında cron örneği var).
+  Yedekleri sunucu dışına da kopyala. Geri yükleme:
+  `docker compose -f docker-compose.prod.yml exec -T db pg_restore -U yakinda -d yakinda --clean < backups/db-....dump`
+- **Yönetici yapmak** (şikayet kuyruğu için):
+  `docker compose -f docker-compose.prod.yml exec db psql -U yakinda -c "UPDATE users SET is_admin = true WHERE email = 'sen@ornek.com'"`
+- **E-posta:** şifre sıfırlama için herhangi bir SMTP sağlayıcısının bilgilerini `.env`'e yaz. Boş kalırsa kodlar yalnız loga yazılır.
+- API proxy arkasında olduğu için `ForwardedHeaders__Enabled=true`. Böylece istek sınırı her kullanıcının kendi IP'sine göre
+  çalışır ve paylaşım sayfasındaki adresler https olur.
+
+### 2) Mobil derleme (EAS)
+
+```bash
+npm install -g eas-cli
+cd mobile
+eas login                  # expo.dev hesabı
+eas init                   # projeyi bağlar, app.json'a extra.eas.projectId yazar (push bildirimleri de bunu kullanır)
+```
+
+1. `mobile/eas.json` içindeki `api.ornek.com` değerlerini kendi alan adınla değiştir. `EXPO_PUBLIC_API_URL` uygulamanın
+   bağlandığı adrestir, `APP_LINK_DOMAIN` paylaşım bağlantılarının uygulamada açılmasını sağlar.
+2. Android haritası için Google Cloud'da **Maps SDK for Android** anahtarı oluştur ve paket adı `com.emreus.yakinda`
+   ile kısıtla. Anahtarı expo.dev → proje → **Environment variables** bölümüne `GOOGLE_MAPS_API_KEY` adıyla
+   *preview* ve *production* ortamları için *Sensitive* olarak ekle (`eas env:create` komutu da aynı işi yapar).
+   Anahtar olmadan Android mağaza derlemesinde harita boş görünür. iOS Apple Haritalar'ı kullanır, anahtar gerekmez.
+3. **Telefonda deneme (Android APK):** `eas build -p android --profile preview` komutunu çalıştır, verilen bağlantıdan APK'yı telefona kur.
+4. **Mağaza derlemesi:** `eas build --profile production` (iOS + Android). Sürüm numarasını EAS her derlemede artırır.
+   iOS sertifikalarını ve push (APNs) anahtarını EAS kendisi oluşturmayı önerir. Android push için Firebase'de
+   bir proje açıp FCM V1 servis hesabı anahtarını `eas credentials -p android` ile yükle.
+5. Paylaşım bağlantısı için: Apple Team ID'yi `deploy/.env` → `APPLE_APP_ID=TEAMID.com.emreus.yakinda` alanına yaz.
+   `eas credentials -p android` çıktısındaki SHA-256 parmak izini `ANDROID_SHA256_FINGERPRINT` alanına yaz. Ardından API'yi yeniden başlat.
+
+Uygulama kimliği iki platformda da `com.emreus.yakinda`. Mağazada yayınlandıktan sonra bu kimlik değiştirilemez.
+
+### 3) Mağaza başvurusu
+
+`eas submit -p ios` / `eas submit -p android` derlemeyi App Store Connect'e / Google Play Console'a yükler. Formlarda istenenler:
+
+| Alan | Değer |
+|---|---|
+| Gizlilik politikası | `https://api.alanadin.com/legal/privacy` |
+| Kullanım koşulları | `https://api.alanadin.com/legal/terms` |
+| Hesap silme (Google Play) | `https://api.alanadin.com/legal/delete-account` (uygulama içinde: Profil → Hesabımı sil) |
+| Destek e-postası | `deploy/.env` → `SUPPORT_EMAIL` ve `mobile/app.json` → `extra.supportEmail` (ikisi aynı olmalı) |
+| İnceleme hesabı | Apple ve Google için, içinde birkaç etkinlik olan bir deneme hesabı oluştur |
+| Şifreleme (iOS) | Standart dışı şifreleme yok (`usesNonExemptEncryption: false` ayarlı) |
+| Veri güvenliği / gizlilik etiketleri | E-posta, ad, konum (yalnız uygulama açıkken, yakındaki etkinlikler için), fotoğraflar (profil/etkinlik), kullanıcı içeriği (sohbet, yorum), push bildirimi için cihaz token'ı (Expo üzerinden). Kod reklam ya da analiz SDK'sı içermez; formu kendi işletme kararlarına göre doldur. |
+
+Kullanıcı içeriği olan uygulamalar için mağazaların istediği şikayet, engelleme, içerik filtresi ve hesap silme özellikleri
+uygulamada var (bkz. "Güvenlik ve mağaza zorunlulukları").
 
 ---
 
@@ -369,18 +448,14 @@ formatındadır ve makine tarafından okunabilir bir `code` alanı içerir (ör.
 Tamamen ücretsiz kalmak isterseniz MIT lisanslı son sürüm olan 12.5.0'a sabitleyebilir ya da source-generator tabanlı `Mediator`
 kütüphanesine geçebilirsiniz. Mimari aynı kalır.
 
-**Production öncesi:**
-- `Jwt:SigningKey` değerini appsettings'e değil ortam değişkenine / secret store'a koyun (`Jwt__SigningKey`), en az 32 karakter.
-- API'yi HTTPS arkasında yayınlayın (iOS ATS ve Android cleartext kısıtları production'da HTTP'ye izin vermez).
-- Android'de Google Maps için API anahtarı gerekir: `app.json` → `plugins` içine
-  `["react-native-maps", { "androidGoogleMapsApiKey": "..." }]` ekleyin. iOS varsayılan olarak Apple Maps kullanır, anahtar gerekmez.
-- Yönetilen PostgreSQL (Azure, AWS RDS, Supabase…) kullanacaksanız PostGIS eklentisinin açık olduğundan emin olun.
-- Mağaza yayını için `app.json` içindeki `bundleIdentifier` / `package` değerlerini değiştirin, EAS Build kullanın.
+**Production öncesi:** adımlar "Yayına alma" bölümünde. Yönetilen bir PostgreSQL (Azure, AWS RDS, Supabase…) kullanacaksan
+PostGIS eklentisinin açık olduğundan emin ol. Görselleri birden çok sunucuya dağıtacaksan `IMediaStorage`'ın bir nesne deposu
+(S3/R2) uygulamasını yazman yeterli; geri kalan kod değişmez.
 
 ---
 
 ## Sonraki adımlar için öneriler
 
 1. **Bildirim tercihleri**: kullanıcı hangi bildirimleri almak istediğini seçebilsin; eski bildirimleri temizleyen bir iş.
-3. **Güven**: telefon doğrulama; uygulama içi yönetici ekranı (şikayet kuyruğu).
-6. Profil fotoğrafı / etkinlik görseli (S3/Blob + ön imzalı URL).
+2. **Güven**: telefon doğrulama; uygulama içi yönetici ekranı (şikayet kuyruğu).
+3. Görseller için nesne deposu (S3/R2) ve CDN; sunucu sayısı artınca.

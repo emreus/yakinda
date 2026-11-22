@@ -46,7 +46,10 @@ public static class ShareEndpoints
         app.MapGet("/.well-known/assetlinks.json", (IConfiguration config) =>
             {
                 var package = config["App:AndroidPackage"];
-                var fingerprints = config.GetSection("App:AndroidSha256Fingerprints").Get<string[]>() ?? [];
+                // Ortam değişkeni boş bırakılınca dizi [""] olur; boşlar atılır.
+                var fingerprints = (config.GetSection("App:AndroidSha256Fingerprints").Get<string[]>() ?? [])
+                    .Where(f => !string.IsNullOrWhiteSpace(f))
+                    .ToArray();
                 if (string.IsNullOrWhiteSpace(package) || fingerprints.Length == 0)
                     return Results.NotFound();
 

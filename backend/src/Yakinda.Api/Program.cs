@@ -19,12 +19,17 @@ builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.AddAppRateLimiting(builder.Configuration);
+builder.Services.AddProxySupport();
 
 // Enum'lar JSON'da "Approved", "ApprovalRequired" gibi string olarak gider/gelir.
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var app = builder.Build();
+
+// En başta: sonraki her adım (istek sınırı, loglar, adresler) gerçek istemci IP'sini ve şemasını görsün.
+app.UseForwardedHeaders();
+app.WarnAboutMissingSettings();
 
 if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 {
