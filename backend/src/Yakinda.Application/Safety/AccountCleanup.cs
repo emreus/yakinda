@@ -7,9 +7,9 @@ using Yakinda.Domain.Events;
 namespace Yakinda.Application.Safety;
 
 /// <summary>
-/// Hesap silme ve yasaklamada ortak adımlar: kullanıcının yaklaşan etkinliklerdeki yerini boşaltmak
-/// (bekleme listesi ilerler) ve düzenlediği yaklaşan etkinlikleri kapatıp katılımcılara haber vermek.
-/// Aktif transaction içinde çalışır.
+/// Hesap silme, yasaklama ve engellemede ortak adımlar: kullanıcının yaklaşan etkinliklerdeki yerini
+/// boşaltmak (bekleme listesi ilerler) ve düzenlediği yaklaşan etkinlikleri kapatıp katılımcılara haber
+/// vermek. Aktif transaction içinde çalışır.
 /// </summary>
 internal sealed class AccountCleanup(
     IEventRepository events,
@@ -19,13 +19,42 @@ internal sealed class AccountCleanup(
     ICacheInvalidator cacheInvalidator)
 {
     /// <summary>
-    /// Kullanıcının yaklaşan etkinliklerdeki yerini boşaltır (hesap silme ve yasaklamada). Aktif katılımı
-    /// olan her yaklaşan etkinlik için: etkinliği satır kilidiyle okur, katılımı Left yapar, kişi onaylıydıysa
-    /// sayacı düşürür, boşalan yere bekleme listesinden kişi alır ve ilgili cache etiketlerini temizletir.
+    /// Kullanıcının yaklaşan bütün etkinliklerdeki yerini boşaltır (hesap silme ve yasaklamada).
     /// </summary>
-    public async Task LeaveUpcomingEventsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken)
+    public async Task LeaveUpcomingEventsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        await LeaveEventsAsync(
+            userId,
+            await participants.GetUpcomingActiveEventIdsAsync(userId, nowUtc, cancellationToken),
+            nowUtc,
+            cancellationToken);
+
+    /// <summary>
+    /// Kullanıcının yalnızca verilen organizatörün yaklaşan etkinliklerindeki yerini boşaltır (engellemede).
+    /// Engelden sonra iki taraf birbirinin etkinliğini göremediği için katılım sürdürülemez.
+    /// </summary>
+    public async Task LeaveUpcomingEventsOfOrganizerAsync(
+        Guid userId,
+        Guid organizerId,
+        DateTime nowUtc,
+        CancellationToken cancellationToken) =>
+        await LeaveEventsAsync(
+            userId,
+            await participants.GetUpcomingActiveEventIdsAsync(userId, organizerId, nowUtc, cancellationToken),
+            nowUtc,
+            cancellationToken);
+
+    /// <summary>
+    /// Verilen etkinliklerin her biri için: etkinliği satır kilidiyle okur, kullanıcının katılımını Left
+    /// yapar, kişi onaylıydıysa sayacı düşürür, boşalan yere bekleme listesinden kişi alır ve ilgili cache
+    /// etiketlerini temizletir. Aktif katılımı kalmamış kayıtlar atlanır.
+    /// </summary>
+    private async Task LeaveEventsAsync(
+        Guid userId,
+        IReadOnlyList<Guid> eventIds,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
     {
-        foreach (var eventId in await participants.GetUpcomingActiveEventIdsAsync(userId, nowUtc, cancellationToken))
+        foreach (var eventId in eventIds)
         {
             var ev = await events.GetForUpdateAsync(eventId, cancellationToken);
             var participant = await participants.GetAsync(eventId, userId, cancellationToken);

@@ -65,10 +65,14 @@ export default function UserProfileScreen() {
             <Pressable
               hitSlop={8}
               onPress={() =>
-                Alert.alert('Engelle', `${name} adlı kullanıcıyı engellemek istiyor musun?`, [
-                  { text: 'Vazgeç', style: 'cancel' },
-                  { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
-                ])
+                Alert.alert(
+                  'Engelle',
+                  `${name} adlı kullanıcıyı engellemek istiyor musun? Birbirinizin yaklaşan etkinliklerindeki katılımlarınız da sona erer.`,
+                  [
+                    { text: 'Vazgeç', style: 'cancel' },
+                    { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
+                  ],
+                )
               }
             >
               <Text style={styles.safetyLink}>🚫 Engelle</Text>

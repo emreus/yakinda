@@ -350,10 +350,14 @@ function SafetyLinks({ event }: { event: EventDetail }) {
       <Pressable
         hitSlop={8}
         onPress={() =>
-          Alert.alert('Organizatörü engelle', `${event.organizerName} adlı kullanıcıyı engellemek istiyor musun?`, [
-            { text: 'Vazgeç', style: 'cancel' },
-            { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
-          ])
+          Alert.alert(
+            'Organizatörü engelle',
+            `${event.organizerName} adlı kullanıcıyı engellemek istiyor musun? Birbirinizin yaklaşan etkinliklerindeki katılımlarınız da sona erer.`,
+            [
+              { text: 'Vazgeç', style: 'cancel' },
+              { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
+            ],
+          )
         }
       >
         <Text style={styles.safetyLink}>🚫 Organizatörü engelle</Text>

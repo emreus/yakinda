@@ -193,7 +193,7 @@ App Store (1.2 kullanıcı içeriği, 5.1.1(v) hesap silme) ve Google Play (hesa
 | Kayıtta kullanım koşulları onayı (18+, sıfır tolerans) | Kayıt ekranı; `acceptTerms` zorunlu |
 | İçerik filtresi | Etkinlik başlığı/açıklaması/mekan, görünen ad, yorum. Liste: `backend/src/Yakinda.Application/Moderation/blocked-words.txt` |
 | Şikayet | Etkinlik detayı ve kullanıcı profilinde "🚩 Şikayet et" → `POST /api/reports` |
-| Engelleme | "🚫 Engelle"; iki yönlü: birbirinin etkinliklerini görmez, katılamaz. Profil → Engellenen kullanıcılar |
+| Engelleme | "🚫 Engelle"; iki yönlü: birbirinin etkinliklerini görmez, katılamaz; birbirinin yaklaşan etkinliklerindeki katılımları sona erer (yer boşalır, sıradaki alınır). Profil → Engellenen kullanıcılar |
 | Moderasyon | `GET /api/admin/reports`, `POST /api/admin/reports/{id}/resolve` (Dismiss / RemoveContent / BanUser) |
 | Hesap silme | Profil → Hesabımı sil (şifreyle); web: `/legal/delete-account` |
 | Gizlilik politikası, koşullar | `/legal/privacy`, `/legal/terms` (mağaza formlarına bu adresler girilir) |

@@ -39,6 +39,70 @@ public sealed class SafetyTests(ApiFixture api)
         await (await blocker.JoinAsync(eventId)).ExpectAsync(HttpStatusCode.OK);
     }
 
+    /// <summary>
+    /// Engelleme, iki tarafın birbirinin yaklaşan etkinliklerindeki katılımını da sona erdirir. Katılımcı
+    /// organizatörü engelleyince yeri boşalır ve bekleme listesindeki kişi alınır; etkinlik engelleyenin
+    /// "katıldıklarım" listesinden çıkar, organizatörün katılımcı listesinde de artık görünmez. Ters yönde
+    /// de aynıdır: organizatörün engellediği katılımcı etkinlikten ayrılmış olur. Engel kaldırılınca kişi
+    /// yeniden katılabilir (kaydı "ayrıldı" durumundadır, reddedilmiş değildir).
+    /// </summary>
+    [Fact]
+    public async Task Blocking_ends_participation_in_each_others_upcoming_events()
+    {
+        var organizer = await api.RegisterAsync("Organizatör");
+        var blocker = await api.RegisterAsync("Engelleyen");
+        var removed = await api.RegisterAsync("Engellenen");
+        var waiting = await api.RegisterAsync("Sırada");
+        var eventId = await organizer.CreateEventAsync(capacity: 2);
+        await blocker.JoinAsync(eventId);
+        await removed.JoinAsync(eventId);
+        Assert.Equal("Waitlisted", (await (await waiting.JoinAsync(eventId)).ReadJsonAsync(HttpStatusCode.OK))["status"]!.GetValue<string>());
+
+        // Katılımcı organizatörü engeller: yeri boşalır, sıradaki kişi alınır
+        await (await blocker.Client.PostAsync($"/api/users/{organizer.Id}/block", null)).ExpectAsync(HttpStatusCode.NoContent);
+
+        var detail = await (await waiting.Client.GetAsync($"/api/events/{eventId}")).ReadJsonAsync(HttpStatusCode.OK);
+        Assert.Equal("Approved", detail["myParticipationStatus"]!.GetValue<string>());
+        Assert.Equal(2, detail["participantCount"]!.GetValue<int>());
+        Assert.DoesNotContain(eventId, await AttendingIds(blocker));
+        Assert.DoesNotContain(blocker.Id, await ParticipantIds(organizer, eventId));
+
+        // Organizatör bir katılımcıyı engeller: o da etkinlikten ayrılmış olur
+        await (await organizer.Client.PostAsync($"/api/users/{removed.Id}/block", null)).ExpectAsync(HttpStatusCode.NoContent);
+
+        var participants = await ParticipantIds(organizer, eventId);
+        Assert.DoesNotContain(removed.Id, participants);
+        Assert.Contains(waiting.Id, participants);
+        Assert.DoesNotContain(eventId, await AttendingIds(removed));
+
+        // Engel kalkınca kişi yeniden katılabilir
+        await (await blocker.Client.DeleteAsync($"/api/users/{organizer.Id}/block")).ExpectAsync(HttpStatusCode.NoContent);
+        Assert.Equal("Approved", (await (await blocker.JoinAsync(eventId)).ReadJsonAsync(HttpStatusCode.OK))["status"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// Organizatörüyle arada engel olan etkinlik, geçmişte kalmış olsa da "katıldıklarım" listesinde
+    /// görünmez (detayı 404 döndüğü için satır açılamazdı). Geçmiş etkinlikteki katılım kaydına dokunulmaz:
+    /// engel kaldırılınca etkinlik listeye geri gelir.
+    /// </summary>
+    [Fact]
+    public async Task Blocked_organizers_past_events_are_hidden_from_my_events()
+    {
+        var organizer = await api.RegisterAsync();
+        var member = await api.RegisterAsync();
+        var eventId = await organizer.CreateEventAsync();
+        await member.JoinAsync(eventId);
+        // Etkinlik geçmişte kalır (dün başladı)
+        await api.ExecuteSqlAsync("UPDATE events SET starts_at = now() - interval '1 day' WHERE id = @id", new { id = eventId });
+        Assert.Contains(eventId, await AttendingIds(member));
+
+        await (await member.Client.PostAsync($"/api/users/{organizer.Id}/block", null)).ExpectAsync(HttpStatusCode.NoContent);
+        Assert.DoesNotContain(eventId, await AttendingIds(member));
+
+        await (await member.Client.DeleteAsync($"/api/users/{organizer.Id}/block")).ExpectAsync(HttpStatusCode.NoContent);
+        Assert.Contains(eventId, await AttendingIds(member));
+    }
+
     /// <summary>Kullanıcı kendisini engelleyemez: 409 block.self.</summary>
     [Fact]
     public async Task Users_cannot_block_themselves()
@@ -237,6 +301,20 @@ public sealed class SafetyTests(ApiFixture api)
         var url = FormattableString.Invariant($"/api/events/nearby?lat={lat}&lng={lng}&radiusKm=5");
         var json = await (await user.Client.GetAsync(url)).ReadJsonAsync(HttpStatusCode.OK);
         return json["items"]!.AsArray().Select(i => Guid.Parse(i!["id"]!.GetValue<string>())).ToList();
+    }
+
+    /// <summary>Kullanıcının "katıldıklarım" listesindeki (geçmişler dahil) etkinlik kimliklerini döner.</summary>
+    private static async Task<List<Guid>> AttendingIds(TestUser user)
+    {
+        var json = await (await user.Client.GetAsync("/api/users/me/events?role=attending")).ReadJsonAsync(HttpStatusCode.OK);
+        return json.AsArray().Select(i => Guid.Parse(i!["id"]!.GetValue<string>())).ToList();
+    }
+
+    /// <summary>Etkinliğin katılımcı listesini verilen kullanıcının gözünden okur ve kullanıcı kimliklerini döner.</summary>
+    private static async Task<List<Guid>> ParticipantIds(TestUser viewer, Guid eventId)
+    {
+        var json = await (await viewer.Client.GetAsync($"/api/events/{eventId}/participants")).ReadJsonAsync(HttpStatusCode.OK);
+        return json.AsArray().Select(p => Guid.Parse(p!["userId"]!.GetValue<string>())).ToList();
     }
 }
 

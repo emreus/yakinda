@@ -47,6 +47,12 @@ public interface IParticipantRepository
 
     /// <summary>Kullanıcının aktif katılımı olan (onaylı, bekleyen, bekleme listesi), başlamamış etkinlikler.</summary>
     Task<IReadOnlyList<Guid>> GetUpcomingActiveEventIdsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Kullanıcının, verilen organizatörün düzenlediği başlamamış etkinliklerdeki aktif katılımları
+    /// (onaylı, bekleyen, bekleme listesi). Engellemede iki tarafın birbirinin etkinliğinden ayrılması için.
+    /// </summary>
+    Task<IReadOnlyList<Guid>> GetUpcomingActiveEventIdsAsync(Guid userId, Guid organizerId, DateTime nowUtc, CancellationToken cancellationToken);
 }
 
 public interface IRatingRepository
