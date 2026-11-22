@@ -98,6 +98,9 @@ function Header({ event }: { event: EventDetail }) {
               : `${event.participantCount} / ${event.capacity} katılımcı`
           }
         />
+        {event.waitlistCount > 0 ? (
+          <InfoRow icon="⏳" text={`${event.waitlistCount} kişi bekleme listesinde`} />
+        ) : null}
       </Card>
 
       <View style={styles.mapBox}>
@@ -152,6 +155,7 @@ function InfoRow({ icon, text }: { icon: string; text: string }) {
 function joinBlockedReason(event: EventDetail): string | null {
   if (event.canJoin || event.isOrganizer || event.status === 'Cancelled') return null;
   if (event.myParticipationStatus === 'Approved' || event.myParticipationStatus === 'Pending') return null;
+  if (event.myParticipationStatus === 'Waitlisted') return null;
   if (event.myParticipationStatus === 'Rejected') return null;
 
   if (new Date(event.startsAt).getTime() <= Date.now()) {
@@ -170,6 +174,9 @@ function ActionPanel({ event }: { event: EventDetail }) {
     onSuccess: (result) => {
       invalidate(event.id);
       if (result.status === 'Pending') Alert.alert('İstek gönderildi', 'Organizatör onayladığında katılımcı olacaksın.');
+      if (result.status === 'Waitlisted') {
+        Alert.alert('Bekleme listesindesin', 'Yer açılınca sırayla alınırsın; sıran gelince bildirim gelir.');
+      }
     },
     onError,
   });
@@ -188,6 +195,8 @@ function ActionPanel({ event }: { event: EventDetail }) {
       ? '✅ Katılıyorsun'
       : event.myParticipationStatus === 'Pending'
         ? '⏳ Katılım isteğin onay bekliyor'
+        : event.myParticipationStatus === 'Waitlisted'
+          ? `🎟️ Bekleme listesindesin${event.myWaitlistPosition ? ` (${event.myWaitlistPosition}. sıra)` : ''}`
         : event.myParticipationStatus === 'Rejected'
           ? 'Katılım isteğin kabul edilmedi'
           : null;
@@ -201,7 +210,13 @@ function ActionPanel({ event }: { event: EventDetail }) {
 
       {event.canJoin ? (
         <Button
-          title={event.joinPolicy === 'ApprovalRequired' ? 'Katılım isteği gönder' : 'Katıl'}
+          title={
+            event.spotsLeft === 0
+              ? 'Bekleme listesine gir'
+              : event.joinPolicy === 'ApprovalRequired'
+                ? 'Katılım isteği gönder'
+                : 'Katıl'
+          }
           onPress={() => join.mutate()}
           loading={join.isPending}
         />
@@ -209,11 +224,21 @@ function ActionPanel({ event }: { event: EventDetail }) {
 
       {event.canLeave ? (
         <Button
-          title={event.myParticipationStatus === 'Pending' ? 'İsteği geri çek' : 'Ayrıl'}
+          title={
+            event.myParticipationStatus === 'Pending'
+              ? 'İsteği geri çek'
+              : event.myParticipationStatus === 'Waitlisted'
+                ? 'Bekleme listesinden çık'
+                : 'Ayrıl'
+          }
           variant="ghost"
           onPress={() => confirm('Etkinlikten ayrıl', 'Yerini başkası alabilir. Emin misin?', () => leave.mutate())}
           loading={leave.isPending}
         />
+      ) : null}
+
+      {event.canEdit ? (
+        <Button title="Düzenle" variant="secondary" onPress={() => router.push(`/event/edit/${event.id}`)} />
       ) : null}
 
       {event.canCancel ? (

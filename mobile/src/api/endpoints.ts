@@ -10,6 +10,7 @@ import type {
   Participant,
   ParticipantStatus,
   RateResult,
+  UpdateEventInput,
   Rating,
   UserProfile,
 } from './types';
@@ -33,7 +34,7 @@ export const categoriesApi = {
   list: () => apiRequest<Category[]>('/api/categories', { anonymous: true }),
 };
 
-export type NearbySort = 'distance' | 'time';
+export type NearbySort = 'distance' | 'time' | 'rating';
 
 export type NearbyParams = {
   lat: number;
@@ -42,6 +43,8 @@ export type NearbyParams = {
   categoryId?: number | null;
   onlyAvailable?: boolean;
   sort?: NearbySort;
+  /** Başlık, açıklama ya da mekan adında arama */
+  q?: string | null;
   page?: number;
   pageSize?: number;
 };
@@ -54,6 +57,9 @@ export const eventsApi = {
 
   create: (input: CreateEventInput) =>
     apiRequest<{ id: string }>('/api/events', { method: 'POST', body: input }),
+
+  update: (id: string, input: UpdateEventInput) =>
+    apiRequest<void>(`/api/events/${id}`, { method: 'PUT', body: input }),
 
   cancel: (id: string) => apiRequest<void>(`/api/events/${id}/cancel`, { method: 'POST' }),
 

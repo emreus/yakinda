@@ -18,6 +18,8 @@ const ICONS: Record<NotificationType, string> = {
   EventCancelled: '❌',
   EventReminder: '⏰',
   RatingPrompt: '⭐',
+  EventUpdated: '✏️',
+  WaitlistPromoted: '🎟️',
 };
 
 type NotificationPages = InfiniteData<PagedResult<AppNotification>>;

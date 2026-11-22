@@ -7,6 +7,8 @@ export interface NearbyFilters {
   categoryId: number | null;
   onlyAvailable: boolean;
   sort: NearbySort;
+  /** Metin araması (boş = arama yok) */
+  search: string;
 }
 
 export const RADIUS_OPTIONS = [1, 3, 5, 10, 25, 50] as const;
@@ -16,6 +18,7 @@ const defaultFilters: NearbyFilters = {
   categoryId: null,
   onlyAvailable: false,
   sort: 'distance',
+  search: '',
 };
 
 interface FiltersContextValue {
