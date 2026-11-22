@@ -4,6 +4,9 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
+using Yakinda.Application.Abstractions.Email;
 using Microsoft.Extensions.Configuration;
 using Npgsql;
 using Testcontainers.PostgreSql;
@@ -26,6 +29,9 @@ public sealed class ApiFixture : IAsyncLifetime
         .Build();
 
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
+
+    /// <summary>API'nin gönderdiği e-postalar (gerçekten gönderilmez).</summary>
+    public CapturingEmailSender Emails { get; } = new();
 
     public string ConnectionString => _database.GetConnectionString();
 
@@ -52,6 +58,7 @@ public sealed class ApiFixture : IAsyncLifetime
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Testing");
+            builder.ConfigureTestServices(services => services.AddSingleton<IEmailSender>(Emails));
             if (overrides is not null)
                 builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(overrides));
         });
@@ -180,4 +187,26 @@ public static class TestExtensions
 
     public static IEnumerable<string> Types(this JsonArray notifications) =>
         notifications.Select(n => n!["type"]!.GetValue<string>());
+}
+
+public sealed class CapturingEmailSender : IEmailSender
+{
+    private readonly List<EmailMessage> _messages = [];
+
+    public Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
+    {
+        lock (_messages)
+            _messages.Add(message);
+        return Task.CompletedTask;
+    }
+
+    public IReadOnlyList<EmailMessage> To(string address)
+    {
+        lock (_messages)
+            return _messages.Where(m => string.Equals(m.To, address, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>Son şifre sıfırlama e-postasındaki 6 haneli kod.</summary>
+    public string LastResetCode(string address) =>
+        System.Text.RegularExpressions.Regex.Match(To(address)[^1].Subject, "[0-9]{6}").Value;
 }

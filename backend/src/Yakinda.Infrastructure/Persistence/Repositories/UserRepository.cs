@@ -65,4 +65,10 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
             DELETE FROM refresh_tokens     WHERE user_id = @Id;
             DELETE FROM device_push_tokens WHERE user_id = @Id;
             """, new { Id = userId, Now = nowUtc }, cancellationToken);
+
+    public Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken) =>
+        ExecuteAsync(
+            "UPDATE users SET password_hash = @Hash WHERE id = @Id",
+            new { Id = userId, Hash = passwordHash },
+            cancellationToken);
 }

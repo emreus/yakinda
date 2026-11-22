@@ -34,6 +34,7 @@ public static class DependencyInjection
         AddAuth(services, configuration);
         AddCaching(services, configuration);
         AddNotifications(services, configuration);
+        AddEmail(services, configuration);
 
         services.AddSingleton(TimeProvider.System);
 
@@ -99,6 +100,17 @@ public static class DependencyInjection
             services.AddHostedService<ScheduledNotificationService>();
     }
 
+    /// <summary>Email:Smtp:Host ayarlıysa SMTP ile gönderir, değilse e-postaları loga yazar.</summary>
+    private static void AddEmail(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<Email.EmailOptions>().Bind(configuration.GetSection(Email.EmailOptions.SectionName));
+
+        if (string.IsNullOrWhiteSpace(configuration["Email:Smtp:Host"]))
+            services.AddSingleton<Application.Abstractions.Email.IEmailSender, Email.LoggingEmailSender>();
+        else
+            services.AddSingleton<Application.Abstractions.Email.IEmailSender, Email.SmtpEmailSender>();
+    }
+
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("Default")
@@ -123,6 +135,7 @@ public static class DependencyInjection
         services.AddScoped<IRatingRepository, RatingRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
     }
 
     private static void AddAuth(IServiceCollection services, IConfiguration configuration)
