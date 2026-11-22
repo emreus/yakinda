@@ -10,6 +10,9 @@ namespace Yakinda.Application.Events.GetParticipants;
 
 /// <summary>
 /// Onaylı katılımcıları herkes görür; onay bekleyenleri sadece organizatör görür.
+/// Aralarında engel olan kişiler listede birbirini görmez: engellenen biri, engelleyenin hangi etkinliğe
+/// (nerede, ne zaman) gideceğini buradan öğrenememeli. Organizatör kendi etkinliğinin tüm listesini görür;
+/// organizatörle arasında engel olan kişi için etkinlik yoktur (404).
 /// </summary>
 public sealed record GetEventParticipantsQuery(Guid EventId) : IQuery<IReadOnlyList<ParticipantDto>>;
 
@@ -41,6 +44,7 @@ internal sealed class GetEventParticipantsQueryHandler(IDbConnectionFactory db, 
         JOIN users u ON u.id = p.user_id
         WHERE p.event_id = @EventId
           AND (p.status = 1 OR (@IsOrganizer AND p.status = 0))
+          AND (@IsOrganizer OR NOT {Safety.BlockSql.EitherWay("@UserId", "p.user_id")})
         ORDER BY p.status, p.created_at
         """;
 
@@ -50,15 +54,11 @@ internal sealed class GetEventParticipantsQueryHandler(IDbConnectionFactory db, 
 
         await using var connection = await db.OpenConnectionAsync(cancellationToken);
 
-        var organizerId = await connection.ExecuteScalarAsync<Guid?>(new CommandDefinition(
-            "SELECT organizer_id FROM events WHERE id = @EventId",
-            new { request.EventId },
-            cancellationToken: cancellationToken))
-            ?? throw EventErrors.NotFound();
+        var organizerId = await EventVisibility.RequireVisibleAsync(connection, request.EventId, userId, cancellationToken);
 
         var rows = await connection.QueryAsync<ParticipantDto>(new CommandDefinition(
             Sql,
-            new { request.EventId, IsOrganizer = organizerId == userId },
+            new { request.EventId, UserId = userId, IsOrganizer = organizerId == userId },
             cancellationToken: cancellationToken));
 
         return rows.AsList();

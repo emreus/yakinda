@@ -1,6 +1,7 @@
 using Yakinda.Application.Abstractions.Persistence;
 using Yakinda.Application.Notifications;
 using Yakinda.Domain.Events;
+using Yakinda.Domain.Notifications;
 
 namespace Yakinda.Infrastructure.Persistence.Repositories;
 
@@ -63,6 +64,16 @@ internal sealed class NotificationRepository(DbSession session) : RepositoryBase
              WHERE id = @Id AND user_id = @UserId
             """, new { Id = id, UserId = userId, Now = nowUtc }, cancellationToken) > 0;
 
+    public Task<bool> ExistsSinceAsync(
+        Guid userId, NotificationType type, Guid eventId, Guid actorId, DateTime sinceUtc, CancellationToken cancellationToken) =>
+        ExecuteScalarAsync<bool>("""
+            SELECT EXISTS (SELECT 1 FROM notifications
+                           WHERE user_id = @UserId AND event_id = @EventId AND actor_id = @ActorId
+                             AND type = @Type AND created_at > @Since)
+            """,
+            new { UserId = userId, EventId = eventId, ActorId = actorId, Type = (short)type, Since = sinceUtc },
+            cancellationToken);
+
     public Task MarkAllReadAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             UPDATE notifications
@@ -73,6 +84,9 @@ internal sealed class NotificationRepository(DbSession session) : RepositoryBase
 
 internal sealed class DeviceTokenRepository(DbSession session) : RepositoryBase(session), IDeviceTokenRepository
 {
+    /// <summary>Bir hesap sınırsız token kaydedip push kuyruğunu şişiremesin.</summary>
+    private const int MaxPerUser = 10;
+
     public Task UpsertAsync(string token, Guid userId, string platform, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO device_push_tokens (token, user_id, platform, created_at, last_seen_at)
@@ -80,8 +94,16 @@ internal sealed class DeviceTokenRepository(DbSession session) : RepositoryBase(
             ON CONFLICT (token) DO UPDATE
                SET user_id      = EXCLUDED.user_id,
                    platform     = EXCLUDED.platform,
-                   last_seen_at = EXCLUDED.last_seen_at
-            """, new { Token = token, UserId = userId, Platform = platform, Now = nowUtc }, cancellationToken);
+                   last_seen_at = EXCLUDED.last_seen_at;
+
+            -- Hesap başına en fazla MaxPerUser cihaz: en uzun süredir görülmeyenler silinir
+            DELETE FROM device_push_tokens
+             WHERE user_id = @UserId
+               AND token NOT IN (SELECT token FROM device_push_tokens
+                                  WHERE user_id = @UserId
+                                  ORDER BY last_seen_at DESC, token
+                                  LIMIT @MaxPerUser);
+            """, new { Token = token, UserId = userId, Platform = platform, Now = nowUtc, MaxPerUser }, cancellationToken);
 
     public Task DeleteAsync(string token, Guid userId, CancellationToken cancellationToken) =>
         ExecuteAsync(

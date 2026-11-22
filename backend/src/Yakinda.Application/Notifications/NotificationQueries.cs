@@ -37,7 +37,7 @@ internal sealed class GetNotificationsQueryValidator : AbstractValidator<GetNoti
 {
     public GetNotificationsQueryValidator()
     {
-        RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
+        RuleFor(x => x.Page).InclusiveBetween(1, Paging.MaxPage);
         RuleFor(x => x.PageSize).InclusiveBetween(1, 50);
     }
 }

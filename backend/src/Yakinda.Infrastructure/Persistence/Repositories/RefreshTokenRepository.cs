@@ -33,6 +33,12 @@ internal sealed class RefreshTokenRepository(DbSession session) : RepositoryBase
             "UPDATE refresh_tokens SET revoked_at = @Now WHERE user_id = @UserId AND revoked_at IS NULL",
             new { UserId = userId, Now = nowUtc },
             cancellationToken);
+
+    public Task RevokeByHashAsync(string tokenHash, DateTime nowUtc, CancellationToken cancellationToken) =>
+        ExecuteAsync(
+            "UPDATE refresh_tokens SET revoked_at = @Now WHERE token_hash = @TokenHash AND revoked_at IS NULL",
+            new { TokenHash = tokenHash, Now = nowUtc },
+            cancellationToken);
 }
 
 internal sealed class PasswordResetRepository(DbSession session) : RepositoryBase(session), IPasswordResetRepository
@@ -50,6 +56,12 @@ internal sealed class PasswordResetRepository(DbSession session) : RepositoryBas
         ExecuteScalarAsync<DateTime?>(
             "SELECT max(created_at) FROM password_reset_codes WHERE user_id = @UserId",
             new { UserId = userId },
+            cancellationToken);
+
+    public Task<int> CountIssuedSinceAsync(Guid userId, DateTime sinceUtc, CancellationToken cancellationToken) =>
+        ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM password_reset_codes WHERE user_id = @UserId AND created_at > @Since",
+            new { UserId = userId, Since = sinceUtc },
             cancellationToken);
 
     public Task<PasswordResetRecord?> GetActiveForUpdateAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>

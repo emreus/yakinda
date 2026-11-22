@@ -19,6 +19,14 @@ internal static class PasswordResetRules
 
     public const int MaxAttempts = 5;
 
+    /// <summary>
+    /// Bir hesap için 24 saatte üretilebilecek kod sayısı. Kod başına <see cref="MaxAttempts"/> deneme hakkıyla
+    /// birlikte, 6 haneli kodun tahmin edilme olasılığını günde milyonda 25 ile sınırlar; bu sınır olmadan
+    /// saldırgan her dakika yeni kod isteyip sınırsız deneme yapabilirdi. Aynı sınır, başkasının adresine
+    /// art arda sıfırlama e-postası gönderilmesini de engeller.
+    /// </summary>
+    public const int MaxCodesPerDay = 5;
+
     /// <summary>Kod kullanıcıya bağlanarak özetlenir; veritabanı sızsa bile kod okunamaz ve başka hesapta işe yaramaz.</summary>
     public static string Hash(Guid userId, string code) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{userId:N}:{code}")));
@@ -40,7 +48,7 @@ public sealed record ForgotPasswordCommand(string Email) : ICommand<Unit>;
 internal sealed class ForgotPasswordCommandValidator : AbstractValidator<ForgotPasswordCommand>
 {
     public ForgotPasswordCommandValidator() =>
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256).WithName("E-posta");
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(256).ValidEmail().WithName("E-posta");
 }
 
 internal sealed class ForgotPasswordCommandHandler(
@@ -60,13 +68,17 @@ internal sealed class ForgotPasswordCommandHandler(
         if (lastIssued is not null && now - lastIssued.Value < PasswordResetRules.ResendCooldown)
             return Unit.Value;
 
+        if (await resets.CountIssuedSinceAsync(user.Id, now.AddDays(-1), cancellationToken) >= PasswordResetRules.MaxCodesPerDay)
+            return Unit.Value;
+
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
         await resets.AddAsync(user.Id, PasswordResetRules.Hash(user.Id, code), now, now + PasswordResetRules.CodeLifetime, cancellationToken);
 
         // Gönderim başarısız olursa transaction geri alınır ve kullanıcı tekrar deneyebilir.
         await email.SendAsync(new EmailMessage(
             user.Email,
-            $"Yakında şifre sıfırlama kodun: {code}",
+            // Kod konu satırına yazılmaz: konu, kilit ekranındaki bildirimde ve posta sunucusu kayıtlarında görünür.
+            "Yakında şifre sıfırlama kodun",
             $"""
              Merhaba {user.DisplayName},
 
@@ -107,7 +119,7 @@ internal sealed class ResetPasswordCommandValidator : AbstractValidator<ResetPas
 {
     public ResetPasswordCommandValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().WithName("E-posta");
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(256).ValidEmail().WithName("E-posta");
         RuleFor(x => x.Code).Matches("^[0-9]{6}$").WithMessage("Kod 6 haneli olmalı.").WithName("Kod");
         RuleFor(x => x.NewPassword).NotEmpty().MinimumLength(8).MaximumLength(128).WithName("Yeni şifre");
     }
@@ -143,7 +155,8 @@ internal sealed class ResetPasswordCommandHandler(
                 : ResetPasswordResult.Fail("auth.invalid_code", "Kod hatalı. Lütfen e-postandaki kodu kontrol et.");
         }
 
-        await users.UpdatePasswordAsync(user.Id, passwordHasher.Hash(request.NewPassword), cancellationToken);
+        // Şifreyle birlikte oturum sürümü de değişir: eski erişim token'ları (çalınmış olabilir) anında geçersiz olur.
+        user.SessionsRevoked(await users.UpdatePasswordAsync(user.Id, passwordHasher.Hash(request.NewPassword), cancellationToken));
         await resets.MarkUsedAsync(record.Id, now, cancellationToken);
         await refreshTokens.RevokeAllForUserAsync(user.Id, now, cancellationToken);
 

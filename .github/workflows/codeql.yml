@@ -1,0 +1,56 @@
+name: CodeQL
+
+# Statik güvenlik analizi: kodu çalıştırmadan, bilinen açık kalıplarını (SQL/komut enjeksiyonu, yol geçişi,
+# güvensiz veri akışı...) arar. Sonuçlar deponun Security → Code scanning sekmesinde ve PR'da görünür.
+on:
+  push:
+    branches: [master]
+  pull_request:
+  # Actions sekmesinden elle de çalıştırılabilir (PR'larda yalnız değişen satırlar raporlanır; bu, tüm kodu tarar)
+  workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1' # her pazartesi: kod değişmese de yeni kurallarla yeniden tara
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Statik analiz (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [csharp, javascript-typescript]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
+          output: sarif-results
+      # Bulgular Security sekmesine yüklenir; burada da kısa bir özeti loglanır (sekmeye erişimi olmayanlar için)
+      - name: Bulgu özeti
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, json
+          total = 0
+          for path in sorted(glob.glob("sarif-results/*.sarif")):
+              for run in json.load(open(path, encoding="utf-8")).get("runs", []):
+                  for result in run.get("results", []):
+                      location = (result.get("locations") or [{}])[0].get("physicalLocation", {})
+                      uri = location.get("artifactLocation", {}).get("uri", "?")
+                      line = location.get("region", {}).get("startLine", "?")
+                      text = result.get("message", {}).get("text", "").replace("\n", " ")[:200]
+                      total += 1
+                      print(f"BULGU | {result.get('ruleId')} | {uri}:{line} | {text}")
+          print(f"Toplam bulgu: {total}")
+          PY

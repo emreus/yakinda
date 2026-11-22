@@ -28,6 +28,9 @@ public sealed class ApiFixture : IAsyncLifetime
         .WithPassword("yakinda_test")
         .Build();
 
+    /// <summary>Testlerde token imzalama anahtarı (sahte token testleri aynı anahtarla imzalayıp süre/hedef kontrolünü dener).</summary>
+    public const string SigningKey = "integration-test-signing-key-0123456789abcdef";
+
     public WebApplicationFactory<Program> Factory { get; private set; } = null!;
 
     /// <summary>API'nin gönderdiği e-postalar (gerçekten gönderilmez).</summary>
@@ -47,7 +50,7 @@ public sealed class ApiFixture : IAsyncLifetime
         Set("ConnectionStrings__Default", ConnectionString);
         Set("ConnectionStrings__Redis", "");               // sadece bellek içi cache
         Set("Database__MigrateOnStartup", "true");
-        Set("Jwt__SigningKey", "integration-test-signing-key-0123456789abcdef");
+        Set("Jwt__SigningKey", SigningKey);
         Set("RateLimiting__Enabled", "false");
         Set("Notifications__SchedulerEnabled", "false");    // testler zamanlayıcıyı kendisi çalıştırır
         Set("Push__Enabled", "false");
@@ -212,7 +215,7 @@ public sealed class CapturingEmailSender : IEmailSender
             return _messages.Where(m => string.Equals(m.To, address, StringComparison.OrdinalIgnoreCase)).ToList();
     }
 
-    /// <summary>Son şifre sıfırlama e-postasındaki 6 haneli kod.</summary>
+    /// <summary>Son şifre sıfırlama e-postasının gövdesindeki 6 haneli kod.</summary>
     public string LastResetCode(string address) =>
-        System.Text.RegularExpressions.Regex.Match(To(address)[^1].Subject, "[0-9]{6}").Value;
+        System.Text.RegularExpressions.Regex.Match(To(address)[^1].TextBody, "kodun: ([0-9]{6})").Groups[1].Value;
 }

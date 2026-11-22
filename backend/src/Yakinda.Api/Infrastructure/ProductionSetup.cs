@@ -32,6 +32,24 @@ public static class ProductionSetup
         return services;
     }
 
+    /// <summary>
+    /// Tarayıcıda açılan sayfalar (paylaşım sayfası, yasal metinler) ve diğer tüm yanıtlar için:
+    ///  * içerik türü tahmini kapalı (nosniff), sayfalar başka sitelerin çerçevesine alınamaz;
+    ///  * Content-Security-Policy: betik çalışmaz; yalnız satır içi stil ve kendi alan adımızdaki görseller yüklenir.
+    ///    Kullanıcı içeriği zaten HTML olarak kodlanıyor; bu, bir kodlama hatası olursa ikinci savunma hattıdır.
+    /// </summary>
+    public static IApplicationBuilder UseSecurityHeaders(this IApplicationBuilder app) =>
+        app.Use(async (context, next) =>
+        {
+            var headers = context.Response.Headers;
+            headers.XContentTypeOptions = "nosniff";
+            headers.XFrameOptions = "DENY";
+            headers["Referrer-Policy"] = "no-referrer";
+            headers.ContentSecurityPolicy =
+                "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+            await next(context);
+        });
+
     /// <summary>Geliştirme dışı ortamlarda eksik ya da örnek kalmış ayarlar için açılışta uyarı yazar.</summary>
     public static void WarnAboutMissingSettings(this WebApplication app)
     {

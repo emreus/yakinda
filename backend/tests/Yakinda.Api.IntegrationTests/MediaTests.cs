@@ -34,6 +34,41 @@ public sealed class ImageFileTests
     }
 
     [Fact]
+    public void Jpeg_data_after_the_end_of_image_is_dropped()
+    {
+        // Bazı telefonlar görüntünün sonuna video ("hareketli fotoğraf") ya da ikinci bir görüntü ekler;
+        // aynı yer, dosyaya veri gizlemek için de kullanılabilir.
+        byte[] withTrailer = [.. TestImages.Jpeg(), .. Encoding.ASCII.GetBytes("ftypmp4-" + TestImages.Secret)];
+
+        var image = ImageFile.TryRead(withTrailer);
+
+        Assert.NotNull(image);
+        Assert.False(TestImages.Contains(image.Data, "ftypmp4"));
+        Assert.False(TestImages.Contains(image.Data, TestImages.Secret));
+        Assert.Equal(new byte[] { 0xFF, 0xD9 }, image.Data[^2..]);
+    }
+
+    [Fact]
+    public void Jpeg_metadata_between_scans_is_removed_too()
+    {
+        var image = ImageFile.TryRead(TestImages.Jpeg(orientation: 1, metadataBetweenScans: true));
+
+        Assert.NotNull(image);
+        Assert.False(TestImages.Contains(image.Data, TestImages.Secret));
+        Assert.False(TestImages.Contains(image.Data, "Exif"));
+        // İki taramanın verisi de yerinde
+        Assert.True(TestImages.Contains(image.Data, [10, 11, 12, 13]));
+        Assert.True(TestImages.Contains(image.Data, [0xFF, 0x00, 0xFF, 0xD0, 7, 7, 7]));
+    }
+
+    [Fact]
+    public void Jpeg_without_an_end_marker_is_rejected()
+    {
+        var jpeg = TestImages.Jpeg();
+        Assert.Null(ImageFile.TryRead(jpeg[..^2]));
+    }
+
+    [Fact]
     public void Png_text_chunks_are_removed()
     {
         var image = ImageFile.TryRead(TestImages.Png(300, 200));
@@ -226,7 +261,7 @@ internal static class TestImages
 
     public static bool Contains(byte[] data, byte[] part) => data.AsSpan().IndexOf(part) >= 0;
 
-    public static byte[] Jpeg(int width = 640, int height = 480, ushort orientation = 6)
+    public static byte[] Jpeg(int width = 640, int height = 480, ushort orientation = 6, bool metadataBetweenScans = false)
     {
         var o = new MemoryStream();
         o.Write([0xFF, 0xD8]);
@@ -247,6 +282,16 @@ internal static class TestImages
         Segment(o, 0xC0, [8, .. Be16(height), .. Be16(width), 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1]);
         Segment(o, 0xDA, [3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0]);
         o.Write(Enumerable.Range(0, 200).Select(i => (byte)(i % 200)).ToArray()); // "sıkıştırılmış" veri (0xFF yok)
+
+        if (metadataBetweenScans)
+        {
+            // Aşamalı JPEG gibi ikinci bir tarama; araya EXIF ve yorum sıkıştırılmış
+            Segment(o, 0xE1, [.. "Exif\0\0"u8, .. Encoding.ASCII.GetBytes(Secret)]);
+            Segment(o, 0xFE, Encoding.ASCII.GetBytes(Secret));
+            Segment(o, 0xDA, [1, 1, 0, 0, 0x3F, 0]);
+            o.Write([0xFF, 0x00, 0xFF, 0xD0, 7, 7, 7]); // dolgulu 0xFF ve RST0: veri sayılır, bölüm başı değil
+        }
+
         o.Write([0xFF, 0xD9]);
         return o.ToArray();
     }

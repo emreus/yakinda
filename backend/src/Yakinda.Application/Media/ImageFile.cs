@@ -13,7 +13,8 @@ public enum ImageFormat
 /// Yüklenen görsel. Biçim dosyanın kendi baytlarından anlaşılır (istemcinin gönderdiği Content-Type'a ya da
 /// dosya adına güvenilmez). Kaydedilmeden önce gizlilik için meta veriler silinir: telefon fotoğraflarındaki
 /// EXIF'te çekildiği yerin GPS koordinatı (çoğu zaman kişinin evi), cihaz modeli, tarih bulunur.
-/// JPEG'in yön (orientation) bilgisi korunur ki dik çekilen fotoğraf yan dönmesin.
+/// JPEG'in yön (orientation) bilgisi korunur ki dik çekilen fotoğraf yan dönmesin. JPEG'de görüntünün bittiği
+/// yerden (EOI) sonra eklenmiş veriler de atılır.
 /// Çok büyük piksel boyutlu (sıkıştırılınca küçük ama açılınca telefonu kilitleyen) dosyalar reddedilir.
 /// </summary>
 public sealed class ImageFile
@@ -102,9 +103,12 @@ public sealed class ImageFile
             output.Write(src, 0, 2); // SOI
             var pos = 2;
             int width = 0, height = 0;
+            var sawScan = false;
+            var wroteOrientation = false;
 
             while (true)
             {
+                // Bu noktada her zaman bir işaret (0xFF + kod) beklenir.
                 if (pos + 1 >= src.Length || src[pos] != 0xFF)
                     return null;
 
@@ -115,8 +119,15 @@ public sealed class ImageFile
                     continue;
                 }
 
-                if (marker == 0xD9) // görüntü verisi (SOS) gelmeden dosya bitti
-                    return null;
+                if (marker == 0xD9)
+                {
+                    // EOI: görüntü burada biter. Sonrasına eklenmiş veriler (hareketli fotoğrafın videosu, ikinci
+                    // görüntü, dosyanın sonuna gizlenmiş içerik) kopyalanmaz.
+                    if (!sawScan)
+                        return null;
+                    output.Write(src, pos, 2);
+                    return (output.ToArray(), width, height);
+                }
 
                 if (marker is 0x01 or (>= 0xD0 and <= 0xD7)) // uzunluksuz işaretler
                 {
@@ -132,15 +143,6 @@ public sealed class ImageFile
                     return null;
                 var payload = src.AsSpan(pos + 4, length - 2);
 
-                if (marker == 0xDA)
-                {
-                    // SOS: geri kalanı sıkıştırılmış görüntü verisi, olduğu gibi kopyalanır.
-                    if (width == 0 || height == 0)
-                        return null;
-                    output.Write(src, pos, src.Length - pos);
-                    return (output.ToArray(), width, height);
-                }
-
                 if (IsStartOfFrame(marker))
                 {
                     if (payload.Length < 5)
@@ -152,9 +154,12 @@ public sealed class ImageFile
                 if (marker == 0xE1)
                 {
                     // APP1: EXIF (GPS, cihaz) ya da XMP. Yalnızca yön bilgisi yeni, küçük bir EXIF olarak yazılır.
-                    var orientation = ReadOrientation(payload);
+                    var orientation = sawScan || wroteOrientation ? null : ReadOrientation(payload);
                     if (orientation is > 1 and <= 8)
+                    {
                         output.Write(OrientationOnlyExif(orientation.Value));
+                        wroteOrientation = true;
+                    }
                 }
                 else if (Keep(marker))
                 {
@@ -162,7 +167,42 @@ public sealed class ImageFile
                 }
 
                 pos += 2 + length;
+
+                if (marker == 0xDA)
+                {
+                    // SOS başlığından sonra sıkıştırılmış veri gelir; bir sonraki gerçek işarete kadar kopyalanır.
+                    // (Aşamalı JPEG'lerde birden çok tarama vardır; aralarındaki bölümler de yukarıdaki süzgeçten geçer.)
+                    if (width == 0 || height == 0)
+                        return null;
+                    sawScan = true;
+
+                    var end = FindScanEnd(src, pos);
+                    if (end < 0)
+                        return null; // EOI yok: kesilmiş dosya
+                    output.Write(src, pos, end - pos);
+                    pos = end;
+                }
             }
+        }
+
+        /// <summary>
+        /// Sıkıştırılmış veride 0xFF'i ya 0x00 (dolgu) ya da RSTn izler; başka bir kod yeni bir bölümün başıdır.
+        /// </summary>
+        private static int FindScanEnd(byte[] src, int start)
+        {
+            for (var i = start; i + 1 < src.Length; i++)
+            {
+                if (src[i] != 0xFF)
+                    continue;
+
+                var next = src[i + 1];
+                if (next == 0x00 || next is >= 0xD0 and <= 0xD7)
+                    i++; // veri: iki baytı da geç
+                else if (next != 0xFF)
+                    return i;
+            }
+
+            return -1;
         }
 
         /// <summary>

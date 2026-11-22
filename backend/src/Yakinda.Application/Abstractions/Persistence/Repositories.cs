@@ -1,6 +1,7 @@
 using Yakinda.Application.Notifications;
 using Yakinda.Domain.Events;
 using Yakinda.Domain.Moderation;
+using Yakinda.Domain.Notifications;
 using Yakinda.Domain.Users;
 
 namespace Yakinda.Application.Abstractions.Persistence;
@@ -63,10 +64,11 @@ public interface IUserRepository
     /// </summary>
     Task AnonymizeAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 
-    /// <summary>Yasaklar; oturumlarını ve cihaz token'larını siler.</summary>
+    /// <summary>Yasaklar; oturumlarını ve cihaz token'larını siler, oturum sürümünü artırır.</summary>
     Task BanAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 
-    Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken);
+    /// <summary>Şifreyi değiştirir ve oturum sürümünü artırır (eski erişim token'ları geçersiz olur). Yeni sürümü döner.</summary>
+    Task<int> UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken);
 
     Task UpdateProfileAsync(Guid userId, string displayName, string? bio, CancellationToken cancellationToken);
 
@@ -79,6 +81,9 @@ public interface IMediaRepository
     Task<string?> SetUserAvatarAsync(Guid userId, string? key, CancellationToken cancellationToken);
 
     Task<string?> SetEventImageAsync(Guid eventId, string? key, CancellationToken cancellationToken);
+
+    /// <summary>Organizatörün tüm etkinliklerinin görsellerini kaldırır (hesap silme); silinecek dosya anahtarlarını döner.</summary>
+    Task<IReadOnlyList<string>> ClearEventImagesByOrganizerAsync(Guid organizerId, CancellationToken cancellationToken);
 }
 
 public interface IChatRepository
@@ -147,6 +152,9 @@ public interface IRefreshTokenRepository
 
     /// <summary>Kullanıcının bütün oturumlarını kapatır (şifre değişince).</summary>
     Task RevokeAllForUserAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Çıkış: token varsa iptal eder; yoksa sessizce geçer.</summary>
+    Task RevokeByHashAsync(string tokenHash, DateTime nowUtc, CancellationToken cancellationToken);
 }
 
 public interface IPasswordResetRepository
@@ -156,6 +164,9 @@ public interface IPasswordResetRepository
 
     /// <summary>Son kodun ne zaman gönderildiği (art arda istekleri sınırlamak için).</summary>
     Task<DateTime?> GetLastIssuedAtAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Verilen andan sonra bu hesap için üretilen kod sayısı (kullanılmış olanlar dahil).</summary>
+    Task<int> CountIssuedSinceAsync(Guid userId, DateTime sinceUtc, CancellationToken cancellationToken);
 
     /// <summary>Kullanılmamış ve süresi dolmamış en yeni kod (satır kilidiyle).</summary>
     Task<PasswordResetRecord?> GetActiveForUpdateAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
@@ -188,6 +199,10 @@ public interface INotificationRepository
 
     /// <summary>Bildirimi okundu yapar (zaten okunduysa dokunmaz). Bildirim bu kullanıcıya ait değilse false döner.</summary>
     Task<bool> MarkReadAsync(Guid id, Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Aynı kişiden, aynı etkinlik için, aynı türde bildirim verilen andan sonra zaten gönderilmiş mi?</summary>
+    Task<bool> ExistsSinceAsync(
+        Guid userId, NotificationType type, Guid eventId, Guid actorId, DateTime sinceUtc, CancellationToken cancellationToken);
 
     Task MarkAllReadAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 }

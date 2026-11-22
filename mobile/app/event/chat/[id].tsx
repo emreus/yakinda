@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { errorMessage } from '@/api/client';
 import { chatApi } from '@/api/endpoints';
+import { isUuid } from '@/api/path';
 import type { ChatMessage } from '@/api/types';
 import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/ui';
@@ -37,6 +38,9 @@ function merge(existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] 
  */
 export default function EventChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
+  // Bu ekran bağlantıyla (bildirim, paylaşım) da açılır ve açılır açılmaz sunucuya istek atar.
+  // Kimlik biçiminde olmayan bir değerle hiçbir istek gönderilmez.
+  const validId = isUuid(id);
   const event = useEventDetail(id);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -51,6 +55,11 @@ export default function EventChatScreen() {
   const readOnly = event.data ? event.data.status !== 'Active' : false;
 
   const refresh = useCallback(async () => {
+    if (!validId) {
+      setError('Sohbet bulunamadı.');
+      setLoading(false);
+      return;
+    }
     try {
       const page = await chatApi.list(id);
       const fresh = page.items.filter((m) => !knownIds.current.has(m.id));
@@ -65,11 +74,11 @@ export default function EventChatScreen() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, validId]);
 
   useEffect(() => {
-    chatApi.markRead(id).catch(() => undefined);
-  }, [id]);
+    if (validId) chatApi.markRead(id).catch(() => undefined);
+  }, [id, validId]);
 
   // Ekran görünürken düzenli yenile
   useFocusEffect(

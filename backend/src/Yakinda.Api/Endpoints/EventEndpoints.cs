@@ -1,6 +1,7 @@
 using MediatR;
 using Yakinda.Application.Events.Update;
 using Yakinda.Application.Events.Cancel;
+using Yakinda.Application.Events.Common;
 using Yakinda.Application.Events.Create;
 using Yakinda.Application.Events.GetDetail;
 using Yakinda.Application.Events.GetNearby;
@@ -136,7 +137,11 @@ public static class EventEndpoints
             Results.Ok(await sender.Send(new RateEventCommand(id, body.Score, body.Comment), ct)));
 
         group.MapGet("/{id:guid}/ratings", async (Guid id, int? page, int? pageSize, ISender sender, CancellationToken ct) =>
-            Results.Ok(await sender.Send(new GetEventRatingsQuery(id, page ?? 1, pageSize ?? 20), ct)));
+        {
+            // Yorumlar cache'lenir; etkinlik var mı ve organizatörle aramızda engel var mı kontrolü her istekte yapılır.
+            await sender.Send(new EnsureEventVisibleQuery(id), ct);
+            return Results.Ok(await sender.Send(new GetEventRatingsQuery(id, page ?? 1, pageSize ?? 20), ct));
+        });
 
         return api;
     }

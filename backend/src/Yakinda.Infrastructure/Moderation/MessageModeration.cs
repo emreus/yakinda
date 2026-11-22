@@ -1,6 +1,7 @@
 using Yakinda.Application.Safety;
 using Yakinda.Infrastructure.Persistence;
 using Yakinda.Infrastructure.Persistence.Repositories;
+using Yakinda.Domain.Notifications;
 
 namespace Yakinda.Infrastructure.Moderation;
 
@@ -15,7 +16,7 @@ internal sealed class MessageModeration(DbSession session) : RepositoryBase(sess
 
     public Task RemoveMessageAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync(
-            "UPDATE event_messages SET deleted_at = COALESCE(deleted_at, @Now) WHERE id = @Id",
-            new { Id = messageId, Now = nowUtc },
+            ChatRepository.SoftDeleteSql,
+            new { Id = messageId, Now = nowUtc, ChatType = (short)NotificationType.ChatMessage },
             cancellationToken);
 }

@@ -41,7 +41,8 @@ internal sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Sm
             Body = message.HtmlBody ?? message.TextBody,
             IsBodyHtml = message.HtmlBody is not null
         };
-        mail.To.Add(message.To);
+        // Tek adres olarak ayrıştırılır (To.Add(string) virgülle ayrılmış birden çok alıcıyı kabul ederdi).
+        mail.To.Add(new MailAddress(message.To));
         if (message.HtmlBody is not null)
             mail.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(message.TextBody, null, "text/plain"));
 
@@ -54,7 +55,8 @@ internal sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Sm
             client.Credentials = new NetworkCredential(settings.Smtp.Username, settings.Smtp.Password);
 
         await client.SendMailAsync(mail, cancellationToken);
-        logger.LogInformation("E-posta gönderildi: {Subject} → {To}", message.Subject, message.To);
+        // Konu ve içerik loglanmaz (sıfırlama kodu gibi gizli bilgiler taşıyabilir).
+        logger.LogInformation("E-posta gönderildi → {To}", message.To);
     }
 }
 

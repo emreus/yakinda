@@ -3,7 +3,9 @@ using MediatR;
 using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Events;
 using Yakinda.Application.Events.Common;
+using Yakinda.Domain.Events;
 
 namespace Yakinda.Application.Users.GetMyEvents;
 
@@ -52,6 +54,19 @@ internal sealed class GetMyEventsQueryHandler(
             new { UserId = userId, request.IncludePast, Now = timeProvider.GetUtcNow().UtcDateTime },
             cancellationToken: cancellationToken));
 
-        return rows.AsList();
+        var list = rows.AsList();
+
+        // Katıldığım etkinliklerden yönetici tarafından kaldırılanların içeriği gösterilmez.
+        if (request.Role == MyEventsRole.Attending)
+        {
+            foreach (var row in list.Where(row => row.Status == EventStatus.Removed))
+            {
+                row.Title = EventTexts.RemovedTitle;
+                row.PlaceName = null;
+                row.ImageUrl = null;
+            }
+        }
+
+        return list;
     }
 }

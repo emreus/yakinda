@@ -21,10 +21,23 @@ internal sealed class ChatRepository(DbSession session) : RepositoryBase(session
         return row is null ? null : (row.EventId, row.AuthorId);
     }
 
+    internal const string SoftDeleteSql = """
+            UPDATE event_messages SET deleted_at = COALESCE(deleted_at, @Now) WHERE id = @Id;
+
+            -- Mesajın ürettiği sohbet bildirimi (aynı anda, aynı yazardan) metnin ilk 120 karakterini taşır:
+            -- silinen mesajın önizlemesi bildirim listesinde kalmasın.
+            UPDATE notifications n
+               SET body = 'Mesaj silindi'
+              FROM event_messages m
+             WHERE m.id = @Id
+               AND n.event_id = m.event_id AND n.actor_id = m.author_id
+               AND n.type = @ChatType AND n.created_at = m.created_at;
+            """;
+
     public Task SoftDeleteAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync(
-            "UPDATE event_messages SET deleted_at = COALESCE(deleted_at, @Now) WHERE id = @Id",
-            new { Id = messageId, Now = nowUtc },
+            SoftDeleteSql,
+            new { Id = messageId, Now = nowUtc, ChatType = (short)NotificationType.ChatMessage },
             cancellationToken);
 
     public Task NotifyMembersAsync(Guid eventId, Guid authorId, NotificationContent content, DateTime nowUtc, CancellationToken cancellationToken) =>

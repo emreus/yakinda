@@ -33,7 +33,8 @@ internal sealed class JwtTokenService(IOptions<JwtOptions> options, TimeProvider
                 [ClaimNames.Subject] = user.Id.ToString(),
                 [ClaimNames.Email] = user.Email,
                 [ClaimNames.Name] = user.DisplayName,
-                [ClaimNames.TokenId] = Guid.NewGuid().ToString()
+                [ClaimNames.TokenId] = Guid.NewGuid().ToString(),
+                [ClaimNames.TokenVersion] = user.TokenVersion
             },
             SigningCredentials = new SigningCredentials(
                 new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey)),

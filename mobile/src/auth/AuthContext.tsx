@@ -107,12 +107,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   );
 
-  /** Önce bu cihazın push token'ı silinir (access token hâlâ geçerliyken), sonra oturum kapanır. */
+  /**
+   * Önce bu cihazın push token'ı silinir (access token hâlâ geçerliyken), sonra refresh token sunucuda
+   * iptal edilir ve oturum kapanır.
+   */
   const signOut = useCallback(async () => {
     try {
       await unregisterPushAsync();
     } catch {
       // Ağ hatası: token sunucuda kalır; bu cihazda başka hesapla giriş yapılınca o hesaba taşınır.
+    }
+    try {
+      const storedToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+      if (storedToken) await authApi.logout(storedToken);
+    } catch {
+      // Ağ hatası: token sunucuda süresi dolana kadar kalır; cihazdan yine de silinir.
     }
     await clearSession();
   }, [clearSession]);

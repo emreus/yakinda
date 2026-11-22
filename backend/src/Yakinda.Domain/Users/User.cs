@@ -31,7 +31,16 @@ public sealed class User
     /// <summary>Hesap silindi; kişisel veriler temizlendi.</summary>
     public DateTime? DeletedAt { get; private set; }
 
+    /// <summary>
+    /// Oturum sürümü. Erişim token'ı bu değeri taşır; şifre sıfırlama, yasaklama ve hesap silmede artar
+    /// ve eski token'lar o anda geçersiz olur.
+    /// </summary>
+    public int TokenVersion { get; private set; }
+
     public bool IsBanned => BannedAt is not null;
+
+    /// <summary>Veritabanında oturum sürümü artırıldıktan sonra (yeni token doğru sürümle üretilsin diye).</summary>
+    public void SessionsRevoked(int newTokenVersion) => TokenVersion = newTokenVersion;
 
     /// <summary>
     /// Organizatör puanı: her bir oy eşit ağırlıktadır (etkinlik ortalamalarının ortalaması değil).

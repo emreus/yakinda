@@ -40,7 +40,7 @@ internal sealed class GetNearbyEventsQueryValidator : AbstractValidator<GetNearb
         RuleFor(x => x.Latitude).InclusiveBetween(-90d, 90d);
         RuleFor(x => x.Longitude).InclusiveBetween(-180d, 180d);
         RuleFor(x => x.RadiusKm).InclusiveBetween(0.1d, 100d).WithName("Yarıçap");
-        RuleFor(x => x.Page).GreaterThanOrEqualTo(1);
+        RuleFor(x => x.Page).InclusiveBetween(1, Paging.MaxPage);
         RuleFor(x => x.PageSize).InclusiveBetween(1, 50);
         RuleFor(x => x.Search).MaximumLength(100).WithName("Arama");
         RuleFor(x => x.To)

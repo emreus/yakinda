@@ -17,7 +17,7 @@ internal sealed class RegisterCommandValidator : AbstractValidator<RegisterComma
 {
     public RegisterCommandValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256).WithName("E-posta");
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(256).ValidEmail().WithName("E-posta");
         RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128).WithName("Şifre");
         RuleFor(x => x.DisplayName).NotEmpty().MinimumLength(2).MaximumLength(50).NotObjectionable().WithName("Görünen ad");
         RuleFor(x => x.AcceptTerms)

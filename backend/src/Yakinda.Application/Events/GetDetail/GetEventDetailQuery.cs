@@ -231,19 +231,21 @@ internal sealed class GetEventDetailQueryHandler(
         var myStatus = viewer.MyParticipationStatus;
         var hasActiveParticipation =
             myStatus is ParticipantStatus.Pending or ParticipantStatus.Approved or ParticipantStatus.Waitlisted;
+        // Yöneticinin kaldırdığı içeriği yalnız organizatörü görür.
+        var hidden = s.Status == EventStatus.Removed && !isOrganizer;
 
         return new EventDetailDto
         {
             Id = s.Id,
-            Title = s.Title,
-            Description = s.Description,
+            Title = hidden ? EventTexts.RemovedTitle : s.Title,
+            Description = hidden ? null : s.Description,
             CategoryId = s.CategoryId,
             CategoryName = s.CategoryName,
             CategoryEmoji = s.CategoryEmoji,
             StartsAt = s.StartsAt,
             EndsAt = s.EndsAt,
-            PlaceName = s.PlaceName,
-            Address = s.Address,
+            PlaceName = hidden ? null : s.PlaceName,
+            Address = hidden ? null : s.Address,
             Latitude = s.Latitude,
             Longitude = s.Longitude,
             Capacity = s.Capacity,
@@ -257,7 +259,7 @@ internal sealed class GetEventDetailQueryHandler(
             OrganizerRating = s.OrganizerRating,
             OrganizerRatingCount = s.OrganizerRatingCount,
             OrganizerAvatarUrl = s.OrganizerAvatarUrl,
-            ImageUrl = s.ImageUrl,
+            ImageUrl = hidden ? null : s.ImageUrl,
 
             MyParticipationStatus = myStatus,
             MyScore = viewer.MyScore,

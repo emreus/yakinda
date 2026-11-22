@@ -1,3 +1,4 @@
+import { isUuid } from '@/api/path';
 import { useMutation, useQueryClient, type InfiniteData } from '@tanstack/react-query';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
@@ -80,7 +81,7 @@ export default function NotificationsScreen() {
 
   const open = (notification: AppNotification) => {
     if (!notification.isRead) markRead.mutate(notification.id);
-    if (!notification.eventId) return;
+    if (!isUuid(notification.eventId)) return;
     router.push(notification.type === 'ChatMessage' ? `/event/chat/${notification.eventId}` : `/event/${notification.eventId}`);
   };
 

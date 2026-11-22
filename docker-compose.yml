@@ -13,7 +13,9 @@ services:
       POSTGRES_USER: yakinda
       POSTGRES_PASSWORD: yakinda_dev
     ports:
-      - "5432:5432"
+      # 127.0.0.1: yalnız bu bilgisayardan erişilir. Önekisiz yazılırsa aynı Wi-Fi'daki herkes bilinen
+      # geliştirme şifresiyle veritabanına bağlanabilir (kafe, okul, ofis ağı).
+      - "127.0.0.1:5432:5432"
     volumes:
       - yakinda-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -28,7 +30,7 @@ services:
     container_name: yakinda-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -41,8 +43,8 @@ services:
     image: axllent/mailpit:latest
     container_name: yakinda-mailpit
     ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # web arayüzü
+      - "127.0.0.1:1025:1025"   # SMTP
+      - "127.0.0.1:8025:8025"   # web arayüzü (şifre sıfırlama kodları burada görünür)
     restart: unless-stopped
 
 volumes:

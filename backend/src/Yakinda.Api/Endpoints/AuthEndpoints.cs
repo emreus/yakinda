@@ -22,6 +22,13 @@ public static class AuthEndpoints
         group.MapPost("/refresh", async (RefreshTokenCommand command, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(command, ct)));
 
+        // Çıkış: refresh token sunucuda iptal edilir
+        group.MapPost("/logout", async (LogoutCommand command, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(command, ct);
+            return Results.NoContent();
+        });
+
         // Şifre sıfırlama: önce e-postaya kod, sonra kodla yeni şifre (başarılıysa giriş yapılmış olarak döner)
         group.MapPost("/forgot-password", async (ForgotPasswordCommand command, ISender sender, CancellationToken ct) =>
         {

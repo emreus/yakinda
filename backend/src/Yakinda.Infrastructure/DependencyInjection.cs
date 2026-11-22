@@ -158,6 +158,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IPasswordHasher, Pbkdf2PasswordHasher>();
         services.AddSingleton<ITokenService, JwtTokenService>();
+        services.AddSingleton<UserAccessGuard>();
 
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
 
@@ -180,6 +181,17 @@ public static class DependencyInjection
                     ValidateLifetime = true,
                     ClockSkew = TimeSpan.FromSeconds(30),
                     NameClaimType = ClaimNames.Name
+                };
+
+                // İmza ve süre geçerli olsa da: kullanıcı yasaklandıysa, silindiyse ya da şifresi sıfırlandıysa token reddedilir.
+                bearer.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var guard = context.HttpContext.RequestServices.GetRequiredService<UserAccessGuard>();
+                        if (!await guard.IsStillValidAsync(context.Principal, context.HttpContext.RequestAborted))
+                            context.Fail("Oturum artık geçerli değil.");
+                    }
                 };
             });
 
