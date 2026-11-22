@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { API_URL, errorMessage } from '@/api/client';
+import { API_URL, errorMessage, mediaUrl } from '@/api/client';
 import { eventsApi, safetyApi } from '@/api/endpoints';
 import type { EventDetail, Participant } from '@/api/types';
+import { Avatar } from '@/components/Avatar';
 import { RatingBadge, StarRating } from '@/components/StarRating';
 import { Badge, Button, Card, EmptyState, FullScreenLoader, SectionTitle, TextField } from '@/components/ui';
 import { queryKeys, useEventDetail, useInvalidateEvent, useParticipants, useRatings } from '@/hooks/queries';
@@ -74,8 +75,11 @@ function Header({ event }: { event: EventDetail }) {
     );
   };
 
+  const cover = mediaUrl(event.imageUrl);
+
   return (
     <View style={styles.section}>
+      {cover ? <Image source={{ uri: cover }} style={styles.cover} accessibilityLabel="Etkinlik görseli" /> : null}
       <View style={styles.titleRow}>
         <Text style={styles.emoji}>{event.categoryEmoji}</Text>
         <View style={styles.flex}>
@@ -123,9 +127,7 @@ function Header({ event }: { event: EventDetail }) {
 
       <Pressable onPress={() => router.push(`/user/${event.organizerId}`)}>
         <Card style={styles.organizerCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{event.organizerName.charAt(0).toLocaleUpperCase('tr-TR')}</Text>
-          </View>
+          <Avatar name={event.organizerName} url={event.organizerAvatarUrl} size={44} />
           <View style={styles.flex}>
             <Text style={font.small}>Organizatör</Text>
             <Text style={styles.organizerName}>{event.organizerName}</Text>
@@ -378,9 +380,7 @@ function ParticipantRow({ participant, children }: { participant: Participant; c
   return (
     <View style={styles.participantRow}>
       <Pressable style={styles.participantInfo} onPress={() => router.push(`/user/${participant.userId}`)}>
-        <View style={styles.avatarSmall}>
-          <Text style={styles.avatarSmallText}>{participant.displayName.charAt(0).toLocaleUpperCase('tr-TR')}</Text>
-        </View>
+        <Avatar name={participant.displayName} url={participant.avatarUrl} size={34} />
         <View style={styles.flex}>
           <Text style={font.body}>{participant.displayName}</Text>
           <RatingBadge value={participant.averageRating} count={participant.ratingCount} emptyLabel="Organizatör puanı yok" />
@@ -464,7 +464,8 @@ function RatingsList({ event }: { event: EventDetail }) {
       {(ratings.data?.items ?? []).map((rating) => (
         <View key={rating.raterId} style={styles.ratingRow}>
           <View style={styles.ratingHeader}>
-            <Text style={styles.raterName}>{rating.raterName}</Text>
+            <Avatar name={rating.raterName} url={rating.raterAvatarUrl} size={24} />
+            <Text style={[styles.raterName, styles.flex]}>{rating.raterName}</Text>
             <StarRating value={rating.score} size={14} />
           </View>
           {rating.comment ? <Text style={font.body}>{rating.comment}</Text> : null}
@@ -501,15 +502,7 @@ const styles = StyleSheet.create({
   },
   directionsText: { color: colors.primary, fontWeight: '600' },
   organizerCard: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 18, fontWeight: '700', color: colors.primary },
+  cover: { width: '100%', aspectRatio: 16 / 9, borderRadius: radius.lg, backgroundColor: colors.primaryLight },
   organizerName: { fontSize: 16, fontWeight: '600', color: colors.text },
   description: { fontSize: 15, lineHeight: 22, color: colors.text },
   actions: { gap: spacing.sm },
@@ -518,18 +511,9 @@ const styles = StyleSheet.create({
   panel: { gap: spacing.md },
   participantRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   participantInfo: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 },
-  avatarSmall: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarSmallText: { fontWeight: '700', color: colors.muted },
   reviewButtons: { flexDirection: 'row', gap: spacing.xs },
   smallButton: { minHeight: 36, paddingHorizontal: spacing.md },
   ratingRow: { gap: 4, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
-  ratingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  ratingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.sm },
   raterName: { fontWeight: '600', color: colors.text },
 });

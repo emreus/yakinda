@@ -3,7 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { errorMessage } from '@/api/client';
-import { eventsApi } from '@/api/endpoints';
+import { eventsApi, mediaApi } from '@/api/endpoints';
 import { EventForm, toFormErrors, type EventFormErrors, type EventFormValues } from '@/components/EventForm';
 import { useInvalidateEvent } from '@/hooks/queries';
 
@@ -14,13 +14,25 @@ export default function CreateEventScreen() {
   const [serverErrors, setServerErrors] = useState<EventFormErrors>({});
 
   const mutation = useMutation({
-    mutationFn: (input: EventFormValues) => eventsApi.create(input),
-    onSuccess: ({ id }, input) => {
+    mutationFn: async ({ cover, ...input }: EventFormValues) => {
+      const { id } = await eventsApi.create(input);
+      // Görsel, etkinlik oluştuktan sonra yüklenir; yüklenemezse etkinlik yine de yayında kalır.
+      let coverFailed = false;
+      if (cover.kind === 'set') {
+        await mediaApi.setEventImage(id, cover.image).catch(() => {
+          coverFailed = true;
+        });
+      }
+      return { id, coverFailed };
+    },
+    onSuccess: ({ id, coverFailed }, input) => {
       invalidate();
       setServerErrors({});
       setFormKey((key) => key + 1);
       router.push(`/event/${id}`);
-      if (input.repeatWeeks > 0) {
+      if (coverFailed) {
+        Alert.alert('Görsel yüklenemedi', 'Etkinlik yayınlandı. Görseli etkinliği düzenleyerek yeniden ekleyebilirsin.');
+      } else if (input.repeatWeeks > 0) {
         Alert.alert('Etkinlikler oluşturuldu', `Her hafta aynı saatte, toplam ${input.repeatWeeks + 1} etkinlik yayınlandı.`);
       }
     },

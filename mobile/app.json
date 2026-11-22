@@ -29,6 +29,14 @@
         {
           "locationWhenInUsePermission": "Yakınındaki etkinlikleri gösterebilmek ve etkinlik konumunu seçebilmen için konumuna ihtiyacımız var."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Profil fotoğrafı ve etkinlik görseli seçmek için fotoğraflarına erişim gerekiyor.",
+          "cameraPermission": "Profil fotoğrafı ve etkinlik görseli çekmek için kameraya erişim gerekiyor.",
+          "microphonePermission": false
+        }
       ]
     ],
     "extra": {

@@ -1,14 +1,16 @@
 import * as Location from 'expo-location';
 import { useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { ApiError } from '@/api/client';
+import { ApiError, mediaUrl } from '@/api/client';
+import type { LocalImage } from '@/api/endpoints';
 import type { Category, CreateEventInput } from '@/api/types';
 import { CategoryChips } from '@/components/CategoryChips';
 import { DateTimeField } from '@/components/DateTimeField';
 import { Button, Card, Chip, TextField } from '@/components/ui';
 import { useCategories } from '@/hooks/queries';
 import { useCurrentLocation, type Coords } from '@/hooks/useCurrentLocation';
+import { pickImage } from '@/media/pickImage';
 import { colors, font, radius, spacing } from '@/theme';
 
 /**
@@ -41,7 +43,10 @@ export type EventFormErrors = Partial<
   Record<'categoryId' | 'title' | 'startsAt' | 'endsAt' | 'location' | 'capacity' | 'description', string>
 >;
 
-export type EventFormValues = CreateEventInput & { repeatWeeks: number };
+/** Kapak görseli: değişmedi, yenisi seçildi ya da kaldırıldı. Etkinlik kaydedildikten sonra ayrıca yüklenir. */
+export type CoverChange = { kind: 'keep' } | { kind: 'set'; image: LocalImage } | { kind: 'remove' };
+
+export type EventFormValues = CreateEventInput & { repeatWeeks: number; cover: CoverChange };
 
 export interface EventFormInitial {
   categoryId: number;
@@ -55,6 +60,7 @@ export interface EventFormInitial {
   address: string | null;
   capacity: number | null;
   approvalRequired: boolean;
+  imageUrl: string | null;
 }
 
 interface EventFormProps {
@@ -122,6 +128,18 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
   const [unlimited, setUnlimited] = useState(initial ? initial.capacity === null : false);
   const [capacity, setCapacity] = useState(Math.max(lowestCapacity, initial?.capacity ?? 1));
   const [approvalRequired, setApprovalRequired] = useState(initial?.approvalRequired ?? false);
+  const [cover, setCover] = useState<CoverChange>({ kind: 'keep' });
+  const coverUri =
+    cover.kind === 'set' ? cover.image.uri : cover.kind === 'remove' ? null : mediaUrl(initial?.imageUrl ?? null);
+
+  const chooseCover = async () => {
+    try {
+      const image = await pickImage('wide');
+      if (image) setCover({ kind: 'set', image });
+    } catch {
+      Alert.alert('Görsel açılamadı', 'Başka bir fotoğraf dene.');
+    }
+  };
   const [repeatTotal, setRepeatTotal] = useState(1);
   const [localErrors, setLocalErrors] = useState<EventFormErrors>({});
   const errors = { ...serverErrors, ...localErrors };
@@ -195,6 +213,7 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
       capacity: unlimited ? null : capacity,
       joinPolicy: approvalRequired ? 'ApprovalRequired' : 'Open',
       repeatWeeks: editing ? 0 : repeatTotal - 1,
+      cover,
     });
   };
 
@@ -221,6 +240,27 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
         </View>
 
         <TextField label="Başlık" value={title} onChangeText={setTitle} placeholder="Örn. Okeye 4. aranıyor" maxLength={120} error={errors.title} />
+
+        <View>
+          <Text style={styles.sectionLabel}>Kapak görseli (isteğe bağlı)</Text>
+          {coverUri ? (
+            <View>
+              <Image source={{ uri: coverUri }} style={styles.cover} accessibilityLabel="Kapak görseli" />
+              <View style={styles.coverButtons}>
+                <Button title="Değiştir" variant="secondary" onPress={chooseCover} style={styles.flex} />
+                <Button title="Kaldır" variant="ghost" onPress={() => setCover({ kind: 'remove' })} style={styles.flex} />
+              </View>
+            </View>
+          ) : (
+            <Pressable style={styles.coverEmpty} onPress={chooseCover} accessibilityRole="button" accessibilityLabel="Kapak görseli ekle">
+              <Text style={styles.coverEmptyIcon}>🖼️</Text>
+              <Text style={styles.hint}>Mekanın ya da oyunun fotoğrafı ilgiyi artırır</Text>
+            </Pressable>
+          )}
+          {!editing && repeatTotal > 1 && coverUri ? (
+            <Text style={styles.hint}>Görsel ilk buluşmaya eklenir; diğerlerine düzenleyerek ekleyebilirsin.</Text>
+          ) : null}
+        </View>
 
         <TextField
           label="Açıklama (isteğe bağlı)"
@@ -395,4 +435,18 @@ const styles = StyleSheet.create({
   stepValue: { minWidth: 56, textAlign: 'center', fontSize: 18, fontWeight: '700', color: colors.text },
   inlineSwitch: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   disabled: { opacity: 0.4 },
+  cover: { width: '100%', aspectRatio: 16 / 9, borderRadius: radius.lg, backgroundColor: colors.primaryLight },
+  coverButtons: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  coverEmpty: {
+    aspectRatio: 16 / 9,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+  },
+  coverEmptyIcon: { fontSize: 32 },
 });

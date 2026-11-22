@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { UserProfile } from '@/api/types';
 import { colors, font, spacing } from '@/theme';
 import { formatRating } from '@/utils/format';
+import { Avatar } from './Avatar';
 import { RatingDistribution, StarRating } from './StarRating';
 import { Card } from './ui';
 
@@ -12,9 +13,7 @@ export function ProfileHeader({ profile }: { profile: UserProfile }) {
   return (
     <Card style={styles.card}>
       <View style={styles.top}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{profile.displayName.charAt(0).toLocaleUpperCase('tr-TR')}</Text>
-        </View>
+        <Avatar name={profile.displayName} url={profile.avatarUrl} size={64} />
         <View style={styles.flex}>
           <Text style={font.title}>{profile.displayName}</Text>
           <Text style={font.small}>{memberSince.format(new Date(profile.createdAt))} tarihinden beri üye</Text>
@@ -58,15 +57,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   card: { gap: spacing.lg },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primaryLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { fontSize: 26, fontWeight: '700', color: colors.primary },
   ratingBox: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
   ratingSummary: { alignItems: 'center', gap: 2, minWidth: 90 },
   bigRating: { fontSize: 40, fontWeight: '800', color: colors.text },

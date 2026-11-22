@@ -15,6 +15,7 @@ import {
 import { errorMessage } from '@/api/client';
 import { chatApi } from '@/api/endpoints';
 import type { ChatMessage } from '@/api/types';
+import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/ui';
 import { useEventDetail } from '@/hooks/queries';
 import { colors, font, radius, spacing } from '@/theme';
@@ -102,6 +103,7 @@ export default function EventChatScreen() {
     try {
       const message = await chatApi.send(id, body);
       knownIds.current.add(message.id);
+      // Gönderme yanıtında fotoğraf adresi yok; kendi balonunda zaten gösterilmiyor.
       setMessages((current) => merge(current, [message]));
       setText('');
     } catch (e) {
@@ -226,6 +228,7 @@ function Bubble({ message, onLongPress }: { message: ChatMessage; onLongPress: (
   const mine = message.isMine;
   return (
     <Pressable onLongPress={onLongPress} style={[styles.bubbleRow, mine && styles.bubbleRowMine]}>
+      {!mine ? <Avatar name={message.authorName} url={message.authorAvatarUrl} size={28} /> : null}
       <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
         {!mine ? <Text style={styles.author}>{message.authorName}</Text> : null}
         <Text style={[styles.body, mine && styles.bodyMine, message.isDeleted && styles.deleted]}>
@@ -244,7 +247,7 @@ const styles = StyleSheet.create({
   listContent: { padding: spacing.md, gap: spacing.sm, flexGrow: 1 },
   empty: { flex: 1, justifyContent: 'center', padding: spacing.xl, transform: [{ scaleY: -1 }] },
   emptyText: { ...font.small, textAlign: 'center' },
-  bubbleRow: { flexDirection: 'row', justifyContent: 'flex-start' },
+  bubbleRow: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'flex-end', gap: spacing.xs },
   bubbleRowMine: { justifyContent: 'flex-end' },
   bubble: { maxWidth: '80%', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: radius.lg, gap: 2 },
   bubbleMine: { backgroundColor: colors.primary, borderBottomRightRadius: 4 },

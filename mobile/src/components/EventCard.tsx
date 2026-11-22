@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { mediaUrl } from '@/api/client';
 import type { EventListItem } from '@/api/types';
 import { colors, radius, spacing } from '@/theme';
 import { formatDistance, formatEventDate, formatSpots } from '@/utils/format';
@@ -13,15 +14,20 @@ export function EventCard({ event }: { event: EventListItem }) {
     ? new Date(event.endsAt).getTime()
     : new Date(event.startsAt).getTime() + 3 * 60 * 60 * 1000;
   const isPast = effectiveEnd < Date.now();
+  const cover = mediaUrl(event.imageUrl);
 
   return (
     <Pressable
       onPress={() => router.push(`/event/${event.id}`)}
       style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]}
     >
-      <View style={styles.emojiBox}>
-        <Text style={styles.emoji}>{event.categoryEmoji}</Text>
-      </View>
+      {cover ? (
+        <Image source={{ uri: cover }} style={styles.thumb} accessibilityIgnoresInvertColors />
+      ) : (
+        <View style={styles.emojiBox}>
+          <Text style={styles.emoji}>{event.categoryEmoji}</Text>
+        </View>
+      )}
 
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={2}>
@@ -77,6 +83,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emoji: { fontSize: 26 },
+  thumb: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.primaryLight },
   body: { flex: 1, gap: 4 },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   meta: { fontSize: 13, color: colors.muted },
