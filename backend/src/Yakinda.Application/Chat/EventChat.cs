@@ -4,6 +4,7 @@ using MediatR;
 using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Events;
 using Yakinda.Application.Events.Common;
 using Yakinda.Application.Exceptions;
 using Yakinda.Application.Moderation;
