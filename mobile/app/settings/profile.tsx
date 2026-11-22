@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError, errorMessage } from '@/api/client';
 import { mediaApi, profileApi } from '@/api/endpoints';
@@ -20,8 +20,11 @@ export default function EditProfileScreen() {
   const [bio, setBio] = useState('');
   const [errors, setErrors] = useState<{ displayName?: string; bio?: string }>({});
 
+  // Alanlar yalnız ilk yüklemede doldurulur; fotoğraf değişince profil yenilense de yazılanlar kaybolmaz.
+  const filled = useRef(false);
   useEffect(() => {
-    if (!profile.data) return;
+    if (!profile.data || filled.current) return;
+    filled.current = true;
     setDisplayName(profile.data.displayName);
     setBio(profile.data.bio ?? '');
   }, [profile.data]);
