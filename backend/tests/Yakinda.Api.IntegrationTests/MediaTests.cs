@@ -10,6 +10,11 @@ namespace Yakinda.Api.IntegrationTests;
 /// <summary>Görsel biçim tespiti ve meta veri temizliği (veritabanı gerekmez).</summary>
 public sealed class ImageFileTests
 {
+    /// <summary>
+    /// JPEG'deki meta veri temizlenir ama yön bilgisi korunur: konum içeren EXIF bloğu ve yorum bölümü
+    /// çıktıda yoktur; yön etiketi (6) yeniden yazılan küçük EXIF'te durur. Boyut doğru okunur, JFIF başlığı
+    /// yerindedir ve dosya bitiş işaretiyle (FF D9) sona erer.
+    /// </summary>
     [Fact]
     public void Jpeg_metadata_is_removed_but_orientation_is_kept()
     {
@@ -25,6 +30,7 @@ public sealed class ImageFileTests
         Assert.Equal(new byte[] { 0xFF, 0xD9 }, image.Data[^2..]);
     }
 
+    /// <summary>Yönü zaten düz olan (1) JPEG'e hiç EXIF bloğu yazılmaz.</summary>
     [Fact]
     public void Upright_jpeg_gets_no_exif_at_all()
     {
@@ -33,6 +39,10 @@ public sealed class ImageFileTests
         Assert.False(TestImages.Contains(image.Data, "Exif"));
     }
 
+    /// <summary>
+    /// Bitiş işaretinden sonra eklenmiş veri (hareketli fotoğrafın videosu ya da gizlenmiş veri) atılır;
+    /// çıktı tam bitiş işaretinde sona erer.
+    /// </summary>
     [Fact]
     public void Jpeg_data_after_the_end_of_image_is_dropped()
     {
@@ -48,6 +58,10 @@ public sealed class ImageFileTests
         Assert.Equal(new byte[] { 0xFF, 0xD9 }, image.Data[^2..]);
     }
 
+    /// <summary>
+    /// İki tarama arasına sıkıştırılmış EXIF ve yorum bölümleri de temizlenir; taramaların kendi verisi
+    /// (dolgulu FF ve yeniden başlatma işareti dahil) olduğu gibi kalır.
+    /// </summary>
     [Fact]
     public void Jpeg_metadata_between_scans_is_removed_too()
     {
@@ -61,6 +75,7 @@ public sealed class ImageFileTests
         Assert.True(TestImages.Contains(image.Data, [0xFF, 0x00, 0xFF, 0xD0, 7, 7, 7]));
     }
 
+    /// <summary>Bitiş işareti olmayan (sonu kesilmiş) JPEG kabul edilmez.</summary>
     [Fact]
     public void Jpeg_without_an_end_marker_is_rejected()
     {
@@ -68,6 +83,10 @@ public sealed class ImageFileTests
         Assert.Null(ImageFile.TryRead(jpeg[..^2]));
     }
 
+    /// <summary>
+    /// PNG'deki metin parçası (tEXt) silinir; boyut doğru okunur, görüntü verisi (IDAT) ve bitiş parçası
+    /// (IEND) yerinde kalır.
+    /// </summary>
     [Fact]
     public void Png_text_chunks_are_removed()
     {
@@ -80,6 +99,10 @@ public sealed class ImageFileTests
         Assert.True(TestImages.Contains(image.Data, "IEND"));
     }
 
+    /// <summary>
+    /// WebP'deki EXIF ve XMP parçaları silinir, başlıktaki "EXIF var / XMP var" bayrakları kapatılır ve
+    /// RIFF başlığındaki dosya boyutu yeni uzunluğa göre düzeltilir.
+    /// </summary>
     [Fact]
     public void WebP_exif_and_xmp_are_removed_and_flags_cleared()
     {
@@ -92,6 +115,10 @@ public sealed class ImageFileTests
         Assert.Equal(image.Data.Length - 8, (int)BinaryPrimitives.ReadUInt32LittleEndian(image.Data.AsSpan(4)));
     }
 
+    /// <summary>
+    /// Görsel olmayan ya da sınırı aşan girdiler reddedilir: boş veri, HTML metni, tarama başlamadan
+    /// kesilmiş JPEG, 9000 x 9000 piksellik PNG ve izin verilen bayt sınırından büyük dosya.
+    /// </summary>
     [Fact]
     public void Invalid_or_oversized_images_are_rejected()
     {
@@ -109,6 +136,11 @@ public sealed class ImageFileTests
 [Collection(ApiCollection.Name)]
 public sealed class MediaTests(ApiFixture api)
 {
+    /// <summary>
+    /// Profil fotoğrafının yaşam döngüsü: yüklenen dosya rastgele adlı bir adresten oturumsuz, doğru türle
+    /// ve "değişmez" (immutable) önbellek başlığıyla sunulur; içinde konum verisi yoktur. Yeni fotoğraf yüklenince
+    /// eskisi diskten silinir; fotoğraf kaldırılınca profildeki adres boşalır ve dosya 404 döner.
+    /// </summary>
     [Fact]
     public async Task Avatar_upload_replace_and_delete()
     {
@@ -136,6 +168,10 @@ public sealed class MediaTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.NotFound, (await anonymous.GetAsync(second)).StatusCode);
     }
 
+    /// <summary>
+    /// Görsel olmayan yüklemeler 400 alır: türü image/jpeg diye bildirilmiş metin içerik (validation_failed),
+    /// dosyasız form ve JSON gövde.
+    /// </summary>
     [Fact]
     public async Task Non_images_are_rejected()
     {
@@ -152,6 +188,11 @@ public sealed class MediaTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.BadRequest, json.StatusCode);
     }
 
+    /// <summary>
+    /// Kapak görselini yalnızca organizatör yükleyebilir (başkası 403 event.not_organizer). Yüklenen adres
+    /// etkinlik detayında, organizatörün etkinlik listesinde ve paylaşım sayfasının önizleme etiketinde
+    /// görünür; görsel kaldırılınca detaydaki adres boşalır.
+    /// </summary>
     [Fact]
     public async Task Only_the_organizer_sets_the_event_image_and_it_shows_everywhere()
     {
@@ -180,6 +221,10 @@ public sealed class MediaTests(ApiFixture api)
         Assert.Null((await (await other.Client.GetAsync($"/api/events/{eventId}")).ReadJsonAsync(HttpStatusCode.OK))["imageUrl"]);
     }
 
+    /// <summary>
+    /// Görünen ad ve tanıtım yazısı güncellenebilir; yazının başındaki ve sonundaki boşluklar atılır.
+    /// Küfür içeren yazı içerik filtresine takılır ve 400 döner.
+    /// </summary>
     [Fact]
     public async Task Profile_can_be_edited_and_is_filtered()
     {
@@ -195,6 +240,10 @@ public sealed class MediaTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
     }
 
+    /// <summary>
+    /// Şikayet edilen profil için yönetici "içeriği kaldır" kararı verince fotoğraf ve tanıtım yazısı
+    /// profilden silinir, fotoğraf dosyası da artık sunulmaz (404).
+    /// </summary>
     [Fact]
     public async Task Moderators_remove_a_reported_profile_photo()
     {
@@ -219,6 +268,7 @@ public sealed class MediaTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.NotFound, (await api.Factory.CreateClient().GetAsync(avatar)).StatusCode);
     }
 
+    /// <summary>Hesap silinince profil fotoğrafının dosyası da silinir (404).</summary>
     [Fact]
     public async Task Deleting_the_account_deletes_the_photo()
     {
@@ -232,6 +282,9 @@ public sealed class MediaTests(ApiFixture api)
 
     // ------------------------------------------------------------------ yardımcılar
 
+    /// <summary>
+    /// Verilen baytları "file" alanında, istenen içerik türü ve dosya adıyla taşıyan çok parçalı form üretir.
+    /// </summary>
     private static MultipartFormDataContent Form(byte[] data, string contentType, string fileName)
     {
         var file = new ByteArrayContent(data);
@@ -239,12 +292,17 @@ public sealed class MediaTests(ApiFixture api)
         return new MultipartFormDataContent { { file, "file", fileName } };
     }
 
+    /// <summary>
+    /// Kullanıcı adına profil fotoğrafı yükler (200 bekler) ve dosyanın adresini döner. Tür hep image/jpeg
+    /// diye bildirilir; sunucu gerçek biçimi içerikten anlar.
+    /// </summary>
     private static async Task<string> UploadAvatar(TestUser user, byte[] data)
     {
         var json = await (await user.Client.PutAsync("/api/users/me/avatar", Form(data, "image/jpeg", "foto.jpg"))).ReadJsonAsync(HttpStatusCode.OK);
         return json["url"]!.GetValue<string>();
     }
 
+    /// <summary>Kullanıcının kendi profilindeki fotoğraf adresini döner (yoksa null).</summary>
     private static async Task<string?> AvatarOf(TestUser user) =>
         (await (await user.Client.GetAsync("/api/users/me")).ReadJsonAsync(HttpStatusCode.OK))["avatarUrl"]?.GetValue<string>();
 }
@@ -257,10 +315,17 @@ internal static class TestImages
 {
     public const string Secret = "GPS-41.0082N-28.9784E";
 
+    /// <summary>Baytların içinde verilen ASCII metin geçiyor mu?</summary>
     public static bool Contains(byte[] data, string text) => Contains(data, Encoding.ASCII.GetBytes(text));
 
+    /// <summary>Baytların içinde verilen bayt dizisi geçiyor mu?</summary>
     public static bool Contains(byte[] data, byte[] part) => data.AsSpan().IndexOf(part) >= 0;
 
+    /// <summary>
+    /// Elle kurulmuş küçük bir JPEG: başlangıç işareti, JFIF başlığı, EXIF bloğu (yön etiketi ve "konum"
+    /// verisi), yorum bölümü, verilen boyutları taşıyan çerçeve başlığı ve sahte veriyle bir tarama.
+    /// metadataBetweenScans true ise araya EXIF ve yorum sıkıştırılmış ikinci bir tarama eklenir.
+    /// </summary>
     public static byte[] Jpeg(int width = 640, int height = 480, ushort orientation = 6, bool metadataBetweenScans = false)
     {
         var o = new MemoryStream();
@@ -296,6 +361,9 @@ internal static class TestImages
         return o.ToArray();
     }
 
+    /// <summary>
+    /// Elle kurulmuş küçük bir PNG: imza, boyutları taşıyan IHDR, gizli veriyi taşıyan tEXt, IDAT ve IEND.
+    /// </summary>
     public static byte[] Png(int width, int height)
     {
         var o = new MemoryStream();
@@ -306,6 +374,7 @@ internal static class TestImages
         Chunk(o, "IEND", []);
         return o.ToArray();
 
+        // PNG parçası yazar: uzunluk (4 bayt, büyük uçlu), tür, veri ve sıfırlarla doldurulmuş CRC.
         static void Chunk(Stream s, string type, byte[] data)
         {
             s.Write(Be32(data.Length));
@@ -315,6 +384,10 @@ internal static class TestImages
         }
     }
 
+    /// <summary>
+    /// Elle kurulmuş küçük bir WebP: RIFF kabı, EXIF ve XMP bayrakları açık VP8X başlığı, boyutları taşıyan
+    /// VP8L başlığı ve gizli veriyi taşıyan EXIF ile XMP parçaları.
+    /// </summary>
     public static byte[] WebP(int width, int height)
     {
         var body = new MemoryStream();
@@ -331,6 +404,7 @@ internal static class TestImages
         o.Write(body.ToArray());
         return o.ToArray();
 
+        // RIFF parçası yazar: dört harfli tür, uzunluk (4 bayt, küçük uçlu), veri; uzunluk tekse bir dolgu baytı.
         static void Chunk(Stream s, string fourCc, byte[] data)
         {
             s.Write(Encoding.ASCII.GetBytes(fourCc));
@@ -341,6 +415,9 @@ internal static class TestImages
         }
     }
 
+    /// <summary>
+    /// JPEG bölümü yazar: FF ve işaret baytı, iki baytlık uzunluk (uzunluk alanı dahil), ardından içerik.
+    /// </summary>
     private static void Segment(Stream s, byte marker, byte[] payload)
     {
         s.Write([0xFF, marker]);
@@ -348,9 +425,14 @@ internal static class TestImages
         s.Write(payload);
     }
 
+    /// <summary>Sayıyı 2 bayta çevirir, küçük uçlu (düşük bayt önce).</summary>
     private static byte[] Le16(int v) => [(byte)v, (byte)(v >> 8)];
+    /// <summary>Sayıyı 3 bayta çevirir, küçük uçlu.</summary>
     private static byte[] Le24(int v) => [(byte)v, (byte)(v >> 8), (byte)(v >> 16)];
+    /// <summary>Sayıyı 4 bayta çevirir, küçük uçlu.</summary>
     private static byte[] Le32(int v) => [(byte)v, (byte)(v >> 8), (byte)(v >> 16), (byte)(v >> 24)];
+    /// <summary>Sayıyı 2 bayta çevirir, büyük uçlu (yüksek bayt önce).</summary>
     private static byte[] Be16(int v) => [(byte)(v >> 8), (byte)v];
+    /// <summary>Sayıyı 4 bayta çevirir, büyük uçlu.</summary>
     private static byte[] Be32(int v) => [(byte)(v >> 24), (byte)(v >> 16), (byte)(v >> 8), (byte)v];
 }

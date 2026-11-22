@@ -13,6 +13,10 @@ internal sealed class ChatRepository(DbSession session) : RepositoryBase(session
             VALUES (@Id, @EventId, @AuthorId, @Body, @Now)
             """, new { Id = id, EventId = eventId, AuthorId = authorId, Body = body, Now = nowUtc }, cancellationToken);
 
+    /// <summary>
+    /// Mesajın hangi etkinliğe ait olduğunu ve yazarını okur; mesaj yoksa null döner. Silme isteğinde
+    /// yetki kontrolü (yazar mı, organizatör mü) bu bilgiyle yapılır.
+    /// </summary>
     public async Task<(Guid EventId, Guid AuthorId)?> GetOwnershipAsync(Guid messageId, CancellationToken cancellationToken)
     {
         var row = await QuerySingleOrDefaultAsync<MessageOwnership>(

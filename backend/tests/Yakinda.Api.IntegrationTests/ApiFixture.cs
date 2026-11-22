@@ -41,6 +41,11 @@ public sealed class ApiFixture : IAsyncLifetime
     /// <summary>Testlerde yüklenen görsellerin yazıldığı geçici klasör.</summary>
     public string MediaRoot { get; } = Path.Combine(Path.GetTempPath(), "yakinda-media-" + Guid.NewGuid().ToString("N"));
 
+    /// <summary>
+    /// Testlerden önce bir kez çalışır: PostGIS konteynerini başlatır, API ayarlarını ortam değişkeni
+    /// olarak verir (Redis yok, hız sınırı, zamanlayıcı ve push kapalı, görseller geçici klasöre) ve
+    /// API'yi bellekte ayağa kaldırır; migration'lar bu sırada uygulanır.
+    /// </summary>
     public async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
@@ -70,6 +75,9 @@ public sealed class ApiFixture : IAsyncLifetime
                 builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(overrides));
         });
 
+    /// <summary>
+    /// Testlerden sonra bir kez çalışır: API'yi ve konteyneri kapatır, geçici görsel klasörünü siler.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         await Factory.DisposeAsync();
@@ -78,10 +86,15 @@ public sealed class ApiFixture : IAsyncLifetime
             Directory.Delete(MediaRoot, recursive: true);
     }
 
+    /// <summary>Ortam değişkeni atar (ayar adındaki iki alt çizgi, yapılandırmadaki bölüm ayracıdır).</summary>
     private static void Set(string key, string value) => Environment.SetEnvironmentVariable(key, value);
 
     // ------------------------------------------------------------------ yardımcılar
 
+    /// <summary>
+    /// Rastgele e-postayla yeni bir kullanıcı kaydeder ve dönen access token'ı istemcinin Authorization
+    /// başlığına koyar; böylece bu istemciyle yapılan sonraki istekler o kullanıcı adına gider.
+    /// </summary>
     public async Task<TestUser> RegisterAsync(string displayName = "Test Kullanıcı", HttpClient? client = null)
     {
         client ??= Factory.CreateClient();
@@ -111,6 +124,10 @@ public sealed class ApiFixture : IAsyncLifetime
         await command.ExecuteNonQueryAsync();
     }
 
+    /// <summary>
+    /// Veritabanında tek değer dönen bir sorgu çalıştırır (ör. satır sayısı); testler API'nin arkasında
+    /// gerçekte ne kaydedildiğini bununla doğrular. Parametreler anonim nesnenin alanlarından alınır.
+    /// </summary>
     public async Task<T> ScalarAsync<T>(string sql, object? parameters = null)
     {
         await using var connection = new NpgsqlConnection(ConnectionString);
@@ -144,6 +161,7 @@ public static class TestExtensions
         return string.IsNullOrEmpty(body) ? new JsonObject() : JsonNode.Parse(body)!;
     }
 
+    /// <summary>Yalnızca durum kodunu doğrular; gövdeyle ilgilenmeyen testler için kısa yol.</summary>
     public static async Task ExpectAsync(this HttpResponseMessage response, HttpStatusCode expected) =>
         await response.ReadJsonAsync(expected);
 
@@ -151,6 +169,10 @@ public static class TestExtensions
     public static async Task<string?> ProblemCodeAsync(this HttpResponseMessage response, HttpStatusCode expected) =>
         (await response.ReadJsonAsync(expected))["code"]?.GetValue<string>();
 
+    /// <summary>
+    /// Kullanıcı adına API üzerinden bir etkinlik oluşturur ve kimliğini döner. Varsayılanlar: yarın
+    /// başlar, İstanbul'dadır, kontenjansız ve herkese açıktır; testler gerekeni parametreyle değiştirir.
+    /// </summary>
     public static async Task<Guid> CreateEventAsync(
         this TestUser organizer,
         string title = "Test etkinliği",
@@ -179,21 +201,27 @@ public static class TestExtensions
         return Guid.Parse(json["id"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// Kullanıcı adına etkinliğe katılma isteği gönderir; yanıtı olduğu gibi döner (durum kodunu test denetler).
+    /// </summary>
     public static Task<HttpResponseMessage> JoinAsync(this TestUser user, Guid eventId) =>
         user.Client.PostAsync($"/api/events/{eventId}/join", null);
 
+    /// <summary>Kullanıcının bildirim listesinin ilk sayfasını döner (en yeni önce).</summary>
     public static async Task<JsonArray> NotificationsAsync(this TestUser user)
     {
         var json = await (await user.Client.GetAsync("/api/notifications")).ReadJsonAsync(HttpStatusCode.OK);
         return json["items"]!.AsArray();
     }
 
+    /// <summary>Kullanıcının okunmamış bildirim sayısını döner.</summary>
     public static async Task<int> UnreadCountAsync(this TestUser user)
     {
         var json = await (await user.Client.GetAsync("/api/notifications/unread-count")).ReadJsonAsync(HttpStatusCode.OK);
         return json["count"]!.GetValue<int>();
     }
 
+    /// <summary>Bildirim listesinden yalnızca tür adlarını çıkarır (ör. JoinRequested, EventCancelled).</summary>
     public static IEnumerable<string> Types(this JsonArray notifications) =>
         notifications.Select(n => n!["type"]!.GetValue<string>());
 }
@@ -202,6 +230,7 @@ public sealed class CapturingEmailSender : IEmailSender
 {
     private readonly List<EmailMessage> _messages = [];
 
+    /// <summary>E-postayı göndermek yerine bellekteki listeye ekler; testler içeriğini buradan okur.</summary>
     public Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         lock (_messages)
@@ -209,6 +238,9 @@ public sealed class CapturingEmailSender : IEmailSender
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Verilen adrese gönderilmiş e-postaları, gönderilme sırasıyla döner (büyük/küçük harf ayrımı yapılmaz).
+    /// </summary>
     public IReadOnlyList<EmailMessage> To(string address)
     {
         lock (_messages)
