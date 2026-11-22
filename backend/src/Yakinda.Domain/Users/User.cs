@@ -4,6 +4,7 @@ public sealed class User
 {
     /// <summary>
     /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// Uygulama kodu kullanıcıyı Register ile oluşturur.
     /// </summary>
     private User() { }
 

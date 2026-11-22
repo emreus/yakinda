@@ -9,7 +9,10 @@ import { useNearbyFilters } from '@/state/NearbyFilters';
 import { colors, radius, spacing } from '@/theme';
 import { formatEventDate, formatSpots } from '@/utils/format';
 
-/** Yarıçapın tamamı ekrana sığacak kadar zoom. */
+/**
+ * Haritada gösterilecek bölgeyi hesaplar: merkez verilen noktadır, yükseklik yarıçapın tamamı ekrana
+ * sığacak kadardır (çapın 1,2 katı); boylam açıklığı enleme göre düzeltilir.
+ */
 function regionFor(center: Coords, radiusKm: number): Region {
   const latitudeDelta = (radiusKm / 111) * 2.4;
   const longitudeDelta = latitudeDelta / Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180));

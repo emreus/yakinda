@@ -17,7 +17,10 @@ export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID.test(value);
 }
 
-/** Tek bir adres parçası olarak güvenle eklenebilecek hâli. */
+/**
+ * Değeri adrese tek bir yol parçası olarak güvenle eklenecek hâle getirir: özel karakterleri kodlar;
+ * ".", ".." ve boş değeri hiçbir kayda karşılık gelmeyen "-" ile değiştirir.
+ */
 export function seg(value: string): string {
   const encoded = encodeURIComponent(String(value));
   // "." ve ".." kodlanamaz ve adres çözümlenirken üst klasöre çıkar; boş değer ise parçayı yutar.

@@ -25,7 +25,10 @@ export function StarRating({ value, onChange, size = 28 }: StarRatingProps) {
   );
 }
 
-/** "★ 4,6 (23)" ya da puan yoksa "Yeni" */
+/**
+ * Puan rozeti: ortalamayı ve oy sayısını "★ 4,6 (23)" biçiminde yazar; puan yoksa emptyLabel metnini
+ * (varsayılan "Yeni") gösterir.
+ */
 export function RatingBadge({ value, count, emptyLabel = 'Yeni' }: { value: number | null; count: number; emptyLabel?: string }) {
   if (value == null || count === 0) {
     return <Text style={styles.empty}>{emptyLabel}</Text>;

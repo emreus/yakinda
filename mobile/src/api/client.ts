@@ -56,7 +56,10 @@ function defaultMessage(status: number): string {
   return 'Bir hata oluştu.';
 }
 
-/** Kullanıcıya gösterilecek hata metni. */
+/**
+ * Kullanıcıya gösterilecek hata metni: ApiError ya da başka bir Error ise kendi mesajı, tanınmayan
+ * bir değerse genel "Bir hata oluştu." metni.
+ */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
