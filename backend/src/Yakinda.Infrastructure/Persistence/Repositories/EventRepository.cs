@@ -13,18 +13,27 @@ internal sealed class EventRepository(DbSession session) : RepositoryBase(sessio
         rating_sum, rating_count, created_at, updated_at
         """;
 
+    /// <summary>
+    /// Etkinliği FOR UPDATE ile okur: satır, transaction bitene kadar kilitlenir ve aynı etkinliğe gelen
+    /// diğer yazma istekleri sırada bekler. Konum, PostGIS noktasından enlem ve boylama çevrilir.
+    /// </summary>
     public Task<Event?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken) =>
         QuerySingleOrDefaultAsync<Event>(
             $"SELECT {SelectColumns} FROM events WHERE id = @Id FOR UPDATE",
             new { Id = id },
             cancellationToken);
 
+    /// <summary>Etkinliği kilitsiz okur (etkinliği değiştirmeyen işlemler için); yoksa null döner.</summary>
     public Task<Event?> GetAsync(Guid id, CancellationToken cancellationToken) =>
         QuerySingleOrDefaultAsync<Event>(
             $"SELECT {SelectColumns} FROM events WHERE id = @Id",
             new { Id = id },
             cancellationToken);
 
+    /// <summary>
+    /// Etkinliği ekler. Enlem ve boylam, PostGIS'in geography noktasına çevrilerek yazılır
+    /// (ST_MakePoint önce boylamı, sonra enlemi alır).
+    /// </summary>
     public Task AddAsync(Event ev, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO events (
@@ -38,6 +47,10 @@ internal sealed class EventRepository(DbSession session) : RepositoryBase(sessio
                 @ParticipantCount, @RatingSum, @RatingCount, @CreatedAt, @UpdatedAt)
             """, ev, cancellationToken);
 
+    /// <summary>
+    /// Etkinliğin değişebilen bütün alanlarını tek UPDATE ile yazar: kategori, başlık, açıklama, zamanlar,
+    /// konum, mekan, adres, kontenjan, durum, katılımcı sayısı, puan toplamları ve son değişiklik zamanı.
+    /// </summary>
     public Task UpdateAsync(Event ev, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             UPDATE events
@@ -58,18 +71,24 @@ internal sealed class EventRepository(DbSession session) : RepositoryBase(sessio
              WHERE id = @Id
             """, ev, cancellationToken);
 
+    /// <summary>
+    /// Hatırlatma ve puanlama bildirimi işaretlerini boşaltır; etkinliğin saati değişince bildirimler yeni
+    /// saate göre yeniden üretilir.
+    /// </summary>
     public Task ResetScheduledNotificationsAsync(Guid eventId, CancellationToken cancellationToken) =>
         ExecuteAsync(
             "UPDATE events SET reminder_sent_at = NULL, rating_prompt_sent_at = NULL WHERE id = @Id",
             new { Id = eventId },
             cancellationToken);
 
+    /// <summary>SELECT EXISTS ile kategorinin var olup olmadığına bakar.</summary>
     public async Task<bool> CategoryExistsAsync(short categoryId, CancellationToken cancellationToken) =>
         await ExecuteScalarAsync<bool>(
             "SELECT EXISTS (SELECT 1 FROM categories WHERE id = @Id)",
             new { Id = categoryId },
             cancellationToken);
 
+    /// <summary>Organizatörün aktif (status = 0) ve henüz başlamamış etkinliklerinin kimliklerini döner.</summary>
     public Task<IReadOnlyList<Guid>> GetUpcomingActiveIdsByOrganizerAsync(Guid organizerId, DateTime nowUtc, CancellationToken cancellationToken) =>
         QueryAsync<Guid>(
             "SELECT id FROM events WHERE organizer_id = @OrganizerId AND status = 0 AND starts_at > @Now",

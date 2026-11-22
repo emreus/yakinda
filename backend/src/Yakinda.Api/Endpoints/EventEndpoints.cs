@@ -32,6 +32,10 @@ public sealed record UpdateEventRequest(
 
 public static class EventEndpoints
 {
+    /// <summary>
+    /// Etkinlik uçlarını /api/events altına bağlar; hepsi giriş gerektirir. Her uç isteği bir command ya da
+    /// query nesnesine çevirip MediatR'a gönderir.
+    /// </summary>
     public static RouteGroupBuilder MapEventEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/events").WithTags("Events").RequireAuthorization();
@@ -40,6 +44,7 @@ public static class EventEndpoints
         group.MapPut("/{id:guid}/image", async (Guid id, HttpRequest request, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new SetEventImageCommand(id, await request.ReadImageUploadAsync(ct)), ct)));
 
+        // DELETE /api/events/{id}/image: kapak görselini kaldırır (yalnızca organizatör).
         group.MapDelete("/{id:guid}/image", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new DeleteEventImageCommand(id), ct);
@@ -83,9 +88,11 @@ public static class EventEndpoints
             return Results.Ok(await sender.Send(query, ct));
         });
 
+        // GET /api/events/{id}: etkinlik detayı; isteği yapana özel durum ve yetki bayraklarıyla.
         group.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetEventDetailQuery(id), ct)));
 
+        // POST /api/events: etkinlik oluşturur; 201 ve yeni etkinliğin kimliğini döner.
         group.MapPost("/", async (CreateEventCommand command, ISender sender, CancellationToken ct) =>
         {
             var id = await sender.Send(command, ct);
@@ -101,6 +108,7 @@ public static class EventEndpoints
             return Results.NoContent();
         });
 
+        // POST /api/events/{id}/cancel: etkinliği iptal eder (yalnızca organizatör).
         group.MapPost("/{id:guid}/cancel", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new CancelEventCommand(id), ct);
@@ -111,21 +119,26 @@ public static class EventEndpoints
         group.MapPost("/{id:guid}/join", async (Guid id, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new JoinEventCommand(id), ct)));
 
+        // POST /api/events/{id}/leave: etkinlikten ya da bekleme listesinden ayrılır.
         group.MapPost("/{id:guid}/leave", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new LeaveEventCommand(id), ct);
             return Results.NoContent();
         });
 
+        // GET /api/events/{id}/participants: onaylı katılımcılar; organizatöre ayrıca bekleyen istekler.
         group.MapGet("/{id:guid}/participants", async (Guid id, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetEventParticipantsQuery(id), ct)));
 
+        // POST /api/events/{id}/participants/{userId}/approve: organizatör katılım isteğini onaylar.
         group.MapPost("/{id:guid}/participants/{userId:guid}/approve", async (Guid id, Guid userId, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new ReviewParticipantCommand(id, userId, Approve: true), ct);
             return Results.NoContent();
         });
 
+        // POST /api/events/{id}/participants/{userId}/reject: organizatör isteği reddeder ya da onaylı
+        // katılımcıyı çıkarır.
         group.MapPost("/{id:guid}/participants/{userId:guid}/reject", async (Guid id, Guid userId, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new ReviewParticipantCommand(id, userId, Approve: false), ct);
@@ -136,6 +149,8 @@ public static class EventEndpoints
         group.MapPut("/{id:guid}/rating", async (Guid id, RateEventRequest body, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new RateEventCommand(id, body.Score, body.Comment), ct)));
 
+        // GET /api/events/{id}/ratings: puan ve yorumlar, sayfalı. Sonuç cache'lendiği için önce görünürlük
+        // (etkinlik var mı, engel var mı) ayrı bir sorguyla denetlenir.
         group.MapGet("/{id:guid}/ratings", async (Guid id, int? page, int? pageSize, ISender sender, CancellationToken ct) =>
         {
             // Yorumlar cache'lenir; etkinlik var mı ve organizatörle aramızda engel var mı kontrolü her istekte yapılır.

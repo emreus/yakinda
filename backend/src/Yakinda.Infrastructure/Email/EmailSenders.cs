@@ -31,6 +31,11 @@ public sealed class EmailOptions
 /// </summary>
 internal sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<SmtpEmailSender> logger) : IEmailSender
 {
+    /// <summary>
+    /// E-postayı SMTP ile gönderir. Gönderen ve alıcı adreslerini kurar; HTML gövde varsa düz metni
+    /// alternatif görünüm olarak ekler. Sunucu, port, şifreleme ve kullanıcı bilgisi ayarlardan gelir.
+    /// Gönderimden sonra yalnızca alıcıyı loglar.
+    /// </summary>
     public async Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         var settings = options.Value;
@@ -63,6 +68,10 @@ internal sealed class SmtpEmailSender(IOptions<EmailOptions> options, ILogger<Sm
 /// <summary>SMTP ayarlanmamışsa: e-postayı göndermek yerine loga yazar (kod konsolda görünür).</summary>
 internal sealed class LoggingEmailSender(ILogger<LoggingEmailSender> logger) : IEmailSender
 {
+    /// <summary>
+    /// E-postayı göndermez; alıcıyı, konuyu ve düz metin gövdeyi uyarı olarak loga yazar (SMTP ayarlanmamış
+    /// geliştirme ortamı için).
+    /// </summary>
     public Task SendAsync(EmailMessage message, CancellationToken cancellationToken)
     {
         logger.LogWarning(

@@ -7,6 +7,10 @@ namespace Yakinda.Infrastructure.Persistence.Repositories;
 
 internal sealed class NotificationRepository(DbSession session) : RepositoryBase(session), INotificationRepository
 {
+    /// <summary>
+    /// Tek kullanıcıya bildirim satırı ekler. push_processed_at boş bırakılır; PushDispatcher satırı buradan
+    /// bulup telefona gönderir.
+    /// </summary>
     public Task AddAsync(
         Guid userId,
         NotificationContent content,
@@ -31,6 +35,10 @@ internal sealed class NotificationRepository(DbSession session) : RepositoryBase
             },
             cancellationToken);
 
+    /// <summary>
+    /// Tek INSERT ... SELECT ile etkinliğin verilen durumlardaki bütün katılımcılarına aynı bildirimi ekler;
+    /// eklenen satır sayısını döner.
+    /// </summary>
     public Task<int> AddForParticipantsAsync(
         Guid eventId,
         IReadOnlyCollection<ParticipantStatus> statuses,
@@ -57,6 +65,10 @@ internal sealed class NotificationRepository(DbSession session) : RepositoryBase
             },
             cancellationToken);
 
+    /// <summary>
+    /// Bildirimi okundu yapar (zaten okunduysa okunma zamanı değişmez). Satır yoksa ya da başka kullanıcıya
+    /// aitse false döner.
+    /// </summary>
     public async Task<bool> MarkReadAsync(Guid id, Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
         await ExecuteAsync("""
             UPDATE notifications
@@ -64,6 +76,9 @@ internal sealed class NotificationRepository(DbSession session) : RepositoryBase
              WHERE id = @Id AND user_id = @UserId
             """, new { Id = id, UserId = userId, Now = nowUtc }, cancellationToken) > 0;
 
+    /// <summary>
+    /// Aynı alıcı, tür, etkinlik ve aktör için verilen andan sonra üretilmiş bir bildirim var mı?
+    /// </summary>
     public Task<bool> ExistsSinceAsync(
         Guid userId, NotificationType type, Guid eventId, Guid actorId, DateTime sinceUtc, CancellationToken cancellationToken) =>
         ExecuteScalarAsync<bool>("""
@@ -74,6 +89,7 @@ internal sealed class NotificationRepository(DbSession session) : RepositoryBase
             new { UserId = userId, EventId = eventId, ActorId = actorId, Type = (short)type, Since = sinceUtc },
             cancellationToken);
 
+    /// <summary>Kullanıcının okunmamış bütün bildirimlerini okundu yapar.</summary>
     public Task MarkAllReadAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             UPDATE notifications
@@ -87,6 +103,10 @@ internal sealed class DeviceTokenRepository(DbSession session) : RepositoryBase(
     /// <summary>Bir hesap sınırsız token kaydedip push kuyruğunu şişiremesin.</summary>
     private const int MaxPerUser = 10;
 
+    /// <summary>
+    /// Token'ı ekler; token zaten kayıtlıysa sahibini, platformunu ve son görülme zamanını günceller. Ardından
+    /// kullanıcının en son görülen 10 cihazı dışındaki token'larını siler.
+    /// </summary>
     public Task UpsertAsync(string token, Guid userId, string platform, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO device_push_tokens (token, user_id, platform, created_at, last_seen_at)
@@ -105,6 +125,7 @@ internal sealed class DeviceTokenRepository(DbSession session) : RepositoryBase(
                                   LIMIT @MaxPerUser);
             """, new { Token = token, UserId = userId, Platform = platform, Now = nowUtc, MaxPerUser }, cancellationToken);
 
+    /// <summary>Token'ı siler; yalnızca token bu kullanıcıya kayıtlıysa.</summary>
     public Task DeleteAsync(string token, Guid userId, CancellationToken cancellationToken) =>
         ExecuteAsync(
             "DELETE FROM device_push_tokens WHERE token = @Token AND user_id = @UserId",

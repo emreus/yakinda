@@ -23,6 +23,10 @@ internal sealed class ScheduledNotificationService(
     private static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
     private const int BatchSize = 200;
 
+    /// <summary>
+    /// Servisin ana döngüsü: açılışta bir kez, sonra dakikada bir RunOnceAsync çalıştırır. Bir turdaki hata
+    /// loglanır ve döngü sürer; uygulama kapanırken döngüden çıkılır.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         using var timer = new PeriodicTimer(Interval, timeProvider);
@@ -66,6 +70,11 @@ internal sealed class ScheduledNotificationService(
         }
     }
 
+    /// <summary>
+    /// Başlamasına 1 saatten az kalan, aktif ve hatırlatması henüz gönderilmemiş etkinlikleri (en fazla 200)
+    /// FOR UPDATE SKIP LOCKED ile seçer, reminder_sent_at alanını doldurur ve onaylı katılımcılarla
+    /// organizatöre hatırlatma bildirimi ekler. Üretilen bildirim sayısını döner.
+    /// </summary>
     private static async Task<int> CreateRemindersAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,
@@ -127,6 +136,11 @@ internal sealed class ScheduledNotificationService(
         return created;
     }
 
+    /// <summary>
+    /// Bitmiş, oylama penceresi hâlâ açık ve puanlama bildirimi henüz gönderilmemiş etkinlikleri (en fazla
+    /// 200) seçer, rating_prompt_sent_at alanını doldurur ve henüz oy vermemiş onaylı katılımcılara "puanla"
+    /// bildirimi ekler. Üretilen bildirim sayısını döner.
+    /// </summary>
     private static async Task<int> CreateRatingPromptsAsync(
         NpgsqlConnection connection,
         NpgsqlTransaction transaction,

@@ -14,10 +14,12 @@ public sealed record UpdateProfileRequest(string DisplayName, string? Bio);
 
 public static class UserEndpoints
 {
+    /// <summary>Kullanıcı uçlarını /api/users altına bağlar; hepsi giriş gerektirir.</summary>
     public static RouteGroupBuilder MapUserEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/users").WithTags("Users").RequireAuthorization();
 
+        // GET /api/users/me: isteği yapanın kendi profili.
         group.MapGet("/me", async (ICurrentUser currentUser, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetUserProfileQuery(currentUser.RequireUserId()), ct)));
 
@@ -32,6 +34,7 @@ public static class UserEndpoints
         group.MapPut("/me/avatar", async (HttpRequest request, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new SetMyAvatarCommand(await request.ReadImageUploadAsync(ct)), ct)));
 
+        // DELETE /api/users/me/avatar: profil fotoğrafını kaldırır.
         group.MapDelete("/me/avatar", async (ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new DeleteMyAvatarCommand(), ct);
@@ -48,6 +51,8 @@ public static class UserEndpoints
             return Results.Ok(await sender.Send(new GetMyEventsQuery(parsedRole, includePast ?? true), ct));
         });
 
+        // GET /api/users/{id}: başka bir kullanıcının profili. Profil cache'lendiği için engel önce ayrı bir
+        // sorguyla denetlenir; engel varsa 404 döner.
         group.MapGet("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             // Profil cache'lenir; engel kontrolü cache'in dışında, her istekte yapılır.
@@ -64,12 +69,14 @@ public static class UserEndpoints
             return Results.NoContent();
         });
 
+        // DELETE /api/users/{id}/block: engeli kaldırır.
         group.MapDelete("/{id:guid}/block", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new UnblockUserCommand(id), ct);
             return Results.NoContent();
         });
 
+        // GET /api/users/me/blocks: engellediğim kullanıcılar.
         group.MapGet("/me/blocks", async (ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetMyBlocksQuery(), ct)));
 

@@ -48,6 +48,11 @@ public static class RateLimitingSetup
 {
     public const string AuthPolicy = "auth";
 
+    /// <summary>
+    /// İstek sınırlarını kurar. Ayarları bağlar; sınır aşıldığında 429 ile birlikte Retry-After başlığı ve
+    /// ProblemDetails gövdesi dönecek şekilde yanıtı ayarlar; kimlik uçları için IP başına "auth" politikasını
+    /// ve bütün isteklere uygulanan genel sınırı (toplam istek ve yazma istekleri zinciri) ekler.
+    /// </summary>
     public static IServiceCollection AddAppRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
         // Ayarlar istek anında okunur; testler ve ortam değişkenleri sonradan değiştirebilir.
@@ -98,6 +103,10 @@ public static class RateLimitingSetup
         return services;
     }
 
+    /// <summary>
+    /// Genel sınırın ilk halkası: giriş yapmış kullanıcıyı kimliğine göre, anonim isteği IP adresine göre
+    /// sayar. Sınırlama kapalıysa sayaç tutmaz.
+    /// </summary>
     private static RateLimitPartition<string> AllRequests(HttpContext context)
     {
         var options = context.RequestServices.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
@@ -110,6 +119,10 @@ public static class RateLimitingSetup
             : FixedWindow("ip:" + (context.Connection.RemoteIpAddress?.ToString() ?? "unknown"), options.AnonymousPermitLimit, options.UserWindowSeconds);
     }
 
+    /// <summary>
+    /// Genel sınırın ikinci halkası: giriş yapmış kullanıcının GET, HEAD ve OPTIONS dışındaki (veri
+    /// değiştiren) isteklerini sayar. Okuma istekleri ve anonim istekler bu sayaca girmez.
+    /// </summary>
     private static RateLimitPartition<string> UserWrites(HttpContext context)
     {
         var options = context.RequestServices.GetRequiredService<IOptions<RateLimitingOptions>>().Value;
@@ -122,6 +135,10 @@ public static class RateLimitingSetup
             : RateLimitPartition.GetNoLimiter("not-limited");
     }
 
+    /// <summary>
+    /// Verilen anahtar için sabit pencereli bir sayaç tanımlar: pencere süresince en fazla permitLimit istek;
+    /// kuyruk yoktur, fazlası hemen reddedilir.
+    /// </summary>
     private static RateLimitPartition<string> FixedWindow(string key, int permitLimit, int windowSeconds) =>
         RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
         {

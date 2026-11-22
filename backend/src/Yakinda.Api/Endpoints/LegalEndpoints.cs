@@ -13,12 +13,19 @@ namespace Yakinda.Api.Endpoints;
 /// </summary>
 public static class LegalEndpoints
 {
+    /// <summary>
+    /// Mağaza başvurusunun istediği herkese açık HTML sayfalarını /legal altına bağlar; giriş gerektirmez
+    /// ve API belgelerinde görünmez.
+    /// </summary>
     public static IEndpointRouteBuilder MapLegalPages(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/legal").AllowAnonymous().ExcludeFromDescription();
 
+        // GET /legal/privacy: gizlilik politikası.
         group.MapGet("/privacy", (IConfiguration config) => Page(config, "Gizlilik Politikası", Privacy));
+        // GET /legal/terms: kullanım koşulları ve topluluk kuralları.
         group.MapGet("/terms", (IConfiguration config) => Page(config, "Kullanım Koşulları ve Topluluk Kuralları", Terms));
+        // GET /legal/delete-account: hesabın nasıl silineceğini anlatan sayfa.
         group.MapGet("/delete-account", (IConfiguration config) => Page(config, "Hesap Silme", DeleteAccount));
 
         return app;
@@ -26,6 +33,10 @@ public static class LegalEndpoints
 
     private sealed record LegalInfo(string AppName, string Operator, string Email, string LastUpdated);
 
+    /// <summary>
+    /// Ortak sayfa iskeleti: uygulama adı, işletmeci ve iletişim adresini ayarlardan okur (HTML olarak
+    /// kodlar), verilen gövdeyi başlık ve sade bir stille sarar ve text/html olarak döner.
+    /// </summary>
     private static IResult Page(IConfiguration config, string title, Func<LegalInfo, string> body)
     {
         var section = config.GetSection("Legal");
@@ -54,10 +65,16 @@ public static class LegalEndpoints
         return Results.Content(html.ToString(), "text/html; charset=utf-8");
     }
 
+    /// <summary>Metni HTML'e güvenle yazılabilecek hâle getirir.</summary>
     private static string Encode(string value) => WebUtility.HtmlEncode(value);
 
+    /// <summary>İletişim adresini tıklanabilir mailto bağlantısı olarak üretir.</summary>
     private static string Mail(LegalInfo i) => $"<a href=\"mailto:{i.Email}\">{i.Email}</a>";
 
+    /// <summary>
+    /// Gizlilik politikasının HTML gövdesi: hangi verilerin toplandığı, neden toplandığı, kimlerle
+    /// paylaşıldığı ve kullanıcının hakları.
+    /// </summary>
     private static string Privacy(LegalInfo i) => $"""
         <p>Bu metin, {i.AppName} uygulamasını kullanırken hangi kişisel verilerin neden işlendiğini ve
         haklarını açıklar. Veri sorumlusu: {i.Operator}. İletişim: {Mail(i)}.</p>
@@ -107,6 +124,7 @@ public static class LegalEndpoints
         <p>Bu metni güncellediğimizde yukarıdaki tarihi değiştiririz; önemli değişiklikleri uygulama içinde duyururuz.</p>
         """;
 
+    /// <summary>Kullanım koşulları ve topluluk kurallarının HTML gövdesi.</summary>
     private static string Terms(LegalInfo i) => $"""
         <p>{i.AppName}'ı kullanarak bu koşulları kabul etmiş olursun. Sorular için: {Mail(i)}.</p>
 
@@ -143,6 +161,7 @@ public static class LegalEndpoints
         güncelleyebiliriz; güncel hali her zaman bu sayfadadır.</p>
         """;
 
+    /// <summary>Hesap silme sayfasının HTML gövdesi: uygulama içinden silme adımları ve silinen veriler.</summary>
     private static string DeleteAccount(LegalInfo i) => $"""
         <h2>Uygulama içinden</h2>
         <ol>

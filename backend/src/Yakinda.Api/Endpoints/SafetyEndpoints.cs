@@ -6,6 +6,10 @@ namespace Yakinda.Api.Endpoints;
 
 public static class SafetyEndpoints
 {
+    /// <summary>
+    /// Şikayet ucunu (/api/reports) ve yönetici uçlarını (/api/admin) bağlar; hepsi giriş gerektirir.
+    /// Yönetici yetkisi handler içinde, veritabanından denetlenir.
+    /// </summary>
     public static RouteGroupBuilder MapSafetyEndpoints(this RouteGroupBuilder api)
     {
         // POST /api/reports  { "targetType": "Event", "targetId": "...", "reason": "Inappropriate", "details": "..." }
@@ -20,6 +24,7 @@ public static class SafetyEndpoints
         // Yönetici (users.is_admin = true)
         var admin = api.MapGroup("/admin").WithTags("Admin").RequireAuthorization();
 
+        // GET /api/admin/reports: açık şikayet kuyruğu (yalnızca yönetici).
         admin.MapGet("/reports", async (ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetOpenReportsQuery(), ct)));
 

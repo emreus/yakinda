@@ -5,6 +5,10 @@ namespace Yakinda.Api.Endpoints;
 
 public static class NotificationEndpoints
 {
+    /// <summary>
+    /// Bildirim uçlarını (/api/notifications) ve cihaz token'ı uçlarını (/api/devices) bağlar; hepsi giriş
+    /// gerektirir.
+    /// </summary>
     public static RouteGroupBuilder MapNotificationEndpoints(this RouteGroupBuilder api)
     {
         var notifications = api.MapGroup("/notifications").WithTags("Notifications").RequireAuthorization();
@@ -17,12 +21,14 @@ public static class NotificationEndpoints
         notifications.MapGet("/unread-count", async (ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetUnreadNotificationCountQuery(), ct)));
 
+        // POST /api/notifications/{id}/read: tek bildirimi okundu yapar.
         notifications.MapPost("/{id:guid}/read", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new MarkNotificationReadCommand(id), ct);
             return Results.NoContent();
         });
 
+        // POST /api/notifications/read-all: bütün bildirimleri okundu yapar.
         notifications.MapPost("/read-all", async (ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new MarkAllNotificationsReadCommand(), ct);

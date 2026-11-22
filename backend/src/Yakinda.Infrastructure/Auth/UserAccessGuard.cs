@@ -20,6 +20,11 @@ internal sealed class UserAccessGuard(IDbConnectionFactory db)
                          AND token_version = @Version)
         """;
 
+    /// <summary>
+    /// Token'daki kullanıcı kimliğini ve oturum sürümünü okur, kullanıcıyı birincil anahtarla sorgular.
+    /// Kullanıcı yoksa, yasaklıysa, silinmişse ya da token'daki sürüm güncel sürümle aynı değilse false
+    /// döner; istek 401 alır.
+    /// </summary>
     public async Task<bool> IsStillValidAsync(ClaimsPrincipal? principal, CancellationToken cancellationToken)
     {
         if (!Guid.TryParse(principal?.FindFirst(ClaimNames.Subject)?.Value, out var userId))

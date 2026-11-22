@@ -15,6 +15,10 @@ internal sealed class CurrentUser(IHttpContextAccessor httpContextAccessor) : IC
         }
     }
 
+    /// <summary>
+    /// Giriş yapmış kullanıcının kimliğini döner; token yoksa ya da kimlik okunamıyorsa UnauthorizedException
+    /// fırlatır (API'de 401).
+    /// </summary>
     public Guid RequireUserId() =>
         UserId ?? throw new UnauthorizedException("auth.required", "Bu işlem için giriş yapmalısın.");
 }

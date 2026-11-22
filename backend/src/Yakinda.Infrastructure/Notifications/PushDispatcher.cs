@@ -32,6 +32,11 @@ internal sealed class PushDispatcher(
 
     private static readonly TimeSpan MaxBackoff = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Servisin ana döngüsü. Push kapalıysa hemen çıkar. Aksi halde uygulama kapanana kadar DispatchOnceAsync
+    /// çağırır: tur başarısızlık içerdiyse bekleme süresini katlayarak artırır (en fazla 5 dakika), tur
+    /// dolu geldiyse (100 kayıt) beklemeden devam eder, diğer durumda ayarlanan aralık kadar bekler.
+    /// </summary>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!options.Value.Enabled)
@@ -70,12 +75,20 @@ internal sealed class PushDispatcher(
         }
     }
 
+    /// <summary>Bir sonraki bekleme süresini hesaplar: öncekinin iki katı, en fazla 5 dakika.</summary>
     private static TimeSpan Backoff(TimeSpan current, TimeSpan pollInterval)
     {
         var next = current < pollInterval ? pollInterval * 2 : current * 2;
         return next > MaxBackoff ? MaxBackoff : next;
     }
 
+    /// <summary>
+    /// Bir tur gönderim. Tek transaction içinde: push'u bekleyen en eski 100 bildirimi FOR UPDATE SKIP LOCKED
+    /// ile kilitler (başka bir API kopyası aynı satırları almaz), alıcıların cihaz token'larını okur, 24 saatten
+    /// eski bildirimleri ve cihazı olmayanları göndermeden işlendi sayar, kalanları Expo'ya yollar. Expo'nun
+    /// "cihaz kayıtlı değil" dediği token'ları siler; geçici hatada kaydı bekletip deneme sayısını artırır,
+    /// 8 denemeden sonra vazgeçer. İşlenen kayıt sayısını ve hata olup olmadığını döner.
+    /// </summary>
     private async Task<DispatchResult> DispatchOnceAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;

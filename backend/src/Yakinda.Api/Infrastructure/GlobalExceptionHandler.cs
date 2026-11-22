@@ -18,6 +18,12 @@ internal sealed class GlobalExceptionHandler(
     IProblemDetailsService problemDetailsService,
     ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
+    /// <summary>
+    /// Yakalanmayan her hatayı tek biçimde (ProblemDetails) yanıta çevirir. Hata tipine göre durum kodu ve
+    /// makine kodu seçilir: doğrulama 400, iş kuralı 422, bulunamadı 404, yetkisiz 403, çakışma 409, giriş
+    /// gerekli 401, veritabanı benzersizlik ihlali 409. İstemci bağlantıyı kapattıysa yanıt yazılmaz (499).
+    /// Tanınmayan hata loglanır ve kullanıcıya ayrıntı verilmeden 500 döner.
+    /// </summary>
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         if (exception is OperationCanceledException && httpContext.RequestAborted.IsCancellationRequested)
@@ -76,6 +82,10 @@ internal sealed class GlobalExceptionHandler(
         });
     }
 
+    /// <summary>
+    /// ProblemDetails nesnesini kurar: durum kodu, başlık, kullanıcıya gösterilecek açıklama ve mobilin
+    /// hatayı tanıması için "code" alanı.
+    /// </summary>
     private static ProblemDetails Problem(
         int status, string title, string detail, string code,
         Dictionary<string, string[]>? errors = null)
@@ -87,6 +97,10 @@ internal sealed class GlobalExceptionHandler(
         return problem;
     }
 
+    /// <summary>
+    /// Doğrulama hatalarını alan adına göre gruplar ve alan adlarını camelCase yapar (DisplayName,
+    /// displayName olur); mobil bunları doğrudan form alanlarının altına yazar.
+    /// </summary>
     private static Dictionary<string, string[]> ToErrorDictionary(ValidationException exception) =>
         exception.Errors
             .GroupBy(e => JsonNamingPolicy.CamelCase.ConvertName(e.PropertyName ?? string.Empty))

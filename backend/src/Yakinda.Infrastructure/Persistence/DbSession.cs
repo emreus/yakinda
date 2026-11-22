@@ -16,12 +16,17 @@ internal sealed class DbSession(NpgsqlDataSource dataSource) : IUnitOfWork, IAsy
 
     public bool HasActiveTransaction => Transaction is not null;
 
+    /// <summary>
+    /// Oturumun bağlantısını döner; henüz açılmadıysa havuzdan bir bağlantı açar. Veritabanına hiç
+    /// dokunmayan bir istek bağlantı da açmaz.
+    /// </summary>
     public async Task<NpgsqlConnection> GetConnectionAsync(CancellationToken cancellationToken)
     {
         _connection ??= await dataSource.OpenConnectionAsync(cancellationToken);
         return _connection;
     }
 
+    /// <summary>Bağlantıyı açıp transaction başlatır. Zaten açık bir transaction varsa hata fırlatır.</summary>
     public async Task BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         if (Transaction is not null)
@@ -31,6 +36,9 @@ internal sealed class DbSession(NpgsqlDataSource dataSource) : IUnitOfWork, IAsy
         Transaction = await connection.BeginTransactionAsync(cancellationToken);
     }
 
+    /// <summary>
+    /// Transaction'ı commit eder ve nesnesini bırakır. Açık transaction yoksa hiçbir şey yapmaz.
+    /// </summary>
     public async Task CommitAsync(CancellationToken cancellationToken = default)
     {
         if (Transaction is null)
@@ -41,6 +49,10 @@ internal sealed class DbSession(NpgsqlDataSource dataSource) : IUnitOfWork, IAsy
         Transaction = null;
     }
 
+    /// <summary>
+    /// Transaction'ı geri alır. Geri alma sırasında hata olsa bile transaction nesnesi bırakılır;
+    /// açık transaction yoksa hiçbir şey yapmaz.
+    /// </summary>
     public async Task RollbackAsync(CancellationToken cancellationToken = default)
     {
         if (Transaction is null)
@@ -57,6 +69,9 @@ internal sealed class DbSession(NpgsqlDataSource dataSource) : IUnitOfWork, IAsy
         }
     }
 
+    /// <summary>
+    /// İstek bitince çağrılır: kalmış transaction'ı ve bağlantıyı kapatır, bağlantı havuza döner.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
         if (Transaction is not null)

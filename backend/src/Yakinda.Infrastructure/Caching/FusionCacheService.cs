@@ -15,6 +15,11 @@ namespace Yakinda.Infrastructure.Caching;
 /// </summary>
 internal sealed class FusionCacheService(IFusionCache cache, ILogger<FusionCacheService> logger) : ICacheService
 {
+    /// <summary>
+    /// Kaydı önce bellekte, sonra Redis'te arar; yoksa factory'yi bir kez çalıştırıp sonucu etiketleriyle
+    /// iki seviyeye yazar. Factory'nin fırlattığı hata FusionCache tarafından sarmalanmışsa asıl hata
+    /// (NotFound gibi) yeniden fırlatılır; böylece 404 gibi yanıtlar 500'e dönüşmez.
+    /// </summary>
     public async Task<T> GetOrCreateAsync<T>(
         string key,
         Func<CancellationToken, Task<T>> factory,
@@ -40,6 +45,10 @@ internal sealed class FusionCacheService(IFusionCache cache, ILogger<FusionCache
         }
     }
 
+    /// <summary>
+    /// Verilen her etiketi taşıyan kayıtları geçersiz kılar; backplane diğer API kopyalarına da haber verir.
+    /// Bir etiket temizlenemezse istek başarısız olmaz, uyarı olarak loglanır.
+    /// </summary>
     public async Task InvalidateTagsAsync(IReadOnlyCollection<string> tags, CancellationToken cancellationToken)
     {
         foreach (var tag in tags)
@@ -73,6 +82,9 @@ internal sealed class FusionCacheService(IFusionCache cache, ILogger<FusionCache
         DistributedCacheHardTimeout = TimeSpan.FromSeconds(2)
     };
 
+    /// <summary>
+    /// Hata, asıl hatayı içinde taşıyan bir FusionCache sarmalayıcısı mı? Tipin ad alanına bakarak anlar.
+    /// </summary>
     private static bool IsFusionCacheWrapper(Exception ex) =>
         ex.InnerException is not null
         && ex.GetType().Namespace?.StartsWith("ZiggyCreatures", StringComparison.Ordinal) == true;
