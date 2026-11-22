@@ -84,6 +84,7 @@ export default function NearbyScreen() {
           <Text style={styles.optionText}>Sadece yeri olanlar</Text>
         </View>
         <View style={styles.sortRow}>
+          <Text style={styles.sortLabel}>Sırala</Text>
           <Chip label="Yakınlık" selected={filters.sort === 'distance'} onPress={() => updateFilters({ sort: 'distance' })} />
           <Chip label="Zaman" selected={filters.sort === 'time'} onPress={() => updateFilters({ sort: 'time' })} />
           <Chip label="Puan" selected={filters.sort === 'rating'} onPress={() => updateFilters({ sort: 'rating' })} />
@@ -153,15 +154,21 @@ const styles = StyleSheet.create({
   // Yatay chip satırları kenardan kenara kaysın diye liste padding'i geri alınır
   header: { marginHorizontal: -spacing.lg, marginBottom: spacing.md, gap: spacing.sm },
   chipRow: { gap: spacing.sm, paddingHorizontal: spacing.lg },
+  // Anahtar ile sıralama seçenekleri telefon ekranında yan yana sığmaz: sığmadığında sıralama alt
+  // satıra geçer, sığdığında (geniş ekran) aralarında en az columnGap kadar boşluk kalır.
   optionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    columnGap: spacing.lg,
+    rowGap: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  sortRow: { flexDirection: 'row', gap: spacing.xs },
-  optionText: { fontSize: 14, color: colors.text },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexShrink: 1 },
+  sortRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: spacing.xs, flexShrink: 1 },
+  optionText: { fontSize: 14, color: colors.text, flexShrink: 1 },
+  sortLabel: { fontSize: 14, color: colors.muted, marginRight: spacing.xs },
   spinner: { marginTop: 48 },
   footer: { marginVertical: spacing.lg },
 });
