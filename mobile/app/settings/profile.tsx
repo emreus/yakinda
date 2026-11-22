@@ -134,7 +134,11 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, gap: spacing.lg },
   avatarBlock: { alignItems: 'center', gap: spacing.md },
   avatarBusy: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     borderRadius: 52,
     backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center',
