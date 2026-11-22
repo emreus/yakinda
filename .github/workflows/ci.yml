@@ -69,6 +69,7 @@ jobs:
       # deploy/.env.example'daki zorunlu alanlar CI için doldurulur (kabuk değişkenleri .env dosyasını ezer)
       API_DOMAIN: ci.invalid
       POSTGRES_PASSWORD: ciPassword123
+      APP_DB_PASSWORD: ciAppPassword456
       JWT_SIGNING_KEY: ci-signing-key-0123456789abcdef0123456789abcdef
       COMPOSE: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/.env.example
     steps:
@@ -120,6 +121,12 @@ jobs:
           echo "$headers" | grep -qi '^content-security-policy:'
           echo "$headers" | grep -qi '^x-content-type-options: nosniff'
           if echo "$headers" | grep -qi '^server:'; then echo "Server başlığı sızıyor"; exit 1; fi
+      - name: Uygulama veritabanına süper kullanıcı olarak bağlanmıyor
+        run: |
+          role=$($COMPOSE exec -T db psql -U postgres -d yakinda -tAc "SELECT rolsuper FROM pg_roles WHERE rolname = 'yakinda'")
+          owner=$($COMPOSE exec -T db psql -U postgres -d yakinda -tAc "SELECT tableowner FROM pg_tables WHERE tablename = 'users'")
+          echo "yakinda rolü süper kullanıcı mı: $role | users tablosunun sahibi: $owner"
+          [ "$role" = "f" ] && [ "$owner" = "yakinda" ]
       - name: API logları
         if: always()
         run: $COMPOSE logs api | tail -60

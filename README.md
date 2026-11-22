@@ -231,7 +231,7 @@ geçmiş etkinlikler ve diğer kullanıcıların puan ortalamaları bozulmasın.
 | HTML sayfaları | Kullanıcı içeriği HTML olarak kodlanır; `Content-Security-Policy` (betik yok), `X-Frame-Options`, `nosniff`, `Referrer-Policy` |
 | Görseller | Biçim dosyanın baytlarından doğrulanır, meta veriler ve görüntünün bittiği yerden sonraki veriler atılır, adlar sunucuda üretilir, yalnız `.jpg/.png/.webp` sunulur |
 | Mobil | Refresh token Keychain/Keystore'da, erişim token'ı yalnız bellekte. Bağlantıdan (deep link, bildirim) gelen kimlikler doğrulanır ve API adresine kodlanarak eklenir |
-| Altyapı | API kapsayıcısı root değil, yetkisiz (`cap_drop: ALL`); veritabanı ve Redis dışarıya kapalı; HTTPS ve HSTS Caddy'de. Geliştirme `docker-compose.yml` portları yalnız `127.0.0.1`'e açar |
+| Altyapı | API kapsayıcısı root değil, yetkisiz (`cap_drop: ALL`); API veritabanına süper kullanıcıyla değil kısıtlı `yakinda` rolüyle bağlanır; veritabanı ve Redis dışarıya kapalı; HTTPS ve HSTS Caddy'de. Geliştirme `docker-compose.yml` portları yalnız `127.0.0.1`'e açar |
 
 **Güvenlik testleri** (`SecurityTests.cs`, CI'da her PR'da): sahte/oynanmış token'lar, başkasının etkinliğini yönetme denemeleri,
 SQL ve HTML enjeksiyonu, klasör dışına çıkma, istek yağmuru, yasaklanan/silinen hesabın token'ı, şifre sıfırlama kodu sınırı...
@@ -315,8 +315,10 @@ Kurulum her `git push` sonrası CI'da da denenir: imaj derlenir, veritabanıyla 
 git clone https://github.com/emreus/yakinda.git && cd yakinda/deploy
 cp .env.example .env
 openssl rand -hex 24    # → POSTGRES_PASSWORD
+openssl rand -hex 24    # → APP_DB_PASSWORD (farklı bir değer)
 openssl rand -hex 32    # → JWT_SIGNING_KEY
 nano .env               # API_DOMAIN, şifreler, SMTP, destek e-postası
+chmod 600 .env          # şifreleri yalnız sen okuyabil
 docker compose -f docker-compose.prod.yml up -d --build
 curl https://api.alanadin.com/health          # {"status":"ok"}
 ```
@@ -325,9 +327,9 @@ curl https://api.alanadin.com/health          # {"status":"ok"}
 - **Loglar:** `docker compose -f docker-compose.prod.yml logs -f api`. Eksik ayar varsa (SMTP, örnek destek adresi) açılışta uyarı yazılır.
 - **Yedek:** `./backup.sh` veritabanını ve görselleri `deploy/backups/` altına alır (dosyanın başında cron örneği var).
   Yedekleri sunucu dışına da kopyala. Geri yükleme:
-  `docker compose -f docker-compose.prod.yml exec -T db pg_restore -U yakinda -d yakinda --clean < backups/db-....dump`
+  `docker compose -f docker-compose.prod.yml exec -T db pg_restore -U postgres -d yakinda --clean < backups/db-....dump`
 - **Yönetici yapmak** (şikayet kuyruğu için):
-  `docker compose -f docker-compose.prod.yml exec db psql -U yakinda -c "UPDATE users SET is_admin = true WHERE email = 'sen@ornek.com'"`
+  `docker compose -f docker-compose.prod.yml exec db psql -U postgres -d yakinda -c "UPDATE users SET is_admin = true WHERE email = 'sen@ornek.com'"`
 - **E-posta:** şifre sıfırlama için herhangi bir SMTP sağlayıcısının bilgilerini `.env`'e yaz. Boş kalırsa kodlar yalnız loga yazılır.
 - API proxy arkasında olduğu için `ForwardedHeaders__Enabled=true`. Böylece istek sınırı her kullanıcının kendi IP'sine göre
   çalışır ve paylaşım sayfasındaki adresler https olur.

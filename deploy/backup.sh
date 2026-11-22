@@ -8,8 +8,10 @@ cd "$(dirname "$0")"
 compose="docker compose -f docker-compose.prod.yml"
 stamp=$(date +%Y%m%d-%H%M)
 mkdir -p backups
+chmod 700 backups # yedekler kişisel veri içerir; yalnız bu kullanıcı okuyabilsin
+umask 077
 
-$compose exec -T db pg_dump -U yakinda -Fc yakinda > "backups/db-$stamp.dump"
+$compose exec -T db pg_dump -U postgres -Fc yakinda > "backups/db-$stamp.dump"
 $compose exec -T api tar -C /data -czf - media > "backups/media-$stamp.tar.gz"
 find backups -type f -mtime +14 -delete
 
