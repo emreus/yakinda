@@ -20,6 +20,7 @@ const ICONS: Record<NotificationType, string> = {
   RatingPrompt: '⭐',
   EventUpdated: '✏️',
   WaitlistPromoted: '🎟️',
+  ChatMessage: '💬',
 };
 
 type NotificationPages = InfiniteData<PagedResult<AppNotification>>;
@@ -79,7 +80,8 @@ export default function NotificationsScreen() {
 
   const open = (notification: AppNotification) => {
     if (!notification.isRead) markRead.mutate(notification.id);
-    if (notification.eventId) router.push(`/event/${notification.eventId}`);
+    if (!notification.eventId) return;
+    router.push(notification.type === 'ChatMessage' ? `/event/chat/${notification.eventId}` : `/event/${notification.eventId}`);
   };
 
   const header =

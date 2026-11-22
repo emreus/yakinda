@@ -76,6 +76,8 @@ export async function unregisterPushAsync(): Promise<void> {
 export interface OpenedNotification {
   notificationId: string | null;
   eventId: string | null;
+  /** Bildirim türü (ör. "ChatMessage" → sohbet ekranı açılır) */
+  type: string | null;
 }
 
 interface PushHandlers {
@@ -90,6 +92,7 @@ function readOpened(response: NotificationResponse): OpenedNotification {
   return {
     notificationId: typeof data.notificationId === 'string' ? data.notificationId : null,
     eventId: typeof data.eventId === 'string' ? data.eventId : null,
+    type: typeof data.type === 'string' ? data.type : null,
   };
 }
 

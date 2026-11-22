@@ -86,6 +86,8 @@ export interface EventDetail {
   canLeave: boolean;
   canCancel: boolean;
   canEdit: boolean;
+  /** Sohbeti açabilir (organizatör ya da onaylı katılımcı) */
+  canChat: boolean;
   canRate: boolean;
   ratingOpensAt: string;
   ratingClosesAt: string;
@@ -136,7 +138,8 @@ export type NotificationType =
   | 'EventReminder'
   | 'RatingPrompt'
   | 'EventUpdated'
-  | 'WaitlistPromoted';
+  | 'WaitlistPromoted'
+  | 'ChatMessage';
 
 /** Uygulama içi bildirim. (Tarayıcıdaki global `Notification` tipiyle karışmasın diye bu ad.) */
 export interface AppNotification {
@@ -192,4 +195,20 @@ export interface BlockedUser {
   userId: string;
   displayName: string;
   blockedAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  authorId: string;
+  authorName: string;
+  /** Silinen mesajda null */
+  body: string | null;
+  createdAt: string;
+  isDeleted: boolean;
+  isMine: boolean;
+}
+
+export interface ChatPage {
+  items: ChatMessage[];
+  hasMore: boolean;
 }

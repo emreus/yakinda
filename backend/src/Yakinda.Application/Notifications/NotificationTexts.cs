@@ -78,6 +78,12 @@ public static class NotificationTexts
                 "Sıran geldi",
                 $"\"{eventTitle}\" etkinliğinde yer açıldı; katılım isteğin organizatöre iletildi.");
 
+    public static NotificationContent ChatMessage(string authorName, string eventTitle, string body)
+    {
+        var preview = body.Length > 120 ? body[..117] + "…" : body;
+        return new(NotificationType.ChatMessage, $"{authorName} · {eventTitle}", preview);
+    }
+
     public static NotificationContent RatingPrompt(string eventTitle) =>
         new(NotificationType.RatingPrompt,
             "Etkinlik nasıldı?",

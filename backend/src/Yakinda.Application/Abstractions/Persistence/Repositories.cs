@@ -12,6 +12,9 @@ public interface IEventRepository
 {
     /// <summary>Etkinliği satır kilidiyle (FOR UPDATE) okur; eşzamanlı katılım/oylamalar sıraya girer.</summary>
     Task<Event?> GetForUpdateAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Kilitsiz okuma (sadece yetki kontrolü gibi değiştirmeyen işler için).</summary>
+    Task<Event?> GetAsync(Guid id, CancellationToken cancellationToken);
     Task AddAsync(Event ev, CancellationToken cancellationToken);
     Task UpdateAsync(Event ev, CancellationToken cancellationToken);
     Task<bool> CategoryExistsAsync(short categoryId, CancellationToken cancellationToken);
@@ -64,6 +67,25 @@ public interface IUserRepository
     Task BanAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 
     Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken);
+}
+
+public interface IChatRepository
+{
+    Task AddAsync(Guid id, Guid eventId, Guid authorId, string body, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Mesajın etkinliği ve yazarı (silme yetkisi için).</summary>
+    Task<(Guid EventId, Guid AuthorId)?> GetOwnershipAsync(Guid messageId, CancellationToken cancellationToken);
+
+    Task SoftDeleteAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Organizatöre ve onaylı katılımcılara (yazar ve yazarla arasında engel olanlar hariç) bildirim ekler.
+    /// Aynı etkinlik için okunmamış sohbet bildirimi olan kişiye yenisi eklenmez: okuyana kadar tek bildirim.
+    /// </summary>
+    Task NotifyMembersAsync(Guid eventId, Guid authorId, NotificationContent content, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Sohbet açılınca o etkinliğin sohbet bildirimleri okundu sayılır.</summary>
+    Task MarkNotificationsReadAsync(Guid eventId, Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 }
 
 public interface IBlockRepository

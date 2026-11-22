@@ -52,9 +52,13 @@ api.MapEventEndpoints();
 api.MapUserEndpoints();
 api.MapNotificationEndpoints();
 api.MapSafetyEndpoints();
+api.MapChatEndpoints();
 
 // Mağaza sayfaları için gizlilik politikası, kullanım koşulları ve hesap silme sayfaları
 app.MapLegalPages();
+
+// Paylaşım bağlantısı (https://.../e/{id}) ve Universal Links / App Links doğrulama dosyaları
+app.MapSharePages();
 
 app.Run();
 

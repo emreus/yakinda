@@ -1,0 +1,70 @@
+using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Notifications;
+using Yakinda.Domain.Notifications;
+
+namespace Yakinda.Infrastructure.Persistence.Repositories;
+
+internal sealed class ChatRepository(DbSession session) : RepositoryBase(session), IChatRepository
+{
+    public Task AddAsync(Guid id, Guid eventId, Guid authorId, string body, DateTime nowUtc, CancellationToken cancellationToken) =>
+        ExecuteAsync("""
+            INSERT INTO event_messages (id, event_id, author_id, body, created_at)
+            VALUES (@Id, @EventId, @AuthorId, @Body, @Now)
+            """, new { Id = id, EventId = eventId, AuthorId = authorId, Body = body, Now = nowUtc }, cancellationToken);
+
+    public async Task<(Guid EventId, Guid AuthorId)?> GetOwnershipAsync(Guid messageId, CancellationToken cancellationToken)
+    {
+        var row = await QuerySingleOrDefaultAsync<MessageOwnership>(
+            "SELECT event_id, author_id FROM event_messages WHERE id = @Id",
+            new { Id = messageId },
+            cancellationToken);
+        return row is null ? null : (row.EventId, row.AuthorId);
+    }
+
+    public Task SoftDeleteAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        ExecuteAsync(
+            "UPDATE event_messages SET deleted_at = COALESCE(deleted_at, @Now) WHERE id = @Id",
+            new { Id = messageId, Now = nowUtc },
+            cancellationToken);
+
+    public Task NotifyMembersAsync(Guid eventId, Guid authorId, NotificationContent content, DateTime nowUtc, CancellationToken cancellationToken) =>
+        ExecuteAsync("""
+            INSERT INTO notifications (id, user_id, type, event_id, actor_id, title, body, created_at)
+            SELECT gen_random_uuid(), m.user_id, @Type, @EventId, @AuthorId, @Title, @Body, @Now
+            FROM (
+                  SELECT e.organizer_id AS user_id FROM events e WHERE e.id = @EventId
+                  UNION
+                  SELECT p.user_id FROM event_participants p WHERE p.event_id = @EventId AND p.status = 1
+                 ) m
+            WHERE m.user_id <> @AuthorId
+              AND NOT EXISTS (
+                    SELECT 1 FROM notifications n
+                    WHERE n.user_id = m.user_id AND n.event_id = @EventId AND n.type = @Type AND n.read_at IS NULL)
+              AND NOT EXISTS (
+                    SELECT 1 FROM user_blocks b
+                    WHERE (b.blocker_id = m.user_id AND b.blocked_id = @AuthorId)
+                       OR (b.blocker_id = @AuthorId AND b.blocked_id = m.user_id))
+            """,
+            new
+            {
+                Type = (short)NotificationType.ChatMessage,
+                EventId = eventId,
+                AuthorId = authorId,
+                content.Title,
+                content.Body,
+                Now = nowUtc
+            },
+            cancellationToken);
+
+    public Task MarkNotificationsReadAsync(Guid eventId, Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        ExecuteAsync("""
+            UPDATE notifications SET read_at = @Now
+            WHERE user_id = @UserId AND event_id = @EventId AND type = @Type AND read_at IS NULL
+            """, new { UserId = userId, EventId = eventId, Type = (short)NotificationType.ChatMessage, Now = nowUtc }, cancellationToken);
+}
+
+internal sealed class MessageOwnership
+{
+    public Guid EventId { get; set; }
+    public Guid AuthorId { get; set; }
+}

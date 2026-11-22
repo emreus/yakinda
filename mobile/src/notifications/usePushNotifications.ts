@@ -25,14 +25,14 @@ export function usePushNotifications(enabled: boolean) {
       onReceive: () => {
         queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
       },
-      onOpen: ({ notificationId, eventId }) => {
+      onOpen: ({ notificationId, eventId, type }) => {
         if (notificationId) {
           notificationsApi
             .markRead(notificationId)
             .catch(() => undefined)
             .finally(() => queryClient.invalidateQueries({ queryKey: queryKeys.notifications }));
         }
-        if (eventId) router.push(`/event/${eventId}`);
+        if (eventId) router.push(type === 'ChatMessage' ? `/event/chat/${eventId}` : `/event/${eventId}`);
       },
     })
       .then((remove) => {

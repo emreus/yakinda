@@ -3,6 +3,8 @@ import type {
   AppNotification,
   AuthResponse,
   BlockedUser,
+  ChatMessage,
+  ChatPage,
   Category,
   CreateEventInput,
   EventDetail,
@@ -130,4 +132,15 @@ export const safetyApi = {
   blocks: () => apiRequest<BlockedUser[]>('/api/users/me/blocks'),
   /** Hesabı kalıcı olarak siler (şifre tekrar istenir). */
   deleteAccount: (password: string) => apiRequest<void>('/api/users/me/delete', { method: 'POST', body: { password } }),
+};
+
+export const chatApi = {
+  /** En yeni önce. before: daha eski mesajlar; parametresiz: son mesajlar. */
+  list: (eventId: string, params: { before?: string; limit?: number } = {}) =>
+    apiRequest<ChatPage>(`/api/events/${eventId}/messages`, { query: { limit: 30, ...params } }),
+  send: (eventId: string, body: string) =>
+    apiRequest<ChatMessage>(`/api/events/${eventId}/messages`, { method: 'POST', body: { body } }),
+  remove: (eventId: string, messageId: string) =>
+    apiRequest<void>(`/api/events/${eventId}/messages/${messageId}`, { method: 'DELETE' }),
+  markRead: (eventId: string) => apiRequest<void>(`/api/events/${eventId}/messages/read`, { method: 'POST' }),
 };

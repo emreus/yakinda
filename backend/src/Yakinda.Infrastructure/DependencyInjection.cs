@@ -127,6 +127,7 @@ public static class DependencyInjection
 
         services.AddScoped<IEventRepository, EventRepository>();
         services.AddScoped<IBlockRepository, BlockRepository>();
+        services.AddScoped<IChatRepository, ChatRepository>();
         services.AddScoped<IReportRepository, ReportRepository>();
         services.AddScoped<Moderation.MessageModeration>();
         services.AddScoped<Application.Safety.IReportTargetLookup>(sp => sp.GetRequiredService<Moderation.MessageModeration>());
