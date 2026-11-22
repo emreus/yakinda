@@ -25,6 +25,9 @@ public sealed class ChatMessageDto
     public Guid AuthorId { get; set; }
     public string AuthorName { get; set; } = string.Empty;
 
+    /// <summary>Listede dolar; gönderme yanıtında (kendi mesajın) boş gelir.</summary>
+    public string? AuthorAvatarUrl { get; set; }
+
     /// <summary>Silinen mesajda null.</summary>
     public string? Body { get; set; }
 
@@ -108,6 +111,7 @@ internal sealed class GetChatMessagesQueryHandler(IDbConnectionFactory db, ICurr
             SELECT m.id,
                    m.author_id,
                    u.display_name AS author_name,
+                   {Media.MediaUrl.Sql("u.avatar_key")} AS author_avatar_url,
                    CASE WHEN m.deleted_at IS NULL THEN m.body END AS body,
                    m.created_at,
                    (m.deleted_at IS NOT NULL) AS is_deleted,

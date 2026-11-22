@@ -47,6 +47,9 @@ export interface EventListItem {
   organizerName: string;
   organizerRating: number | null;
   organizerRatingCount: number;
+  organizerAvatarUrl: string | null;
+  /** Kapak görseli ("/media/..."); mediaUrl() ile tam adrese çevrilir */
+  imageUrl: string | null;
 }
 
 export interface EventDetail {
@@ -73,6 +76,9 @@ export interface EventDetail {
   organizerName: string;
   organizerRating: number | null;
   organizerRatingCount: number;
+  organizerAvatarUrl: string | null;
+  /** Kapak görseli ("/media/..."); mediaUrl() ile tam adrese çevrilir */
+  imageUrl: string | null;
   myParticipationStatus: ParticipantStatus | null;
   myScore: number | null;
   myComment: string | null;
@@ -96,6 +102,7 @@ export interface EventDetail {
 export interface Participant {
   userId: string;
   displayName: string;
+  avatarUrl: string | null;
   status: ParticipantStatus;
   requestedAt: string;
   averageRating: number | null;
@@ -105,6 +112,7 @@ export interface Participant {
 export interface Rating {
   raterId: string;
   raterName: string;
+  raterAvatarUrl: string | null;
   score: number;
   comment: string | null;
   updatedAt: string;
@@ -120,6 +128,7 @@ export interface UserProfile {
   id: string;
   displayName: string;
   bio: string | null;
+  avatarUrl: string | null;
   createdAt: string;
   averageRating: number | null;
   ratingCount: number;
@@ -201,6 +210,7 @@ export interface ChatMessage {
   id: string;
   authorId: string;
   authorName: string;
+  authorAvatarUrl: string | null;
   /** Silinen mesajda null */
   body: string | null;
   createdAt: string;

@@ -144,3 +144,29 @@ export const chatApi = {
     apiRequest<void>(`/api/events/${eventId}/messages/${messageId}`, { method: 'DELETE' }),
   markRead: (eventId: string) => apiRequest<void>(`/api/events/${eventId}/messages/read`, { method: 'POST' }),
 };
+
+/** Yüklenecek görsel: cihazdaki dosyanın adresi (seçici/kırpma sonrası JPEG). */
+export interface LocalImage {
+  uri: string;
+}
+
+function imageForm(image: LocalImage): FormData {
+  const form = new FormData();
+  // React Native'de dosya, { uri, name, type } nesnesiyle eklenir.
+  form.append('file', { uri: image.uri, name: 'photo.jpg', type: 'image/jpeg' } as unknown as Blob);
+  return form;
+}
+
+export const mediaApi = {
+  setAvatar: (image: LocalImage) =>
+    apiRequest<{ url: string }>('/api/users/me/avatar', { method: 'PUT', body: imageForm(image) }),
+  deleteAvatar: () => apiRequest<void>('/api/users/me/avatar', { method: 'DELETE' }),
+  setEventImage: (eventId: string, image: LocalImage) =>
+    apiRequest<{ url: string }>(`/api/events/${eventId}/image`, { method: 'PUT', body: imageForm(image) }),
+  deleteEventImage: (eventId: string) => apiRequest<void>(`/api/events/${eventId}/image`, { method: 'DELETE' }),
+};
+
+export const profileApi = {
+  update: (input: { displayName: string; bio: string | null }) =>
+    apiRequest<void>('/api/users/me', { method: 'PUT', body: input }),
+};

@@ -16,6 +16,9 @@ TestResults/
 # Yerel ayar dosyaları (sırları buraya koyun, repoya girmez)
 appsettings.*.local.json
 
+# Geliştirmede yüklenen görseller (Media:RootPath)
+backend/src/Yakinda.Api/data/
+
 # ---------------------------------------------------------------- Node / Expo
 node_modules/
 .expo/

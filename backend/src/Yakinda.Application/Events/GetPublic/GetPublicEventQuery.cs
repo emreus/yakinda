@@ -21,6 +21,9 @@ public sealed class PublicEventDto
     public string OrganizerName { get; set; } = string.Empty;
     public int ParticipantCount { get; set; }
     public int? Capacity { get; set; }
+
+    /// <summary>Kapak görseli (göreli adres); önizleme kartında og:image olur.</summary>
+    public string? ImageUrl { get; set; }
 }
 
 public sealed record GetPublicEventQuery(Guid EventId) : IQuery<PublicEventDto?>;
@@ -30,9 +33,10 @@ internal sealed class GetPublicEventQueryHandler(IDbConnectionFactory db) : IReq
     public async Task<PublicEventDto?> Handle(GetPublicEventQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);
-        return await connection.QuerySingleOrDefaultAsync<PublicEventDto>(new CommandDefinition("""
+        return await connection.QuerySingleOrDefaultAsync<PublicEventDto>(new CommandDefinition($"""
             SELECT e.id, e.title, c.name AS category_name, c.emoji AS category_emoji, e.starts_at, e.ends_at,
-                   e.place_name, u.display_name AS organizer_name, e.participant_count, e.capacity
+                   e.place_name, u.display_name AS organizer_name, e.participant_count, e.capacity,
+                   {Media.MediaUrl.Sql("e.image_key")} AS image_url
             FROM events e
             JOIN categories c ON c.id = e.category_id
             JOIN users u      ON u.id = e.organizer_id

@@ -3,9 +3,9 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { errorMessage } from '@/api/client';
-import { eventsApi } from '@/api/endpoints';
+import { eventsApi, mediaApi } from '@/api/endpoints';
 import type { UpdateEventInput } from '@/api/types';
-import { EventForm, toFormErrors, type EventFormErrors } from '@/components/EventForm';
+import { EventForm, toFormErrors, type CoverChange, type EventFormErrors } from '@/components/EventForm';
 import { EmptyState, FullScreenLoader } from '@/components/ui';
 import { useEventDetail, useInvalidateEvent } from '@/hooks/queries';
 
@@ -17,7 +17,11 @@ export default function EditEventScreen() {
   const [serverErrors, setServerErrors] = useState<EventFormErrors>({});
 
   const mutation = useMutation({
-    mutationFn: (input: UpdateEventInput) => eventsApi.update(id, input),
+    mutationFn: async ({ input, cover }: { input: UpdateEventInput; cover: CoverChange }) => {
+      await eventsApi.update(id, input);
+      if (cover.kind === 'set') await mediaApi.setEventImage(id, cover.image);
+      if (cover.kind === 'remove') await mediaApi.deleteEventImage(id);
+    },
     onSuccess: () => {
       invalidate(id);
       router.back();
@@ -68,12 +72,13 @@ export default function EditEventScreen() {
           address: e.address,
           capacity: e.capacity,
           approvalRequired: e.joinPolicy === 'ApprovalRequired',
+          imageUrl: e.imageUrl,
         }}
         minCapacity={e.participantCount}
         submitLabel="Değişiklikleri kaydet"
         submitting={mutation.isPending}
         serverErrors={serverErrors}
-        onSubmit={({ joinPolicy: _joinPolicy, repeatWeeks: _repeatWeeks, ...input }) => mutation.mutate(input)}
+        onSubmit={({ joinPolicy: _joinPolicy, repeatWeeks: _repeatWeeks, cover, ...input }) => mutation.mutate({ input, cover })}
       />
     </>
   );

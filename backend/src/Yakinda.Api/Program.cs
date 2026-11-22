@@ -39,6 +39,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+// Profil fotoğrafları ve etkinlik görselleri: /media/...
+app.UseMediaFiles();
+
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

@@ -48,6 +48,7 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
                SET email         = 'deleted+' || id::text || '@yakinda.invalid',
                    display_name  = 'Silinmiş kullanıcı',
                    bio           = NULL,
+                   avatar_key    = NULL,
                    password_hash = '',
                    is_admin      = false,
                    deleted_at    = @Now
@@ -71,4 +72,33 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
             "UPDATE users SET password_hash = @Hash WHERE id = @Id",
             new { Id = userId, Hash = passwordHash },
             cancellationToken);
+
+    public Task UpdateProfileAsync(Guid userId, string displayName, string? bio, CancellationToken cancellationToken) =>
+        ExecuteAsync(
+            "UPDATE users SET display_name = @DisplayName, bio = @Bio WHERE id = @Id",
+            new { Id = userId, DisplayName = displayName, Bio = bio },
+            cancellationToken);
+
+    public Task ClearBioAsync(Guid userId, CancellationToken cancellationToken) =>
+        ExecuteAsync("UPDATE users SET bio = NULL WHERE id = @Id", new { Id = userId }, cancellationToken);
+}
+
+internal sealed class MediaRepository(DbSession session) : RepositoryBase(session), IMediaRepository
+{
+    // Eski değer, aynı satır kilitlenerek okunur ve dönülür (UPDATE ... RETURNING yeni değeri verir).
+    public Task<string?> SetUserAvatarAsync(Guid userId, string? key, CancellationToken cancellationToken) =>
+        ExecuteScalarAsync<string?>("""
+            UPDATE users u SET avatar_key = @Key
+              FROM (SELECT id, avatar_key FROM users WHERE id = @Id FOR UPDATE) old
+             WHERE u.id = old.id
+            RETURNING old.avatar_key
+            """, new { Id = userId, Key = key }, cancellationToken);
+
+    public Task<string?> SetEventImageAsync(Guid eventId, string? key, CancellationToken cancellationToken) =>
+        ExecuteScalarAsync<string?>("""
+            UPDATE events e SET image_key = @Key
+              FROM (SELECT id, image_key FROM events WHERE id = @Id FOR UPDATE) old
+             WHERE e.id = old.id
+            RETURNING old.image_key
+            """, new { Id = eventId, Key = key }, cancellationToken);
 }

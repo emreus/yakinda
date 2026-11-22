@@ -24,6 +24,7 @@ public sealed class UserProfileDto
     public Guid Id { get; set; }
     public string DisplayName { get; set; } = string.Empty;
     public string? Bio { get; set; }
+    public string? AvatarUrl { get; set; }
     public DateTime CreatedAt { get; set; }
 
     /// <summary>Organize ettiği etkinliklere verilen tüm oyların ortalaması.</summary>
@@ -44,6 +45,7 @@ internal sealed class GetUserProfileQueryHandler(IDbConnectionFactory db)
         SELECT u.id,
                u.display_name,
                u.bio,
+               {Media.MediaUrl.Sql("u.avatar_key")} AS avatar_url,
                u.created_at,
                {EventSql.Average("u.rating_sum", "u.rating_count")} AS average_rating,
                u.rating_count,

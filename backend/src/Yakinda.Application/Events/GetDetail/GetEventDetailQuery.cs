@@ -43,6 +43,8 @@ public sealed class EventSnapshot
     public string OrganizerName { get; set; } = string.Empty;
     public double? OrganizerRating { get; set; }
     public int OrganizerRatingCount { get; set; }
+    public string? OrganizerAvatarUrl { get; set; }
+    public string? ImageUrl { get; set; }
     public int WaitlistCount { get; set; }
 }
 
@@ -84,6 +86,8 @@ public sealed class EventDetailDto
     public string OrganizerName { get; set; } = string.Empty;
     public double? OrganizerRating { get; set; }
     public int OrganizerRatingCount { get; set; }
+    public string? OrganizerAvatarUrl { get; set; }
+    public string? ImageUrl { get; set; }
 
     // Giriş yapan kullanıcıya özel alanlar
     public ParticipantStatus? MyParticipationStatus { get; set; }
@@ -146,6 +150,8 @@ internal sealed class GetEventDetailQueryHandler(
                u.display_name AS organizer_name,
                {EventSql.Average("u.rating_sum", "u.rating_count")} AS organizer_rating,
                u.rating_count AS organizer_rating_count,
+               {Media.MediaUrl.Sql("u.avatar_key")} AS organizer_avatar_url,
+               {Media.MediaUrl.Sql("e.image_key")} AS image_url,
                (SELECT count(*) FROM event_participants w
                  WHERE w.event_id = e.id AND w.status = 4)::int AS waitlist_count
         FROM events e
@@ -250,6 +256,8 @@ internal sealed class GetEventDetailQueryHandler(
             OrganizerName = s.OrganizerName,
             OrganizerRating = s.OrganizerRating,
             OrganizerRatingCount = s.OrganizerRatingCount,
+            OrganizerAvatarUrl = s.OrganizerAvatarUrl,
+            ImageUrl = s.ImageUrl,
 
             MyParticipationStatus = myStatus,
             MyScore = viewer.MyScore,

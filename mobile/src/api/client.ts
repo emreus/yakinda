@@ -23,6 +23,12 @@ function resolveApiUrl(): string {
 
 export const API_URL = resolveApiUrl().replace(/\/$/, '');
 
+/** API'nin döndüğü görsel adresi ("/media/...") tam adrese çevrilir; zaten tam adresse olduğu gibi kalır. */
+export function mediaUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return /^https?:\/\//.test(path) ? path : `${API_URL}${path}`;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code?: string;
@@ -69,6 +75,7 @@ type QueryValue = string | number | boolean | null | undefined;
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  /** JSON olarak gönderilir; FormData ise (dosya yükleme) olduğu gibi multipart gider. */
   body?: unknown;
   query?: Record<string, QueryValue>;
   /** true ise Authorization başlığı eklenmez ve 401'de refresh denenmez. */
@@ -85,7 +92,9 @@ function buildQuery(query?: Record<string, QueryValue>): string {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  // FormData'da Content-Type'ı (boundary ile) fetch kendisi koyar.
+  if (options.body !== undefined && !isForm) headers['Content-Type'] = 'application/json';
 
   const token = options.anonymous ? null : authBridge?.getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
@@ -95,7 +104,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
     response = await fetch(`${API_URL}${path}${buildQuery(options.query)}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
     });
   } catch {
     throw new ApiError(0, null);

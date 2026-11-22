@@ -35,6 +35,9 @@ public sealed class ApiFixture : IAsyncLifetime
 
     public string ConnectionString => _database.GetConnectionString();
 
+    /// <summary>Testlerde yüklenen görsellerin yazıldığı geçici klasör.</summary>
+    public string MediaRoot { get; } = Path.Combine(Path.GetTempPath(), "yakinda-media-" + Guid.NewGuid().ToString("N"));
+
     public async ValueTask InitializeAsync()
     {
         await _database.StartAsync();
@@ -48,6 +51,7 @@ public sealed class ApiFixture : IAsyncLifetime
         Set("RateLimiting__Enabled", "false");
         Set("Notifications__SchedulerEnabled", "false");    // testler zamanlayıcıyı kendisi çalıştırır
         Set("Push__Enabled", "false");
+        Set("Media__RootPath", MediaRoot);                  // yüklenen görseller geçici klasöre
 
         Factory = CreateFactory();
         _ = Factory.Server; // uygulamayı başlatır; migration'lar burada çalışır
@@ -67,6 +71,8 @@ public sealed class ApiFixture : IAsyncLifetime
     {
         await Factory.DisposeAsync();
         await _database.DisposeAsync();
+        if (Directory.Exists(MediaRoot))
+            Directory.Delete(MediaRoot, recursive: true);
     }
 
     private static void Set(string key, string value) => Environment.SetEnvironmentVariable(key, value);

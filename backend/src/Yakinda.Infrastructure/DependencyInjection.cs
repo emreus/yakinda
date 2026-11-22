@@ -35,6 +35,7 @@ public static class DependencyInjection
         AddCaching(services, configuration);
         AddNotifications(services, configuration);
         AddEmail(services, configuration);
+        AddMedia(services, configuration);
 
         services.AddSingleton(TimeProvider.System);
 
@@ -111,6 +112,13 @@ public static class DependencyInjection
             services.AddSingleton<Application.Abstractions.Email.IEmailSender, Email.SmtpEmailSender>();
     }
 
+    /// <summary>Görseller sunucu diskinde (Media:RootPath) tutulur; API /media altında sunar.</summary>
+    private static void AddMedia(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddOptions<Media.MediaOptions>().Bind(configuration.GetSection(Media.MediaOptions.SectionName));
+        services.AddSingleton<Application.Abstractions.Media.IMediaStorage, Media.LocalMediaStorage>();
+    }
+
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("Default")
@@ -135,6 +143,7 @@ public static class DependencyInjection
         services.AddScoped<IParticipantRepository, ParticipantRepository>();
         services.AddScoped<IRatingRepository, RatingRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IMediaRepository, MediaRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
         services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
     }

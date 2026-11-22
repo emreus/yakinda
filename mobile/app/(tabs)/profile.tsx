@@ -68,6 +68,7 @@ export default function ProfileScreen() {
       </View>
 
       <Card style={styles.settings}>
+        <SettingsRow icon="✏️" label="Profili düzenle" onPress={() => router.push('/settings/profile')} />
         <SettingsRow icon="🚫" label="Engellenen kullanıcılar" onPress={() => router.push('/settings/blocked')} />
         <SettingsRow icon="🔒" label="Gizlilik politikası" onPress={() => openLegalPage('privacy')} />
         <SettingsRow icon="📜" label="Kullanım koşulları" onPress={() => openLegalPage('terms')} />

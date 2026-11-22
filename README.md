@@ -24,6 +24,7 @@ Kullanıcının yakınındaki etkinlikleri gösteren, etkinlik oluşturmayı ve 
 - **Etkinlik düzenleme**: organizatör başlamadan önce saat, yer, kontenjan vb. değiştirebilir; saat ya da yer değişirse katılımcılara bildirim gider, hatırlatma yeni saate göre kurulur
 - **Tekrarlayan etkinlik**: "her salı okey" için 4, 8 ya da 12 hafta boyunca ayrı etkinlikler
 - **Arama ve sıralama**: başlık/açıklama/mekan araması; yakınlık, zaman ya da organizatör puanına göre (Bayesian ortalama: tek oyla 5,0 alan, 200 oyla 4,8 alanın önüne geçmez)
+- **Profil fotoğrafı ve etkinlik kapak görseli**: galeriden ya da kameradan; telefonda kırpılıp küçültülür, sunucuda konum (GPS) gibi meta veriler silinir. Profil adı ve "hakkımda" düzenlenebilir
 - **Etkinlik sohbeti**: organizatör ve onaylı katılımcılar arasında ("taşları kim getiriyor?"); okunana kadar etkinlik başına tek bildirim, uzun basınca sil/şikayet et
 - **Paylaşım bağlantısı**: `https://<api>/e/{id}` (WhatsApp'ta önizlemeli kart, "uygulamada aç" butonu)
 - **Bildirimler**: katılım isteği / yeni katılımcı, onay / ret, iptal, başlamadan 1 saat önce hatırlatma, bitince "puanla"; uygulama içi liste + push
@@ -235,6 +236,22 @@ Email__Smtp__Password=...
 ```
 
 ---
+
+## Görseller
+
+Profil fotoğrafı (`PUT /api/users/me/avatar`) ve etkinlik kapağı (`PUT /api/events/{id}/image`, yalnız organizatör)
+`multipart/form-data` isteğinde `file` alanıyla yüklenir.
+
+- **Kabul edilen**: JPEG, PNG, WebP; en fazla 5 MB ve 8000×8000 piksel. Biçim dosyanın kendi baytlarından anlaşılır,
+  dosya adına ya da `Content-Type`'a bakılmaz.
+- **Gizlilik**: kaydetmeden önce EXIF (çekildiği yerin GPS koordinatı, cihaz modeli), XMP, IPTC ve yorumlar silinir.
+  JPEG'in yön bilgisi korunur. Mobil uygulama da fotoğrafı yeniden kodlayıp küçülterek gönderir (kare 800 px, kapak 1600 px).
+- **Saklama**: dosyalar `Media:RootPath` klasörüne (varsayılan `data/media`) yazılır ve `/media/...` adresinden
+  sunulur. Dosya adları benzersiz olduğu için bir yıl önbelleğe alınabilirler. Bir görsel değiştirildiğinde ya da
+  kaldırıldığında eski dosya, işlem veritabanına kaydedildikten sonra silinir; işlem başarısız olursa yeni dosya silinir.
+  **Sunucuda bu klasör kalıcı bir diske (Docker volume) bağlanmalı.**
+- **Moderasyon**: profil şikayetinde *İçeriği kaldır*, fotoğrafı ve "hakkımda" yazısını siler. Kaldırılan etkinliğin
+  kapağı da silinir. Hesap silindiğinde fotoğraf silinir.
 
 ## Paylaşım bağlantısı ve deep link
 

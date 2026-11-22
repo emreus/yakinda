@@ -20,6 +20,7 @@ public sealed class RatingDto
 {
     public Guid RaterId { get; set; }
     public string RaterName { get; set; } = string.Empty;
+    public string? RaterAvatarUrl { get; set; }
     public short Score { get; set; }
     public string? Comment { get; set; }
     public DateTime UpdatedAt { get; set; }
@@ -37,9 +38,10 @@ internal sealed class GetEventRatingsQueryValidator : AbstractValidator<GetEvent
 internal sealed class GetEventRatingsQueryHandler(IDbConnectionFactory db)
     : IRequestHandler<GetEventRatingsQuery, PagedResult<RatingDto>>
 {
-    private const string Sql = """
+    private static readonly string Sql = $"""
         SELECT r.rater_id,
                u.display_name AS rater_name,
+               {Media.MediaUrl.Sql("u.avatar_key")} AS rater_avatar_url,
                r.score,
                r.comment,
                r.updated_at
