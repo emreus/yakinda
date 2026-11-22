@@ -7,7 +7,8 @@ import { buildNearbyParams, useNearbyEvents } from '@/hooks/queries';
 import { useCurrentLocation, type Coords } from '@/hooks/useCurrentLocation';
 import { useNearbyFilters } from '@/state/NearbyFilters';
 import { colors, radius, spacing } from '@/theme';
-import { formatEventDate, formatSpots } from '@/utils/format';
+import { formatEventBadge, formatEventDate } from '@/utils/format';
+import { uniqueBy } from '@/utils/list';
 
 /**
  * Haritada gösterilecek bölgeyi hesaplar: merkez verilen noktadır, yükseklik yarıçapın tamamı ekrana
@@ -28,9 +29,10 @@ function approxDistanceKm(a: Coords, b: Coords): number {
 
 /**
  * Harita sekmesi: yakındaki etkinlikleri pin olarak gösterir (listeyle aynı filtreler, 50 etkinliğe
- * kadar). Pinin balonuna dokununca etkinlik detayı açılır. Harita başka bir yere kaydırılırsa "Bu bölgede
- * ara" butonu çıkar; basılınca arama merkezi haritanın ortasına taşınır. Konum butonu aramayı yeniden
- * kullanıcının kendi konumuna döndürür.
+ * kadar). Konum izni yoksa ya da konum alınamazsa açıklayıcı bir durum gösterir. Pinin balonuna dokununca
+ * etkinlik detayı açılır. Harita başka bir yere kaydırılırsa "Bu bölgede ara" butonu çıkar; basılınca
+ * arama merkezi haritanın ortasına taşınır. Konum butonu aramayı yeniden kullanıcının kendi konumuna
+ * döndürür.
  */
 export default function MapScreen() {
   const location = useCurrentLocation();
@@ -41,7 +43,10 @@ export default function MapScreen() {
 
   const center = searchCenter ?? location.coords;
   const query = useNearbyEvents(buildNearbyParams(center, filters, 50));
-  const events = query.data?.pages.flatMap((page) => page.items) ?? [];
+  const pages = query.data?.pages ?? [];
+  const events = uniqueBy(pages.flatMap((page) => page.items), (event) => event.id);
+  // Haritada yalnızca ilk sayfa (50 etkinlik) gösterilir; daha fazlası varsa sayı "50+" yazılır.
+  const hasMore = pages.length > 0 && pages[pages.length - 1].hasMore;
 
   if (location.status === 'denied') {
     return (
@@ -51,6 +56,20 @@ export default function MapScreen() {
         message="Haritada yakınındaki etkinlikleri göstermek için konum iznine ihtiyacımız var."
         actionLabel="Ayarları aç"
         onAction={() => Linking.openSettings()}
+      />
+    );
+  }
+
+  // Konum alınamadıysa (GPS kapalı, sinyal yok) sonsuza kadar yükleniyor göstermek yerine yeniden deneme
+  // imkânı verilir; liste sekmesiyle aynı davranış.
+  if (location.status === 'error') {
+    return (
+      <EmptyState
+        emoji="🛰️"
+        title="Konum alınamadı"
+        message="GPS'in açık olduğundan emin ol."
+        actionLabel="Tekrar dene"
+        onAction={location.reload}
       />
     );
   }
@@ -75,7 +94,7 @@ export default function MapScreen() {
             key={event.id}
             coordinate={{ latitude: event.latitude, longitude: event.longitude }}
             title={`${event.categoryEmoji} ${event.title}`}
-            description={`${formatEventDate(event.startsAt)} · ${formatSpots(event).label}`}
+            description={`${formatEventDate(event.startsAt)} · ${formatEventBadge(event).label}`}
             pinColor={colors.primary}
             onCalloutPress={() => router.push(`/event/${event.id}`)}
           />
@@ -100,7 +119,9 @@ export default function MapScreen() {
 
       <View style={styles.info}>
         <Text style={styles.infoText}>
-          {events.length} etkinlik · {filters.radiusKm} km
+          {query.isError
+            ? 'Etkinlikler yüklenemedi'
+            : `${events.length}${hasMore ? '+' : ''} etkinlik · ${filters.radiusKm} km`}
         </Text>
       </View>
 

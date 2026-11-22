@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Image, Linking, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { API_URL, errorMessage, mediaUrl } from '@/api/client';
@@ -10,19 +10,34 @@ import { Avatar } from '@/components/Avatar';
 import { RatingBadge, StarRating } from '@/components/StarRating';
 import { Badge, Button, Card, EmptyState, FullScreenLoader, SectionTitle, TextField } from '@/components/ui';
 import { queryKeys, useEventDetail, useInvalidateEvent, useParticipants, useRatings } from '@/hooks/queries';
+import { goBackOrHome } from '@/navigation';
 import { colors, font, radius, spacing } from '@/theme';
-import { formatDateTimeLong, formatEventDate, formatSpots, formatTime } from '@/utils/format';
+import { formatDateTimeLong, formatEventBadge, formatEventDate, formatEventRange } from '@/utils/format';
 
 /**
  * Etkinlik detay ekranı. Adresteki kimlikle detayı yükler; yüklenirken gösterge, hata ya da boş
  * sonuçta "bulunamadı" durumu gösterir. Sayfayı bölümlerden kurar: başlık, eylem butonları, katılımcılar
  * (organizatöre yönetim paneli, diğerlerine liste), oylama, şikayet/engelle bağlantıları ve yorumlar.
- * Aşağı çekince detay yenilenir.
+ * Aşağı çekince detayla birlikte katılımcılar ve yorumlar da yenilenir.
  */
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const eventQuery = useEventDetail(id);
   const event = eventQuery.data;
+  const queryClient = useQueryClient();
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Aşağı çekince: detay, katılımcılar ve yorumlar ayrı sorgular olduğu için hepsi birlikte yenilenir
+  // (anahtarları ['event', id] ile başlar). Yalnızca detay yenilenirse "1 bekleyen" rozeti görünür ama
+  // bekleyen kişinin satırı gelmez.
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await queryClient.refetchQueries({ queryKey: queryKeys.event(id), type: 'active' });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [queryClient, id]);
 
   if (eventQuery.isLoading) return <FullScreenLoader />;
 
@@ -33,7 +48,7 @@ export default function EventDetailScreen() {
         title="Etkinlik bulunamadı"
         message={eventQuery.error ? errorMessage(eventQuery.error) : undefined}
         actionLabel="Geri dön"
-        onAction={() => router.back()}
+        onAction={goBackOrHome}
       />
     );
   }
@@ -44,14 +59,11 @@ export default function EventDetailScreen() {
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl
-            refreshing={eventQuery.isRefetching}
-            onRefresh={() => {
-              eventQuery.refetch();
-            }}
-          />
-        }
+        // Klavye açıkken butona ilk dokunuş klavyeyi kapatmakla yetinmesin; iOS'ta yorum kutusu klavyenin
+        // altında kalmasın.
+        keyboardShouldPersistTaps="handled"
+        automaticallyAdjustKeyboardInsets
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
         <Header event={event} />
         <ActionPanel event={event} />
@@ -71,7 +83,8 @@ export default function EventDetailScreen() {
  * bilgisi, küçük harita ve organizatör kartı.
  */
 function Header({ event }: { event: EventDetail }) {
-  const spots = formatSpots(event);
+  // İptal edildi / kaldırıldı / bitti / başladı; hiçbiri değilse kontenjan durumu.
+  const badge = formatEventBadge(event);
 
   // Yol tarifini telefonun harita uygulamasında açar: iOS'ta Apple Maps adresi, Android'de geo: bağlantısı.
   const openDirections = () => {
@@ -96,16 +109,14 @@ function Header({ event }: { event: EventDetail }) {
         <View style={styles.flex}>
           <Text style={font.title}>{event.title}</Text>
           <View style={styles.badgeRow}>
-            {event.status === 'Cancelled' ? <Badge label="İptal edildi" tone="danger" /> : null}
-            {event.status === 'Removed' ? <Badge label="Kaldırıldı" tone="danger" /> : null}
-            <Badge label={spots.label} tone={spots.tone === 'open' ? 'success' : spots.tone === 'full' ? 'danger' : 'neutral'} />
+            <Badge label={badge.label} tone={badge.tone} />
             {event.joinPolicy === 'ApprovalRequired' ? <Badge label="Organizatör onaylı" tone="primary" /> : null}
           </View>
         </View>
       </View>
 
       <Card style={styles.infoCard}>
-        <InfoRow icon="📅" text={formatDateTimeLong(event.startsAt) + (event.endsAt ? ` – ${formatTime(event.endsAt)}` : '')} />
+        <InfoRow icon="📅" text={formatEventRange(event.startsAt, event.endsAt)} />
         <InfoRow icon="📍" text={[event.placeName, event.address].filter(Boolean).join(' · ') || 'Konum haritada'} />
         <InfoRow
           icon="👥"
@@ -122,6 +133,9 @@ function Header({ event }: { event: EventDetail }) {
 
       <View style={styles.mapBox}>
         <MapView
+          // initialRegion yalnızca ilk çizimde uygulanır; etkinliğin yeri düzenlenirse harita yeni konumla
+          // yeniden kurulsun diye anahtar konuma bağlıdır.
+          key={`${event.latitude},${event.longitude}`}
           style={StyleSheet.absoluteFill}
           initialRegion={{ latitude: event.latitude, longitude: event.longitude, latitudeDelta: 0.008, longitudeDelta: 0.008 }}
           scrollEnabled={false}
@@ -233,11 +247,23 @@ function ActionPanel({ event }: { event: EventDetail }) {
 
   const shareUrl = `${API_URL}/e/${event.id}`;
   // Telefonun paylaşım menüsünü açar: etkinliğin adı, tarihi ve API'deki paylaşım sayfasının bağlantısı.
-  const share = () =>
-    Share.share({
-      message: `${event.categoryEmoji} ${event.title}\n${formatDateTimeLong(event.startsAt)}\n${shareUrl}`,
-      url: shareUrl,
-    }).catch(() => undefined);
+  // iOS metni ve bağlantıyı ayrı ayrı alır (ikisi de gönderilir); bağlantı metnin içine de yazılırsa
+  // mesajda iki kez görünür. Android yalnızca metni kullandığı için bağlantı orada metne eklenir.
+  const share = () => {
+    const text = `${event.categoryEmoji} ${event.title}\n${formatDateTimeLong(event.startsAt)}`;
+    Share.share(Platform.OS === 'ios' ? { message: text, url: shareUrl } : { message: `${text}\n${shareUrl}` }).catch(
+      () => undefined,
+    );
+  };
+
+  // Ayrılma onayı kullanıcının durumuna göre sorulur: onaylı katılımcı yerini bırakır, bekleyen isteğini
+  // geri çeker, bekleme listesindeki sırasını kaybeder.
+  const leaveConfirm =
+    event.myParticipationStatus === 'Pending'
+      ? { title: 'İsteği geri çek', message: 'Katılım isteğin iptal edilecek. Emin misin?' }
+      : event.myParticipationStatus === 'Waitlisted'
+        ? { title: 'Bekleme listesinden çık', message: 'Sıranı kaybedersin; yeniden girersen en sona eklenirsin. Emin misin?' }
+        : { title: 'Etkinlikten ayrıl', message: 'Yerini başkası alabilir. Emin misin?' };
 
   return (
     <View style={styles.actions}>
@@ -253,7 +279,8 @@ function ActionPanel({ event }: { event: EventDetail }) {
       {event.canJoin ? (
         <Button
           title={
-            event.spotsLeft === 0
+            // Onaylı etkinlikte sırada bekleyen varsa yeni gelen de sıraya girer (sunucudaki kuralla aynı).
+            event.spotsLeft === 0 || (event.joinPolicy === 'ApprovalRequired' && event.waitlistCount > 0)
               ? 'Bekleme listesine gir'
               : event.joinPolicy === 'ApprovalRequired'
                 ? 'Katılım isteği gönder'
@@ -274,7 +301,7 @@ function ActionPanel({ event }: { event: EventDetail }) {
                 : 'Ayrıl'
           }
           variant="ghost"
-          onPress={() => confirm('Etkinlikten ayrıl', 'Yerini başkası alabilir. Emin misin?', () => leave.mutate())}
+          onPress={() => confirm(leaveConfirm.title, leaveConfirm.message, () => leave.mutate())}
           loading={leave.isPending}
         />
       ) : null}
@@ -307,7 +334,7 @@ function SafetyLinks({ event }: { event: EventDetail }) {
     onSuccess: () => {
       invalidate();
       Alert.alert('Engellendi', `${event.organizerName} artık etkinliklerini sana gösteremez, sen de onunkileri görmezsin.`);
-      router.back();
+      goBackOrHome();
     },
     onError: (error) => Alert.alert('İşlem yapılamadı', errorMessage(error)),
   });
@@ -347,6 +374,8 @@ function ParticipantsPanel({ event }: { event: EventDetail }) {
   const queryClient = useQueryClient();
 
   // Bekleyen isteği onaylar ya da reddeder; başarıda etkinliği ve katılımcı listesini yeniletir.
+  // İstek sürerken bütün Onayla / Reddet butonları kapanır: aynı isteğe iki kez basılırsa ikincisi
+  // "sadece bekleyen istekler onaylanabilir" hatası döndürür ve başarılı işlemin ardından hata görünür.
   const review = useMutation({
     mutationFn: ({ userId, approve }: { userId: string; approve: boolean }) =>
       approve ? eventsApi.approve(event.id, userId) : eventsApi.reject(event.id, userId),
@@ -369,17 +398,30 @@ function ParticipantsPanel({ event }: { event: EventDetail }) {
       </SectionTitle>
 
       {participants.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
-      {!participants.isLoading && list.length === 0 ? <Text style={font.small}>Henüz katılan yok.</Text> : null}
+      {participants.isError ? (
+        <Text style={font.small} onPress={() => participants.refetch()}>
+          Katılımcılar yüklenemedi. Tekrar denemek için dokun.
+        </Text>
+      ) : null}
+      {participants.isSuccess && list.length === 0 ? <Text style={font.small}>Henüz katılan yok.</Text> : null}
 
       {pending.map((p) => (
         <ParticipantRow key={p.userId} participant={p}>
           {notStarted ? (
             <View style={styles.reviewButtons}>
-              <Button title="Onayla" onPress={() => review.mutate({ userId: p.userId, approve: true })} style={styles.smallButton} />
+              <Button
+                title="Onayla"
+                onPress={() => review.mutate({ userId: p.userId, approve: true })}
+                loading={review.isPending && review.variables?.userId === p.userId && review.variables?.approve === true}
+                disabled={review.isPending}
+                style={styles.smallButton}
+              />
               <Button
                 title="Reddet"
                 variant="ghost"
                 onPress={() => review.mutate({ userId: p.userId, approve: false })}
+                loading={review.isPending && review.variables?.userId === p.userId && review.variables?.approve === false}
+                disabled={review.isPending}
                 style={styles.smallButton}
               />
             </View>
@@ -433,9 +475,9 @@ function ParticipantRow({ participant, children }: { participant: Participant; c
 // ------------------------------------------------------------------ Oylama
 
 /**
- * Oylama paneli: yalnızca onaylı katılımcıya gösterilir (organizatöre ve iptal edilmiş etkinlikte
- * gösterilmez). Oylama henüz açılmadıysa ya da kapandıysa bunu yazar; açıksa yıldız ve yorum formunu
- * gösterir. Daha önce verilen puan formda hazır gelir.
+ * Oylama paneli: yalnızca onaylı katılımcıya gösterilir (organizatöre, iptal edilmiş ve kaldırılmış
+ * etkinlikte gösterilmez). Oylama henüz açılmadıysa ya da kapandıysa bunu yazar; açıksa yıldız ve yorum
+ * formunu gösterir. Daha önce verilen puan formda hazır gelir.
  */
 function RatingPanel({ event }: { event: EventDetail }) {
   const invalidate = useInvalidateEvent();
@@ -463,8 +505,9 @@ function RatingPanel({ event }: { event: EventDetail }) {
   const opensAt = new Date(event.ratingOpensAt).getTime();
   const isParticipant = event.myParticipationStatus === 'Approved';
 
-  // Organizatör kendi etkinliğini oylayamaz, katılımcı olmayanlara panel gösterilmez.
-  if (event.isOrganizer || !isParticipant || event.status === 'Cancelled') return null;
+  // Organizatör kendi etkinliğini oylayamaz, katılımcı olmayanlara panel gösterilmez. İptal edilen ya da
+  // kaldırılan etkinlik oylanamaz; orada "oylama süresi doldu" yazmak yanıltıcı olur.
+  if (event.isOrganizer || !isParticipant || event.status !== 'Active') return null;
 
   return (
     <Card style={styles.panel}>

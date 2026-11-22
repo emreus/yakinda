@@ -86,6 +86,12 @@ export function setAuthBridge(bridge: AuthBridge | null): void {
 
 type QueryValue = string | number | boolean | null | undefined;
 
+// Sunucu bu süre içinde yanıt vermezse istek iptal edilir ve "Sunucuya ulaşılamadı" hatası gösterilir.
+// Süre sınırı olmadan, ulaşılamayan bir sunucuda ekranlar işletim sisteminin kendi zaman aşımına kadar
+// (dakikalarca) dönen göstergede kalır. Fotoğraf yüklemeleri yavaş bağlantıda uzun sürebilir.
+const REQUEST_TIMEOUT_MS = 15_000;
+const UPLOAD_TIMEOUT_MS = 60_000;
+
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   /** JSON olarak gönderilir; FormData ise (dosya yükleme) olduğu gibi multipart gider. */
@@ -108,9 +114,10 @@ function buildQuery(query?: Record<string, QueryValue>): string {
 
 /**
  * Her API isteğinin geçtiği tek nokta. Authorization başlığını ekler (anonymous değilse), gövdeyi JSON
- * olarak ya da FormData ise olduğu gibi gönderir. Ağ hatasında ApiError(0) fırlatır. 401 gelirse bir kez
- * token yeniler ve isteği tekrarlar. Başarısız yanıtta gövdedeki ProblemDetails ile ApiError fırlatır;
- * 204'te undefined, diğer durumda çözülmüş JSON döner.
+ * olarak ya da FormData ise olduğu gibi gönderir. Ağ hatasında ya da yanıt 15 saniyede (dosya yüklemede
+ * 60 saniyede) gelmezse ApiError(0) fırlatır. 401 gelirse bir kez token yeniler ve isteği tekrarlar.
+ * Başarısız yanıtta gövdedeki ProblemDetails ile ApiError fırlatır; 204'te undefined, diğer durumda
+ * çözülmüş JSON döner.
  */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
@@ -121,15 +128,22 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}, 
   const token = options.anonymous ? null : authBridge?.getAccessToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), isForm ? UPLOAD_TIMEOUT_MS : REQUEST_TIMEOUT_MS);
+
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}${buildQuery(options.query)}`, {
       method: options.method ?? 'GET',
       headers,
       body: options.body === undefined ? undefined : isForm ? (options.body as FormData) : JSON.stringify(options.body),
+      signal: controller.signal,
     });
   } catch {
+    // Bağlantı kurulamadı ya da süre doldu (istek iptal edildi): ikisi de "sunucuya ulaşılamadı".
     throw new ApiError(0, null);
+  } finally {
+    clearTimeout(timer);
   }
 
   if (response.status === 401 && !options.anonymous && !isRetry && authBridge) {

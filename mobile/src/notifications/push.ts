@@ -105,6 +105,10 @@ function readOpened(response: NotificationResponse): OpenedNotification {
   };
 }
 
+// En son işlenen dokunuşun bildirim kimliği. Uygulama bildirime dokunularak açıldığında aynı dokunuş hem
+// dinleyiciden hem "son yanıt" sorgusundan gelebilir; ikincisi işlenirse aynı ekran iki kez açılır.
+let lastOpenedIdentifier: string | null = null;
+
 /** Bildirim dinleyicilerini kurar; dönen fonksiyon dinleyicileri kaldırır. */
 export async function subscribeToPush(handlers: PushHandlers): Promise<() => void> {
   if (!isPushAvailable()) return () => {};
@@ -121,16 +125,22 @@ export async function subscribeToPush(handlers: PushHandlers): Promise<() => voi
     }),
   });
 
+  // Dokunuşu bir kez işler: aynı bildirim ikinci kez gelirse yok sayılır.
+  const open = (response: NotificationResponse) => {
+    const identifier = response.notification.request.identifier;
+    if (identifier === lastOpenedIdentifier) return;
+    lastOpenedIdentifier = identifier;
+    handlers.onOpen(readOpened(response));
+  };
+
   const received = Notifications.addNotificationReceivedListener(() => handlers.onReceive());
-  const responded = Notifications.addNotificationResponseReceivedListener((response) =>
-    handlers.onOpen(readOpened(response)),
-  );
+  const responded = Notifications.addNotificationResponseReceivedListener(open);
 
   // Uygulama kapalıyken bildirime dokunulup açıldıysa
   const last = await Notifications.getLastNotificationResponseAsync();
   if (last) {
     await Notifications.clearLastNotificationResponseAsync();
-    handlers.onOpen(readOpened(last));
+    open(last);
   }
 
   return () => {

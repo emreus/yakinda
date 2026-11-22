@@ -55,6 +55,16 @@ export default function ProfileScreen() {
 
       {myEvents.isLoading ? <ActivityIndicator color={colors.primary} /> : null}
 
+      {myEvents.isError && !myEvents.data ? (
+        <EmptyState
+          emoji="⚠️"
+          title="Etkinlikler yüklenemedi"
+          message={errorMessage(myEvents.error)}
+          actionLabel="Tekrar dene"
+          onAction={() => myEvents.refetch()}
+        />
+      ) : null}
+
       {myEvents.data && myEvents.data.length === 0 ? (
         <EmptyState
           emoji={role === 'organizing' ? '🗓️' : '🎟️'}

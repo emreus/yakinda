@@ -21,6 +21,7 @@ import { buildNearbyParams, useCategories, useNearbyEvents } from '@/hooks/queri
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { RADIUS_OPTIONS, useNearbyFilters } from '@/state/NearbyFilters';
 import { colors, radius, spacing } from '@/theme';
+import { uniqueBy } from '@/utils/list';
 
 /**
  * Yakınımdaki etkinlikler listesi. Konumu alır, filtrelerle birlikte API parametrelerine çevirir ve
@@ -33,7 +34,8 @@ export default function NearbyScreen() {
   const categories = useCategories();
   const params = buildNearbyParams(location.coords, filters);
   const query = useNearbyEvents(params);
-  const events = query.data?.pages.flatMap((page) => page.items) ?? [];
+  // Sayfalar arasında yeni etkinlik eklenirse aynı etkinlik iki sayfada gelebilir; liste tekrarsız kurulur.
+  const events = uniqueBy(query.data?.pages.flatMap((page) => page.items) ?? [], (event) => event.id);
 
   if (location.status === 'denied') {
     return (

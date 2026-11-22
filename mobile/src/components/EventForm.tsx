@@ -40,7 +40,7 @@ const REPEAT_OPTIONS = [
 ] as const;
 
 export type EventFormErrors = Partial<
-  Record<'categoryId' | 'title' | 'startsAt' | 'endsAt' | 'location' | 'capacity' | 'description', string>
+  Record<'categoryId' | 'title' | 'startsAt' | 'endsAt' | 'location' | 'capacity' | 'description' | 'placeName' | 'address', string>
 >;
 
 /** Kapak görseli: değişmedi, yenisi seçildi ya da kaldırıldı. Etkinlik kaydedildikten sonra ayrıca yüklenir. */
@@ -85,6 +85,8 @@ export function toFormErrors(error: unknown): EventFormErrors {
     endsAt: fe.endsAt?.[0],
     capacity: fe.capacity?.[0],
     description: fe.description?.[0],
+    placeName: fe.placeName?.[0],
+    address: fe.address?.[0],
   };
 }
 
@@ -357,7 +359,14 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
           {errors.location ? <Text style={styles.error}>{errors.location}</Text> : null}
         </View>
 
-        <TextField label="Mekan adı (isteğe bağlı)" value={placeName} onChangeText={setPlaceName} placeholder="Örn. Moda Çay Bahçesi" maxLength={150} />
+        <TextField
+          label="Mekan adı (isteğe bağlı)"
+          value={placeName}
+          onChangeText={setPlaceName}
+          placeholder="Örn. Moda Çay Bahçesi"
+          maxLength={150}
+          error={errors.placeName}
+        />
         <TextField
           label="Adres"
           value={address}
@@ -367,6 +376,7 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
           }}
           placeholder="Otomatik doldurulur"
           maxLength={300}
+          error={errors.address}
         />
 
         <Card style={styles.cardGap}>
@@ -442,7 +452,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   mapPlaceholder: { color: colors.muted },
-  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  // Dar ekranda ya da büyük yazı boyutunda sayaç ile "Sınırsız" anahtarı yan yana sığmazsa alt alta geçer.
+  stepperRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    columnGap: spacing.lg,
+    rowGap: spacing.sm,
+  },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',

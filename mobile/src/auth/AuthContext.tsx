@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import * as SecureStore from 'expo-secure-store';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 import { ApiError, setAuthBridge } from '@/api/client';
 import { authApi } from '@/api/endpoints';
 import type { AuthResponse, AuthUser } from '@/api/types';
@@ -9,6 +10,9 @@ import { unregisterPushAsync } from '@/notifications/push';
 // Refresh token cihazın güvenli deposunda (iOS Keychain / Android Keystore) saklanır.
 // Access token sadece bellekte tutulur; uygulama açılışında refresh token ile yenilenir.
 const REFRESH_TOKEN_KEY = 'yakinda.refreshToken';
+
+// Açılışta sunucuya ulaşılamazsa ikinci denemeden önce beklenen süre.
+const STARTUP_RETRY_DELAY_MS = 1500;
 
 type AuthStatus = 'loading' | 'signedIn' | 'signedOut';
 
@@ -28,7 +32,8 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 /**
  * Oturum durumunu (yükleniyor, giriş yapılmış, çıkış yapılmış) ve kullanıcıyı tutar; giriş, kayıt, şifre
  * sıfırlama ve çıkış fonksiyonlarını bütün uygulamaya verir. Açılışta kayıtlı refresh token ile sessizce
- * giriş dener ve HTTP katmanına token köprüsünü kurar.
+ * giriş dener ve HTTP katmanına token köprüsünü kurar. Açılışta sunucuya ulaşılamadıysa kayıtlı oturum
+ * silinmez; uygulama yeniden öne geldiğinde giriş tekrar denenir.
  */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -87,18 +92,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setAuthBridge(null);
   }, [refreshAccessToken]);
 
-  // Uygulama açılışı: kayıtlı oturum varsa sessizce yenile.
+  // Uygulama açılışı: kayıtlı oturum varsa sessizce yenile. Yenileme başarısız olduğu halde token hâlâ
+  // cihazdaysa sunucu onu reddetmemiş, yalnızca ulaşılamamıştır (anlık bağlantı kopukluğu); kısa bir
+  // aradan sonra bir kez daha denenir, o da olmazsa giriş ekranı gösterilir.
   useEffect(() => {
     let cancelled = false;
-    refreshAccessToken().then((ok) => {
+    (async () => {
+      let ok = await refreshAccessToken();
+      if (!ok && !cancelled && (await SecureStore.getItemAsync(REFRESH_TOKEN_KEY))) {
+        await new Promise((resolve) => setTimeout(resolve, STARTUP_RETRY_DELAY_MS));
+        if (!cancelled) ok = await refreshAccessToken();
+      }
       if (!cancelled && !ok) setStatus((current) => (current === 'loading' ? 'signedOut' : current));
-    });
+    })();
     return () => {
       cancelled = true;
     };
     // sadece ilk açılışta
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Giriş ekranındayken uygulama yeniden öne gelirse kayıtlı oturum bir kez daha denenir: açılışta
+  // internet yokken giriş ekranına düşen kullanıcı, bağlantı gelince yeniden şifre yazmak zorunda kalmaz.
+  // Kullanıcı kendi çıkış yaptıysa token silinmiştir; bu durumda sunucuya istek gitmez.
+  useEffect(() => {
+    if (status !== 'signedOut') return;
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next === 'active') void refreshAccessToken();
+    });
+    return () => subscription.remove();
+  }, [status, refreshAccessToken]);
 
   // Giriş: API'den dönen oturumu uygular. Hata olursa fırlatır; ekran hata metnini gösterir.
   const signIn = useCallback(

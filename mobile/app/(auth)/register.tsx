@@ -40,11 +40,14 @@ export default function RegisterScreen() {
       await signUp(email.trim(), password, displayName.trim(), acceptTerms);
     } catch (e) {
       if (e instanceof ApiError && e.fieldErrors) {
-        setFieldErrors({
+        const mapped: FieldErrors = {
           email: e.fieldErrors.email?.[0],
           password: e.fieldErrors.password?.[0],
           displayName: e.fieldErrors.displayName?.[0],
-        });
+        };
+        setFieldErrors(mapped);
+        // Hata bu üç kutudan birine ait değilse (ör. koşulların kabulü) mesaj kaybolmasın: genel hata olarak yazılır.
+        if (!mapped.email && !mapped.password && !mapped.displayName) setError(errorMessage(e));
       } else {
         setError(errorMessage(e));
       }
