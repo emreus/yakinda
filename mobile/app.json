@@ -7,11 +7,14 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "ios": {
-      "bundleIdentifier": "com.example.yakinda",
-      "supportsTablet": false
+      "bundleIdentifier": "com.emreus.yakinda",
+      "supportsTablet": false,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
-      "package": "com.example.yakinda"
+      "package": "com.emreus.yakinda"
     },
     "plugins": [
       "expo-router",

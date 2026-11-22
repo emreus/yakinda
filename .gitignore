@@ -19,6 +19,10 @@ appsettings.*.local.json
 # Geliştirmede yüklenen görseller (Media:RootPath)
 backend/src/Yakinda.Api/data/
 
+# Sunucu sırları ve yedekleri
+deploy/.env
+deploy/backups/
+
 # ---------------------------------------------------------------- Node / Expo
 node_modules/
 .expo/

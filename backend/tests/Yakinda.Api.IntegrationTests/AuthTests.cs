@@ -119,3 +119,54 @@ public sealed class RateLimitTests(ApiFixture api)
         Assert.True(throttled.Headers.Contains("Retry-After"));
     }
 }
+
+[Collection(ApiCollection.Name)]
+public sealed class ProxyTests(ApiFixture api)
+{
+    [Fact]
+    public async Task Behind_a_proxy_limits_apply_per_real_client_ip()
+    {
+        await using var factory = api.CreateFactory(new Dictionary<string, string?>
+        {
+            ["ForwardedHeaders:Enabled"] = "true",
+            ["RateLimiting:Enabled"] = "true",
+            ["RateLimiting:AuthPermitLimit"] = "2",
+            ["RateLimiting:AuthWindowSeconds"] = "60"
+        });
+        var body = new { email = "yok@test.local", password = "yanlis-sifre" };
+
+        async Task<HttpStatusCode> LoginFrom(string ip)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login") { Content = JsonContent.Create(body) };
+            request.Headers.Add("X-Forwarded-For", ip);
+            return (await factory.CreateClient().SendAsync(request)).StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Unauthorized, await LoginFrom("203.0.113.10"));
+        Assert.Equal(HttpStatusCode.Unauthorized, await LoginFrom("203.0.113.10"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, await LoginFrom("203.0.113.10"));
+        Assert.Equal(HttpStatusCode.Unauthorized, await LoginFrom("203.0.113.20")); // başka kullanıcı etkilenmez
+    }
+
+    [Fact]
+    public async Task Share_links_use_https_behind_a_proxy()
+    {
+        await using var factory = api.CreateFactory(new Dictionary<string, string?> { ["ForwardedHeaders:Enabled"] = "true" });
+        var organizer = await api.RegisterAsync();
+        var eventId = await organizer.CreateEventAsync();
+        await organizer.Client.PutAsync($"/api/events/{eventId}/image", ImageForm());
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/e/{eventId}");
+        request.Headers.Add("X-Forwarded-Proto", "https");
+        var html = await (await factory.CreateClient().SendAsync(request)).Content.ReadAsStringAsync();
+
+        Assert.Contains("og:image\" content=\"https://localhost/media/events/", html);
+    }
+
+    private static MultipartFormDataContent ImageForm()
+    {
+        var file = new ByteArrayContent(TestImages.Jpeg());
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/jpeg");
+        return new MultipartFormDataContent { { file, "file", "kapak.jpg" } };
+    }
+}

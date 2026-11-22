@@ -1,0 +1,93 @@
+# Sunucu kurulumu: PostgreSQL + PostGIS, Redis, API ve Caddy (otomatik HTTPS).
+#   cd deploy && cp .env.example .env   # değerleri doldur
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Ayrıntılar: README → "Sunucuya taşıma".
+# Dışarıya yalnız Caddy açılır (80/443); veritabanı, Redis ve API yalnız iç ağdadır.
+
+name: yakinda
+
+services:
+  db:
+    # Resmi PostGIS imajı yalnız amd64 (Intel/AMD) için var; sunucu olarak x86 seç.
+    image: postgis/postgis:17-3.5
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: yakinda
+      POSTGRES_USER: yakinda
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env dosyasında olmalı}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yakinda -d yakinda"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    # Yalnız önbellek ve instance'lar arası senkronizasyon: diske yazmaz.
+    image: redis:8.6
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ../backend
+    image: yakinda-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Default: Host=db;Port=5432;Database=yakinda;Username=yakinda;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Redis: redis:6379,abortConnect=false
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?JWT_SIGNING_KEY .env dosyasında olmalı}
+      Database__MigrateOnStartup: "true"
+      # Caddy'nin eklediği X-Forwarded-For/Proto başlıkları: gerçek istemci IP'si (istek sınırı) ve https adresler
+      ForwardedHeaders__Enabled: "true"
+      Media__RootPath: /data/media
+      Email__From: ${EMAIL_FROM:-no-reply@ornek.com}
+      Email__FromName: ${EMAIL_FROM_NAME:-Yakında}
+      Email__Smtp__Host: ${SMTP_HOST:-}
+      Email__Smtp__Port: ${SMTP_PORT:-587}
+      Email__Smtp__Username: ${SMTP_USERNAME:-}
+      Email__Smtp__Password: ${SMTP_PASSWORD:-}
+      Email__Smtp__EnableSsl: ${SMTP_ENABLE_SSL:-true}
+      Legal__OperatorName: ${LEGAL_OPERATOR_NAME:-Yakında uygulaması}
+      Legal__ContactEmail: ${SUPPORT_EMAIL:-destek@ornek.com}
+      App__AppleAppId: ${APPLE_APP_ID:-}
+      App__AndroidPackage: ${ANDROID_PACKAGE:-com.emreus.yakinda}
+      App__AndroidSha256Fingerprints__0: ${ANDROID_SHA256_FINGERPRINT:-}
+      App__IosStoreUrl: ${IOS_STORE_URL:-}
+      App__AndroidStoreUrl: ${ANDROID_STORE_URL:-}
+      Push__ExpoAccessToken: ${EXPO_ACCESS_TOKEN:-}
+      MediatR__LicenseKey: ${MEDIATR_LICENSE_KEY:-}
+    volumes:
+      - media:/data/media
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:?API_DOMAIN .env dosyasında olmalı}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  media:
+  caddy_data:
+  caddy_config:

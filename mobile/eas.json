@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "environment": "preview",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.ornek.com",
+        "APP_LINK_DOMAIN": "api.ornek.com"
+      }
+    },
+    "production": {
+      "environment": "production",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.ornek.com",
+        "APP_LINK_DOMAIN": "api.ornek.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
