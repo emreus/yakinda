@@ -8,5 +8,8 @@ public sealed record EmailMessage(string To, string Subject, string TextBody, st
 /// </summary>
 public interface IEmailSender
 {
+    /// <summary>
+    /// E-postayı gönderir. Gönderilemezse hata fırlatır; çağıran command'ın transaction'ı geri alınır.
+    /// </summary>
     Task SendAsync(EmailMessage message, CancellationToken cancellationToken);
 }

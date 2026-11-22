@@ -8,6 +8,9 @@ namespace Yakinda.Application.Abstractions.Media;
 /// </summary>
 public interface IMediaStorage
 {
+    /// <summary>
+    /// Doğrulanmış ve temizlenmiş görseli verilen klasöre kaydeder; veritabanına yazılacak anahtarı döner.
+    /// </summary>
     Task<string> SaveAsync(string folder, ImageFile image, CancellationToken cancellationToken);
 
     /// <summary>Dosya yoksa sessizce geçer.</summary>

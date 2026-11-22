@@ -16,6 +16,10 @@ internal sealed class CacheInvalidationBehavior<TRequest, TResponse>(
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
+    /// <summary>
+    /// Önce sonraki adımı (transaction ve handler) bitirir. İstek bir command ise kuyrukta biriken
+    /// etiketleri alır ve cache'ten temizler. Hata fırlarsa bu satırlara hiç gelinmez, cache'e dokunulmaz.
+    /// </summary>
     public async Task<TResponse> Handle(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,
@@ -42,12 +46,16 @@ internal sealed class CacheInvalidationQueue : ICacheInvalidator
 {
     private readonly HashSet<string> _tags = new(StringComparer.Ordinal);
 
+    /// <summary>Etiketleri kümeye ekler; aynı etiket iki kez eklenirse tek kayıt olarak kalır.</summary>
     public void InvalidateAfterCommit(params string[] tags)
     {
         foreach (var tag in tags)
             _tags.Add(tag);
     }
 
+    /// <summary>
+    /// Biriken etiketlerin kopyasını döner ve kümeyi boşaltır (aynı etiketler ikinci kez temizlenmesin).
+    /// </summary>
     public IReadOnlyCollection<string> Drain()
     {
         var copy = _tags.ToArray();

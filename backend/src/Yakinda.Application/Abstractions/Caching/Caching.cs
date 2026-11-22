@@ -27,6 +27,9 @@ public interface ICacheService
 /// </summary>
 public interface ICacheInvalidator
 {
+    /// <summary>
+    /// Verilen etiketleri kuyruğa ekler; etiketler işlem başarıyla commit edildikten sonra temizlenir.
+    /// </summary>
     void InvalidateAfterCommit(params string[] tags);
 }
 

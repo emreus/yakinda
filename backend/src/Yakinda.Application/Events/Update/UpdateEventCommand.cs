@@ -32,6 +32,10 @@ public sealed record UpdateEventCommand(
 
 internal sealed class UpdateEventCommandValidator : AbstractValidator<UpdateEventCommand>
 {
+    /// <summary>
+    /// Etkinlik düzenleme kuralları: oluşturmadakiyle aynı alan sınırları ve içerik filtresi; başlangıç
+    /// gelecekte; bitiş başlangıçtan sonra ve en fazla 7 gün sonra; kontenjan verildiyse 1 ile 10.000 arasında.
+    /// </summary>
     public UpdateEventCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.CategoryId).GreaterThan((short)0).WithName("Kategori");
@@ -64,6 +68,13 @@ internal sealed class UpdateEventCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<UpdateEventCommand, Unit>
 {
+    /// <summary>
+    /// Etkinliği düzenler. Etkinliği satır kilidiyle okur; organizatör değilse 403, kategori değiştiyse ve
+    /// yenisi yoksa 400 döner. Kuralları ev.Update uygular ve neyin değiştiğini bildirir: kontenjan
+    /// arttıysa bekleme listesinden kişi alınır, saat değiştiyse hatırlatma işaretleri sıfırlanır, saat ya da
+    /// yer değiştiyse onaylı, bekleyen ve bekleme listesindeki herkese bildirim eklenir. En sonda etkinliğin,
+    /// organizatörün ve listeden alınanların cache etiketleri temizlenmek üzere kuyruğa eklenir.
+    /// </summary>
     public async Task<Unit> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

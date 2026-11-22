@@ -15,6 +15,10 @@ internal sealed class MediaChanges(IMediaStorage storage, ILogger<MediaChanges> 
     private readonly List<string> _saved = [];
     private readonly List<string> _obsolete = [];
 
+    /// <summary>
+    /// Görseli depoya kaydeder ve anahtarını "bu istekte kaydedilenler" listesine not eder;
+    /// işlem geri alınırsa bu dosya silinir. Kaydedilen dosyanın anahtarını döner.
+    /// </summary>
     public async Task<string> SaveAsync(string folder, ImageFile image, CancellationToken cancellationToken)
     {
         var key = await storage.SaveAsync(folder, image, cancellationToken);
@@ -22,12 +26,20 @@ internal sealed class MediaChanges(IMediaStorage storage, ILogger<MediaChanges> 
         return key;
     }
 
+    /// <summary>
+    /// Artık kullanılmayan eski dosyanın anahtarını "commit sonrası silinecekler" listesine ekler.
+    /// Boş anahtar (önceden görsel yoktu) yok sayılır.
+    /// </summary>
     public void DeleteAfterCommit(string? key)
     {
         if (!string.IsNullOrEmpty(key))
             _obsolete.Add(key);
     }
 
+    /// <summary>
+    /// İstek bitince çağrılır. Commit olduysa eski dosyaları, rollback olduysa bu istekte kaydedilen
+    /// yeni dosyaları siler. Tek bir dosyanın silinememesi isteği başarısız yapmaz; uyarı olarak loglanır.
+    /// </summary>
     public async Task CompleteAsync(bool committed)
     {
         var toDelete = (committed ? _obsolete : _saved).ToArray();
@@ -54,6 +66,11 @@ internal sealed class MediaChangesBehavior<TRequest, TResponse>(MediaChanges cha
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
+    /// <summary>
+    /// İstek command değilse doğrudan sonraki adıma geçer. Sonraki adım (transaction) hata fırlatırsa
+    /// CompleteAsync(false) ile yeni dosyaları temizleyip hatayı yeniden fırlatır; başarılıysa
+    /// CompleteAsync(true) ile eski dosyaları siler.
+    /// </summary>
     public async Task<TResponse> Handle(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,

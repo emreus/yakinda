@@ -183,6 +183,12 @@ internal sealed class GetEventDetailQueryHandler(
             {Safety.BlockSql.EitherWay("@UserId", "@OrganizerId")} AS is_blocked
         """;
 
+    /// <summary>
+    /// Etkinlik detayını iki parçadan kurar. Herkes için aynı olan kısım (EventSnapshot) cache'ten, yoksa
+    /// veritabanından gelir ve 5 dakika saklanır. İsteği yapana özel kısım (katılım durumu, puanı, bekleme
+    /// listesindeki sırası, engel durumu) her istekte taze okunur. Organizatörle arada engel varsa 404
+    /// döner. Sonunda Compose ikisini birleştirip yetki bayraklarını hesaplar.
+    /// </summary>
     public async Task<EventDetailDto> Handle(GetEventDetailQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -214,6 +220,10 @@ internal sealed class GetEventDetailQueryHandler(
         return Compose(snapshot, viewer, isOrganizer, now);
     }
 
+    /// <summary>
+    /// Etkinliğin paylaşılan kısmını (kategori ve organizatör bilgisiyle) tek sorguyla okur. Etkinlik
+    /// yoksa 404 fırlatır; hata cache'lenmediği için var olmayan kimlikler cache'i doldurmaz.
+    /// </summary>
     private async Task<EventSnapshot> LoadSnapshotAsync(Guid eventId, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);

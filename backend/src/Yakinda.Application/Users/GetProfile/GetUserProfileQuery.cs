@@ -65,6 +65,12 @@ internal sealed class GetUserProfileQueryHandler(IDbConnectionFactory db)
         GROUP BY r.score
         """;
 
+    /// <summary>
+    /// Kullanıcının herkese açık profilini okur: ad, fotoğraf, tanıtım yazısı, organizatör ortalaması,
+    /// düzenlediği ve katıldığı etkinlik sayıları. İkinci sorgu, düzenlediği etkinliklere gelen oyları puana
+    /// göre gruplayıp 5 elemanlı dağılım dizisini doldurur. Kullanıcı yoksa 404 döner.
+    /// Sonuç 10 dakika cache'lenir.
+    /// </summary>
     public async Task<UserProfileDto> Handle(GetUserProfileQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);

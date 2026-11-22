@@ -89,6 +89,7 @@ public sealed record GetChatMessagesQuery(Guid EventId, Guid? Before = null, Gui
 
 internal sealed class GetChatMessagesQueryValidator : AbstractValidator<GetChatMessagesQuery>
 {
+    /// <summary>Limit 1 ile 100 arasında olmalı; before ve after birlikte verilemez.</summary>
     public GetChatMessagesQueryValidator()
     {
         RuleFor(x => x.Limit).InclusiveBetween(1, 100);
@@ -99,6 +100,11 @@ internal sealed class GetChatMessagesQueryValidator : AbstractValidator<GetChatM
 internal sealed class GetChatMessagesQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser)
     : IRequestHandler<GetChatMessagesQuery, ChatPage>
 {
+    /// <summary>
+    /// Sohbet mesajlarını en yeni önce döner. Önce isteği yapanın sohbet üyesi olduğunu denetler. before
+    /// verilirse o mesajdan eskileri, after verilirse yenilerini getirir. Yazarıyla arada engel olan
+    /// mesajlar gelmez; silinmiş mesajın metni boş döner. Bir fazla satır isteyerek HasMore belirlenir.
+    /// </summary>
     public async Task<ChatPage> Handle(GetChatMessagesQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -147,6 +153,7 @@ public sealed record SendChatMessageCommand(Guid EventId, string Body) : IComman
 
 internal sealed class SendChatMessageCommandValidator : AbstractValidator<SendChatMessageCommand>
 {
+    /// <summary>Mesaj dolu, en fazla 1000 karakter olmalı ve içerik filtresinden geçmeli.</summary>
     public SendChatMessageCommandValidator() =>
         RuleFor(x => x.Body).NotEmpty().MaximumLength(ChatAccess.MaxBodyLength).NotObjectionable().WithName("Mesaj");
 }
@@ -159,6 +166,11 @@ internal sealed class SendChatMessageCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<SendChatMessageCommand, ChatMessageDto>
 {
+    /// <summary>
+    /// Sohbete mesaj yazar. Etkinliği kilitsiz okur; üye değilse 403, etkinlik aktif değilse 422 döner.
+    /// Mesajı zaman sıralı bir kimlikle (UUIDv7) kaydeder, diğer üyelere bildirim ekler (okunmamış sohbet
+    /// bildirimi olana yenisi eklenmez) ve kaydedilen mesajı döner.
+    /// </summary>
     public async Task<ChatMessageDto> Handle(SendChatMessageCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -212,6 +224,10 @@ internal sealed class DeleteChatMessageCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<DeleteChatMessageCommand, Unit>
 {
+    /// <summary>
+    /// Mesajı siler (satır kalır, silinmiş olarak işaretlenir). Mesaj yoksa ya da başka bir etkinliğe
+    /// aitse 404 döner; yalnızca yazarı ya da etkinliğin organizatörü silebilir, başkası 403 alır.
+    /// </summary>
     public async Task<Unit> Handle(DeleteChatMessageCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -236,6 +252,10 @@ public sealed record MarkChatReadCommand(Guid EventId) : ICommand<Unit>;
 internal sealed class MarkChatReadCommandHandler(IChatRepository chat, ICurrentUser currentUser, TimeProvider timeProvider)
     : IRequestHandler<MarkChatReadCommand, Unit>
 {
+    /// <summary>
+    /// Sohbet açıldığında o etkinliğe ait sohbet bildirimlerini okundu yapar; böylece bir sonraki mesaj
+    /// yeniden bildirim üretir.
+    /// </summary>
     public async Task<Unit> Handle(MarkChatReadCommand request, CancellationToken cancellationToken)
     {
         await chat.MarkNotificationsReadAsync(

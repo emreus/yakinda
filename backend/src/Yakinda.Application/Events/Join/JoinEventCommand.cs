@@ -26,6 +26,14 @@ internal sealed class JoinEventCommandHandler(
 {
     private static readonly TimeSpan RepeatNotificationWindow = TimeSpan.FromHours(1);
 
+    /// <summary>
+    /// Etkinliğe katılır. Etkinliği satır kilidiyle okur; organizatörle arada engel varsa 403 döner.
+    /// Kullanıcının eski bir katılım kaydı varsa yeniden katılıp katılamayacağını denetler, sonra ev.Admit
+    /// ile alacağı durumu belirler (onaylı, bekleyen ya da bekleme listesinde). Kaydı oluşturur ya da
+    /// günceller, etkinliği yazar. Bekleme listesine girmediyse organizatöre bildirim ekler; aynı kişi aynı
+    /// etkinlik için son bir saatte bildirim ürettiyse yenisi eklenmez. Etkinliğin ve kullanıcının cache
+    /// etiketlerini temizletir ve alınan durumu döner.
+    /// </summary>
     public async Task<JoinEventResult> Handle(JoinEventCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

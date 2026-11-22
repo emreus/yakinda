@@ -16,6 +16,9 @@ internal sealed class MarkNotificationReadCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<MarkNotificationReadCommand, Unit>
 {
+    /// <summary>
+    /// Tek bir bildirimi okundu yapar. Bildirim yoksa ya da başkasına aitse 404 döner; ikisi ayırt edilmez.
+    /// </summary>
     public async Task<Unit> Handle(MarkNotificationReadCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -36,6 +39,7 @@ internal sealed class MarkAllNotificationsReadCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<MarkAllNotificationsReadCommand, Unit>
 {
+    /// <summary>İsteği yapan kullanıcının okunmamış bütün bildirimlerini okundu yapar.</summary>
     public async Task<Unit> Handle(MarkAllNotificationsReadCommand request, CancellationToken cancellationToken)
     {
         await notifications.MarkAllReadAsync(currentUser.RequireUserId(), timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
@@ -53,6 +57,10 @@ public sealed record RegisterDeviceTokenCommand(string Token, string Platform) :
 
 internal sealed class RegisterDeviceTokenCommandValidator : AbstractValidator<RegisterDeviceTokenCommand>
 {
+    /// <summary>
+    /// Token dolu, en fazla 255 karakter ve Expo push token'ı biçiminde olmalı (ExponentPushToken[ ya da
+    /// ExpoPushToken[ ile başlar); platform ios ya da android olmalı.
+    /// </summary>
     public RegisterDeviceTokenCommandValidator()
     {
         RuleFor(x => x.Token)
@@ -75,6 +83,7 @@ internal sealed class RegisterDeviceTokenCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<RegisterDeviceTokenCommand, Unit>
 {
+    /// <summary>Cihazın push token'ını isteği yapan kullanıcıya kaydeder (varsa günceller).</summary>
     public async Task<Unit> Handle(RegisterDeviceTokenCommand request, CancellationToken cancellationToken)
     {
         await tokens.UpsertAsync(
@@ -95,6 +104,7 @@ internal sealed class UnregisterDeviceTokenCommandHandler(
     IDeviceTokenRepository tokens,
     ICurrentUser currentUser) : IRequestHandler<UnregisterDeviceTokenCommand, Unit>
 {
+    /// <summary>Çıkışta cihazın push token'ını siler; token başkasına aitse hiçbir şey olmaz.</summary>
     public async Task<Unit> Handle(UnregisterDeviceTokenCommand request, CancellationToken cancellationToken)
     {
         await tokens.DeleteAsync(request.Token, currentUser.RequireUserId(), cancellationToken);

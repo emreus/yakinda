@@ -23,6 +23,11 @@ internal sealed class AuthTokenIssuer(
     IRefreshTokenRepository refreshTokens,
     TimeProvider timeProvider)
 {
+    /// <summary>
+    /// Kullanıcıya yeni bir oturum verir: erişim token'ı ve rastgele bir refresh token üretir, refresh
+    /// token'ın özetini son kullanma zamanıyla veritabanına kaydeder ve mobilin beklediği yanıtı
+    /// (token'lar + kullanıcı özeti) döner.
+    /// </summary>
     public async Task<AuthResponse> IssueAsync(User user, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;

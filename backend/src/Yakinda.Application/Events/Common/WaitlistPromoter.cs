@@ -17,7 +17,13 @@ internal sealed class WaitlistPromoter(
     INotificationRepository notifications,
     IUserRepository users)
 {
-    /// <returns>Listeden alınan kullanıcılar (cache temizliği için).</returns>
+    /// <summary>
+    /// Boş yerleri bekleme listesinden doldurur. Etkinlik aktif değilse, başladıysa ya da (kontenjan
+    /// sınırsızken) bekleyen kimse yoksa hiçbir şey yapmaz. Yer oldukça listenin başındaki kişiyi alır:
+    /// onaylı etkinlikte bekleyen isteğe çevirip organizatöre bildirim ekler, açık etkinlikte doğrudan
+    /// onaylı katılımcı yapıp sayacı artırır. Alınan her kişiye "yer açıldı" bildirimi yazılır.
+    /// Listeden alınan kullanıcıların kimliklerini döner (cache temizliği için).
+    /// </summary>
     public async Task<IReadOnlyList<Guid>> FillOpenSeatsAsync(Event ev, DateTime nowUtc, CancellationToken cancellationToken)
     {
         var promoted = new List<Guid>();
@@ -68,6 +74,10 @@ internal sealed class WaitlistPromoter(
         return promoted;
     }
 
+    /// <summary>
+    /// Bekleme listesinde en az bir kişi var mı? Kontenjanı kaldırılmış (sınırsız) etkinlikte, döngüye
+    /// girmeden önce buna bakılır.
+    /// </summary>
     private async Task<bool> AnyWaitlistedAsync(Event ev, CancellationToken cancellationToken) =>
         await participants.CountAsync(ev.Id, ParticipantStatus.Waitlisted, cancellationToken) > 0;
 }

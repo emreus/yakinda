@@ -41,10 +41,17 @@ public sealed class Event
     public double? AverageRating =>
         RatingCount == 0 ? null : Math.Round((double)RatingSum / RatingCount, 2);
 
+    /// <summary>Etkinlik başladı mı? Verilen an başlangıç saatine eşit ya da ondan sonraysa true döner.</summary>
     public bool HasStarted(DateTime nowUtc) => nowUtc >= StartsAt;
 
+    /// <summary>Verilen kullanıcı bu etkinliğin organizatörü mü? Yetki kontrollerinde kullanılır.</summary>
     public bool IsOrganizer(Guid userId) => OrganizerId == userId;
 
+    /// <summary>
+    /// Yeni bir etkinlik üretir. Önce Validate ile kuralları denetler (başlık, zaman, kontenjan, konum);
+    /// sonra zaman sıralı bir kimlik (UUIDv7) verir, metinleri kırpar (boş metin null olur) ve etkinliği
+    /// Active durumda, sıfır katılımcı ve sıfır puanla başlatır.
+    /// </summary>
     public static Event Create(
         Guid organizerId,
         short categoryId,
@@ -86,6 +93,12 @@ public sealed class Event
         };
     }
 
+    /// <summary>
+    /// Oluşturma ve düzenlemenin ortak kuralları: başlık boş olamaz, başlangıç gelecekte olmalı, bitiş
+    /// başlangıçtan sonra ve en fazla 7 gün sonra olmalı, kontenjan 1 ile 10.000 arasında olmalı
+    /// (null = sınırsız), enlem ve boylam geçerli aralıkta olmalı. İhlalde DomainException fırlatır;
+    /// API bunu 422 olarak döner.
+    /// </summary>
     private static void Validate(
         string title,
         DateTime startsAtUtc,
@@ -170,8 +183,15 @@ public sealed class Event
         return changes;
     }
 
+    /// <summary>
+    /// Metni kırpar; boş ya da yalnızca boşluksa null döner (veritabanına boş metin yerine NULL yazılır).
+    /// </summary>
     private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    /// <summary>
+    /// Etkinlik iptal edilmiş ya da yönetici tarafından kaldırılmışsa hata fırlatır.
+    /// Etkinliği değiştiren her işlemin ilk kontrolüdür.
+    /// </summary>
     public void EnsureIsActive()
     {
         if (Status == EventStatus.Cancelled)
@@ -224,6 +244,10 @@ public sealed class Event
         return ParticipantStatus.Approved;
     }
 
+    /// <summary>
+    /// Onaylı katılımcı sayısını bir artırır. Kontenjan doluysa event.full hatası fırlatır;
+    /// hata transaction'ı geri aldırdığı için aynı istekteki diğer değişiklikler de yazılmaz.
+    /// </summary>
     public void AddApprovedParticipant()
     {
         if (IsFull)
@@ -231,12 +255,19 @@ public sealed class Event
         ParticipantCount++;
     }
 
+    /// <summary>
+    /// Onaylı katılımcı sayısını bir azaltır (ayrılma ya da çıkarılma). Sayaç sıfırın altına inmez.
+    /// </summary>
     public void RemoveApprovedParticipant()
     {
         if (ParticipantCount > 0)
             ParticipantCount--;
     }
 
+    /// <summary>
+    /// Organizatörün etkinliği iptal etmesi. Etkinlik aktif olmalı ve henüz başlamamış olmalı;
+    /// durum Cancelled olur ve son değişiklik zamanı güncellenir.
+    /// </summary>
     public void Cancel(DateTime nowUtc)
     {
         EnsureIsActive();
@@ -286,6 +317,7 @@ public sealed class Event
         return delta;
     }
 
+    /// <summary>Son değişiklik zamanını (UpdatedAt) günceller.</summary>
     public void Touch(DateTime nowUtc) => UpdatedAt = nowUtc;
 }
 

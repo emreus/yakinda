@@ -22,6 +22,7 @@ public sealed record DeleteAccountCommand(string Password) : ICommand<Unit>;
 
 internal sealed class DeleteAccountCommandValidator : AbstractValidator<DeleteAccountCommand>
 {
+    /// <summary>Şifre boş olamaz.</summary>
     public DeleteAccountCommandValidator() => RuleFor(x => x.Password).NotEmpty().WithName("Şifre");
 }
 
@@ -35,6 +36,12 @@ internal sealed class DeleteAccountCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<DeleteAccountCommand, Unit>
 {
+    /// <summary>
+    /// Hesabı kalıcı olarak siler. Şifreyi yeniden doğrular (yanlışsa 401). Kullanıcının yaklaşan
+    /// etkinliklerdeki yerini boşaltır, düzenlediği yaklaşan etkinlikleri iptal edip katılımcılara bildirir,
+    /// profil fotoğrafını ve etkinlik görsellerini commit sonrası silinmek üzere işaretler, sonra satırı
+    /// anonimleştirir ve profil cache'ini temizletir.
+    /// </summary>
     public async Task<Unit> Handle(DeleteAccountCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

@@ -15,6 +15,7 @@ public sealed record RefreshTokenCommand(string RefreshToken) : ICommand<AuthRes
 
 internal sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTokenCommand>
 {
+    /// <summary>Refresh token dolu olmalı ve 200 karakteri geçmemeli.</summary>
     public RefreshTokenCommandValidator()
     {
         RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(200);
@@ -28,6 +29,11 @@ internal sealed class RefreshTokenCommandHandler(
     AuthTokenIssuer tokenIssuer,
     TimeProvider timeProvider) : IRequestHandler<RefreshTokenCommand, AuthResponse>
 {
+    /// <summary>
+    /// Oturumu yeniler. Gelen token'ın özetini alır ve geçerli kaydı satır kilidiyle okur; kayıt yoksa
+    /// 401 döner. Eski token'ı iptal eder (her token tek kullanımlıktır), kullanıcının hâlâ var olduğunu ve
+    /// yasaklı olmadığını denetler, sonra yeni erişim ve refresh token'larını üretir.
+    /// </summary>
     public async Task<AuthResponse> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -58,6 +64,7 @@ public sealed record LogoutCommand(string RefreshToken) : ICommand<Unit>;
 
 internal sealed class LogoutCommandValidator : AbstractValidator<LogoutCommand>
 {
+    /// <summary>Refresh token dolu olmalı ve 200 karakteri geçmemeli.</summary>
     public LogoutCommandValidator() => RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(200);
 }
 
@@ -66,6 +73,9 @@ internal sealed class LogoutCommandHandler(
     ITokenService tokenService,
     TimeProvider timeProvider) : IRequestHandler<LogoutCommand, Unit>
 {
+    /// <summary>
+    /// Çıkış yapar: gelen refresh token'ın özetini alır ve eşleşen kaydı iptal eder. Kayıt yoksa da hata vermez.
+    /// </summary>
     public async Task<Unit> Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
         await refreshTokens.RevokeByHashAsync(

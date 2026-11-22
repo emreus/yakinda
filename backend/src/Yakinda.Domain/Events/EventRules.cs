@@ -28,15 +28,22 @@ public static class EventRules
     /// <summary>Etkinlik bittikten sonra oylamanın açık kalacağı süre.</summary>
     public static readonly TimeSpan RatingWindowAfterEnd = TimeSpan.FromDays(14);
 
+    /// <summary>
+    /// Etkinliğin bittiği sayılan an: bitiş saati girilmişse o, girilmemişse başlangıç + 3 saat.
+    /// </summary>
     public static DateTime EffectiveEndsAt(DateTime startsAt, DateTime? endsAt) =>
         endsAt ?? startsAt + DefaultDuration;
 
     /// <summary>Oylama etkinlik başladığı anda açılır.</summary>
     public static DateTime RatingOpensAt(DateTime startsAt) => startsAt;
 
+    /// <summary>Oylamanın kapandığı an: etkinliğin bittiği sayılan andan 14 gün sonra.</summary>
     public static DateTime RatingClosesAt(DateTime startsAt, DateTime? endsAt) =>
         EffectiveEndsAt(startsAt, endsAt) + RatingWindowAfterEnd;
 
+    /// <summary>
+    /// Verilen anda oylama açık mı? Etkinlik başladığı andan, bitişten 14 gün sonrasına kadar true döner.
+    /// </summary>
     public static bool IsRatingWindowOpen(DateTime startsAt, DateTime? endsAt, DateTime nowUtc) =>
         nowUtc >= RatingOpensAt(startsAt) && nowUtc <= RatingClosesAt(startsAt, endsAt);
 }

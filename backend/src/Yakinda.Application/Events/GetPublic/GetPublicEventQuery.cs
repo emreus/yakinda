@@ -30,6 +30,11 @@ public sealed record GetPublicEventQuery(Guid EventId) : IQuery<PublicEventDto?>
 
 internal sealed class GetPublicEventQueryHandler(IDbConnectionFactory db) : IRequestHandler<GetPublicEventQuery, PublicEventDto?>
 {
+    /// <summary>
+    /// Paylaşım sayfası için giriş gerektirmeyen özeti okur: başlık, kategori, saat, mekan adı, organizatör
+    /// adı, katılımcı sayısı ve kapak görseli. Yalnızca aktif etkinlik döner; yoksa null. Adres ve koordinat
+    /// bilerek dahil edilmez.
+    /// </summary>
     public async Task<PublicEventDto?> Handle(GetPublicEventQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);

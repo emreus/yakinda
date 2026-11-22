@@ -48,6 +48,11 @@ internal sealed class GetEventParticipantsQueryHandler(IDbConnectionFactory db, 
         ORDER BY p.status, p.created_at
         """;
 
+    /// <summary>
+    /// Etkinliğin katılımcılarını listeler. Önce etkinliğin görünür olduğunu denetler (yoksa ya da engel
+    /// varsa 404). Onaylı katılımcılar herkese, bekleyen istekler yalnızca organizatöre döner. Organizatör
+    /// dışındakiler, aralarında engel olan kişileri listede görmez.
+    /// </summary>
     public async Task<IReadOnlyList<ParticipantDto>> Handle(GetEventParticipantsQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

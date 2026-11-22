@@ -35,6 +35,11 @@ public sealed record GetNearbyEventsQuery(
 
 internal sealed class GetNearbyEventsQueryValidator : AbstractValidator<GetNearbyEventsQuery>
 {
+    /// <summary>
+    /// Yakındakiler sorgusunun kuralları: enlem ve boylam geçerli aralıkta, yarıçap 0,1 ile 100 km arasında,
+    /// sayfa 1 ile 1000 arasında, sayfa boyutu 1 ile 50 arasında, arama metni en fazla 100 karakter;
+    /// bitiş tarihi verildiyse başlangıç tarihinden sonra olmalı.
+    /// </summary>
     public GetNearbyEventsQueryValidator()
     {
         RuleFor(x => x.Latitude).InclusiveBetween(-90d, 90d);
@@ -52,6 +57,13 @@ internal sealed class GetNearbyEventsQueryValidator : AbstractValidator<GetNearb
 internal sealed class GetNearbyEventsQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser, TimeProvider timeProvider)
     : IRequestHandler<GetNearbyEventsQuery, PagedResult<EventListItemDto>>
 {
+    /// <summary>
+    /// Verilen noktanın çevresindeki etkinlikleri sayfalı döner. Tek SQL çalışır: PostGIS ST_DWithin ile
+    /// yarıçap içindeki aktif ve bitmemiş etkinlikler seçilir; kategori, tarih, "yeri olanlar" ve arama
+    /// filtreleri uygulanır; organizatörüyle arada engel olanlar çıkarılır; mesafe ST_Distance ile metre
+    /// olarak hesaplanır ve yakınlığa, zamana ya da organizatör puanına göre sıralanır. Sayfa boyutundan bir
+    /// fazla satır istenir; fazlalık geldiyse atılır ve HasMore true olur.
+    /// </summary>
     public async Task<PagedResult<EventListItemDto>> Handle(GetNearbyEventsQuery query, CancellationToken cancellationToken)
     {
         // ORDER BY kullanıcı girdisinden değil enum'dan üretilir (SQL injection riski yok).

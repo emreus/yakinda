@@ -15,6 +15,10 @@ public static class ContentFilter
     private static readonly CultureInfo Turkish = CultureInfo.GetCultureInfo("tr-TR");
     private static readonly Lazy<(HashSet<string> Exact, string[] Prefixes)> Words = new(Load);
 
+    /// <summary>
+    /// Metin uygunsuz bir ifade içeriyor mu? Boş metin temizdir. Metni hem Türkçe hem değişmez kültürle
+    /// küçük harfe çevirip (I ve İ harfleri iki kültürde farklı dönüşür) her iki hâlinde de arar.
+    /// </summary>
     public static bool IsObjectionable(string? text)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -25,6 +29,10 @@ public static class ContentFilter
         return ContainsBlocked(Normalize(text, Turkish)) || ContainsBlocked(Normalize(text, CultureInfo.InvariantCulture));
     }
 
+    /// <summary>
+    /// Sadeleştirilmiş metni kelimelere ayırır; kelimelerden biri listede tam olarak geçiyorsa ya da
+    /// listedeki bir önekle başlıyorsa true döner.
+    /// </summary>
     private static bool ContainsBlocked(string normalized)
     {
         var (exact, prefixes) = Words.Value;
@@ -67,6 +75,7 @@ public static class ContentFilter
         return builder.ToString();
     }
 
+    /// <summary>Metni harf dizilerine (kelimelere) ayırır; harf olmayan her karakter ayırıcı sayılır.</summary>
     private static IEnumerable<string> Tokenize(string normalized)
     {
         var start = -1;
@@ -85,6 +94,10 @@ public static class ContentFilter
         }
     }
 
+    /// <summary>
+    /// Kelime listesini assembly'ye gömülü blocked-words.txt dosyasından bir kez okur. Boş ve # ile
+    /// başlayan satırlar atlanır; sonu yıldızla biten kayıtlar önek, diğerleri tam kelime olarak saklanır.
+    /// </summary>
     private static (HashSet<string>, string[]) Load()
     {
         var assembly = Assembly.GetExecutingAssembly();

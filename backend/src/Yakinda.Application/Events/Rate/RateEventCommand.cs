@@ -23,6 +23,9 @@ public sealed record RateEventResult(short Score, double? EventAverageRating, in
 
 internal sealed class RateEventCommandValidator : AbstractValidator<RateEventCommand>
 {
+    /// <summary>
+    /// Puan 1 ile 5 arasında olmalı; yorum en fazla 500 karakter olmalı ve içerik filtresinden geçmeli.
+    /// </summary>
     public RateEventCommandValidator()
     {
         RuleFor(x => x.Score).InclusiveBetween(EventRules.MinScore, EventRules.MaxScore).WithName("Puan");
@@ -39,6 +42,13 @@ internal sealed class RateEventCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<RateEventCommand, RateEventResult>
 {
+    /// <summary>
+    /// Etkinliği puanlar ya da önceki puanı günceller. Etkinliği satır kilidiyle okur, kullanıcının katılım
+    /// durumunu alır ve ev.EnsureCanBeRatedBy ile oy verip veremeyeceğini denetler. Puan kaydı yoksa
+    /// oluşturur, varsa günceller ve eski puanı alır. ev.ApplyRating farkı hesaplar; puan, etkinliğin
+    /// toplamları ve organizatörün toplamları aynı transaction'da yazılır. Etkinliğin ve organizatörün cache
+    /// etiketlerini temizletir; verilen puanı, etkinliğin yeni ortalamasını ve oy sayısını döner.
+    /// </summary>
     public async Task<RateEventResult> Handle(RateEventCommand request, CancellationToken cancellationToken)
     {
         var raterId = currentUser.RequireUserId();

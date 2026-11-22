@@ -49,8 +49,13 @@ public sealed class User
     public double? AverageRating =>
         RatingCount == 0 ? null : Math.Round((double)RatingSum / RatingCount, 2);
 
+    /// <summary>E-postayı kırpıp küçük harfe çevirir; kayıt ve girişte aynı biçim karşılaştırılsın diye.</summary>
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
+    /// <summary>
+    /// Yeni kullanıcı üretir: zaman sıralı kimlik (UUIDv7) verir, e-postayı normalize eder, adı kırpar,
+    /// puan toplamlarını sıfırdan başlatır ve koşulların kabul edildiği anı kayıt anı olarak işaretler.
+    /// </summary>
     public static User Register(string email, string passwordHash, string displayName, DateTime nowUtc) => new()
     {
         Id = Guid.CreateVersion7(),

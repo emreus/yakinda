@@ -23,6 +23,9 @@ public sealed class ImageFile
     public const int MaxSide = 8000;
     public const long MaxPixels = 40_000_000;
 
+    /// <summary>
+    /// Yalnızca TryRead çağırır: doğrulanmış ve temizlenmiş baytları, biçimi ve piksel boyutlarını saklar.
+    /// </summary>
     private ImageFile(byte[] data, ImageFormat format, int width, int height)
     {
         Data = data;
@@ -82,6 +85,10 @@ public sealed class ImageFile
         }
     }
 
+    /// <summary>
+    /// Biçimi dosyanın ilk baytlarındaki imzadan tanır: JPEG (FF D8 FF), PNG (8 baytlık imza) ya da WebP
+    /// (RIFF....WEBP). Hiçbiri değilse null döner.
+    /// </summary>
     private static ImageFormat? Detect(ReadOnlySpan<byte> data)
     {
         if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
@@ -97,6 +104,13 @@ public sealed class ImageFile
 
     private static class Jpeg
     {
+        /// <summary>
+        /// JPEG'i bölüm bölüm okuyup temiz bir kopyasını üretir. Görüntüyü çözmek için gereken bölümler ile
+        /// JFIF, ICC ve Adobe bölümleri kopyalanır; EXIF, XMP, IPTC ve yorum bölümleri atılır. EXIF'teki yön
+        /// bilgisi okunur ve yalnızca onu içeren küçük bir EXIF bölümü olarak geri yazılır. Genişlik ve yükseklik
+        /// çerçeve bölümünden alınır. Bitiş işaretinden (EOI) sonraki baytlar kopyalanmaz; yapı bozuksa ya da
+        /// bitiş işareti yoksa null döner.
+        /// </summary>
         public static (byte[] Data, int Width, int Height)? Sanitize(byte[] src)
         {
             using var output = new MemoryStream(src.Length);
@@ -217,9 +231,14 @@ public sealed class ImageFile
             _ => true
         };
 
+        /// <summary>İşaret bir çerçeve başlığı (SOFn) mı? Genişlik ve yükseklik bu bölümden okunur.</summary>
         private static bool IsStartOfFrame(byte marker) =>
             marker is >= 0xC0 and <= 0xCF and not 0xC4 and not 0xC8 and not 0xCC;
 
+        /// <summary>
+        /// EXIF bölümünden yön (orientation) değerini okur. TIFF başlığından bayt sırasını belirler, ilk
+        /// dizindeki kayıtları gezer ve 0x0112 etiketini arar. Bölüm EXIF değilse ya da etiket yoksa null döner.
+        /// </summary>
         private static ushort? ReadOrientation(ReadOnlySpan<byte> payload)
         {
             if (payload.Length < 14 || !payload[..6].SequenceEqual("Exif\0\0"u8))
@@ -248,6 +267,10 @@ public sealed class ImageFile
             return null;
         }
 
+        /// <summary>
+        /// İçinde yalnızca yön bilgisi bulunan en küçük EXIF bölümünü (34 bayt) üretir; silinen EXIF'in
+        /// yerine bu yazılır ki dik çekilen fotoğraf yan dönmesin.
+        /// </summary>
         private static byte[] OrientationOnlyExif(ushort orientation)
         {
             byte[] segment =
@@ -263,9 +286,11 @@ public sealed class ImageFile
             return segment;
         }
 
+        /// <summary>16 bitlik sayıyı verilen bayt sırasına göre (little ya da big endian) okur.</summary>
         private static ushort U16(ReadOnlySpan<byte> s, bool little) =>
             little ? BinaryPrimitives.ReadUInt16LittleEndian(s) : BinaryPrimitives.ReadUInt16BigEndian(s);
 
+        /// <summary>32 bitlik sayıyı verilen bayt sırasına göre (little ya da big endian) okur.</summary>
         private static uint U32(ReadOnlySpan<byte> s, bool little) =>
             little ? BinaryPrimitives.ReadUInt32LittleEndian(s) : BinaryPrimitives.ReadUInt32BigEndian(s);
     }
@@ -279,6 +304,11 @@ public sealed class ImageFile
         /// <summary>Metin, zaman ve EXIF parçaları silinir; görüntü parçaları aynen kalır.</summary>
         private static readonly string[] Dropped = ["eXIf", "tEXt", "zTXt", "iTXt", "tIME"];
 
+        /// <summary>
+        /// PNG'yi parça (chunk) parça okuyup temiz bir kopyasını üretir: eXIf, tEXt, zTXt, iTXt ve tIME
+        /// parçaları atılır, diğerleri aynen kopyalanır. Genişlik ve yükseklik ilk parçadan (IHDR) alınır.
+        /// IEND parçasında durur; yapı bozuksa null döner.
+        /// </summary>
         public static (byte[] Data, int Width, int Height)? Sanitize(byte[] src)
         {
             using var output = new MemoryStream(src.Length);
@@ -323,6 +353,11 @@ public sealed class ImageFile
         private const byte ExifFlag = 0x08;
         private const byte XmpFlag = 0x04;
 
+        /// <summary>
+        /// WebP (RIFF) dosyasını parça parça okuyup temiz bir kopyasını üretir: EXIF ve XMP parçaları atılır,
+        /// VP8X başlığındaki EXIF ve XMP bayrakları kapatılır, RIFF boyutu yeniden yazılır. Genişlik ve yükseklik
+        /// VP8X, VP8 ya da VP8L başlığından okunur. Yapı bozuksa null döner.
+        /// </summary>
         public static (byte[] Data, int Width, int Height)? Sanitize(byte[] src)
         {
             long riffEnd = 8L + BinaryPrimitives.ReadUInt32LittleEndian(src.AsSpan(4));

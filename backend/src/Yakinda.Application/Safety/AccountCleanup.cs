@@ -18,6 +18,11 @@ internal sealed class AccountCleanup(
     WaitlistPromoter waitlist,
     ICacheInvalidator cacheInvalidator)
 {
+    /// <summary>
+    /// Kullanıcının yaklaşan etkinliklerdeki yerini boşaltır (hesap silme ve yasaklamada). Aktif katılımı
+    /// olan her yaklaşan etkinlik için: etkinliği satır kilidiyle okur, katılımı Left yapar, kişi onaylıydıysa
+    /// sayacı düşürür, boşalan yere bekleme listesinden kişi alır ve ilgili cache etiketlerini temizletir.
+    /// </summary>
     public async Task LeaveUpcomingEventsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken)
     {
         foreach (var eventId in await participants.GetUpcomingActiveEventIdsAsync(userId, nowUtc, cancellationToken))
@@ -39,7 +44,11 @@ internal sealed class AccountCleanup(
         }
     }
 
-    /// <param name="removedByModerator">true: yönetici kaldırdı (yasaklama). false: organizatör hesabını sildi (iptal).</param>
+    /// <summary>
+    /// Kullanıcının düzenlediği, aktif ve başlamamış bütün etkinlikleri kapatır. removedByModerator true
+    /// ise yönetici kaldırmış sayılır (yasaklama); false ise organizatör hesabını silmiştir ve etkinlikler
+    /// iptal edilir. Her etkinlik satır kilidiyle okunur ve CloseAsync ile kapatılır.
+    /// </summary>
     public async Task CloseUpcomingOrganizedEventsAsync(
         Guid organizerId,
         bool removedByModerator,
@@ -76,6 +85,10 @@ internal sealed class AccountCleanup(
         cacheInvalidator.InvalidateAfterCommit(CacheTag.Event(ev.Id), CacheTag.User(ev.OrganizerId));
     }
 
+    /// <summary>
+    /// Etkinlik aktifse ve başlamadıysa iptal eder ve true döner; aksi halde dokunmadan false döner
+    /// (hata fırlatmaz).
+    /// </summary>
     private static bool CancelIfPossible(Event ev, DateTime nowUtc)
     {
         if (ev.Status != EventStatus.Active || ev.HasStarted(nowUtc))
