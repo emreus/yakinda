@@ -28,6 +28,7 @@ public sealed class RatingDto
 
 internal sealed class GetEventRatingsQueryValidator : AbstractValidator<GetEventRatingsQuery>
 {
+    /// <summary>Sayfa 1 ile 1000, sayfa boyutu 1 ile 50 arasında olmalı.</summary>
     public GetEventRatingsQueryValidator()
     {
         RuleFor(x => x.Page).InclusiveBetween(1, Paging.MaxPage);
@@ -52,6 +53,11 @@ internal sealed class GetEventRatingsQueryHandler(IDbConnectionFactory db)
         LIMIT @Limit OFFSET @Offset
         """;
 
+    /// <summary>
+    /// Etkinliğe verilen puanları ve yorumları sayfalı döner: yorumlu olanlar önce, en yeni en üstte.
+    /// Bir fazla satır isteyerek sonraki sayfanın olup olmadığını (HasMore) belirler. Sonuç pipeline'da
+    /// 10 dakika cache'lenir.
+    /// </summary>
     public async Task<PagedResult<RatingDto>> Handle(GetEventRatingsQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);

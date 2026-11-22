@@ -27,6 +27,10 @@ public sealed class CategoryDto
 internal sealed class GetCategoriesQueryHandler(IDbConnectionFactory db)
     : IRequestHandler<GetCategoriesQuery, IReadOnlyList<CategoryDto>>
 {
+    /// <summary>
+    /// Kategorileri sıralama numarasına göre tek sorguyla okur. Sonuç pipeline'da 1 saat cache'lendiği için
+    /// bu sorgu nadiren çalışır.
+    /// </summary>
     public async Task<IReadOnlyList<CategoryDto>> Handle(GetCategoriesQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);

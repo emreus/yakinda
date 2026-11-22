@@ -7,9 +7,11 @@ public sealed class EventParticipantTests
 {
     private static readonly DateTime Now = new(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);
 
+    /// <summary>Rastgele bir etkinlik ve kullanıcı için, verilen durumda bir katılım kaydı üretir.</summary>
     private static EventParticipant With(ParticipantStatus status) =>
         EventParticipant.Create(Guid.NewGuid(), Guid.NewGuid(), status, Now);
 
+    /// <summary>Bekleyen istek onaylanınca durum Approved olur.</summary>
     [Fact]
     public void Pending_request_can_be_approved()
     {
@@ -18,6 +20,10 @@ public sealed class EventParticipantTests
         Assert.Equal(ParticipantStatus.Approved, participant.Status);
     }
 
+    /// <summary>
+    /// Yalnızca bekleyen istek onaylanabilir; onaylı, reddedilmiş ya da ayrılmış kayıtta
+    /// participant.not_pending hatası gelir.
+    /// </summary>
     [Theory]
     [InlineData(ParticipantStatus.Approved)]
     [InlineData(ParticipantStatus.Rejected)]
@@ -28,6 +34,10 @@ public sealed class EventParticipantTests
         Assert.Equal("participant.not_pending", ex.Code);
     }
 
+    /// <summary>
+    /// Reddetme, kişinin daha önce onaylı olup olmadığını döner (yer boşaldı mı): bekleyen istekte false,
+    /// onaylı katılımcıda true. Her iki durumda da kayıt Rejected olur.
+    /// </summary>
     [Theory]
     [InlineData(ParticipantStatus.Pending, false)]
     [InlineData(ParticipantStatus.Approved, true)]
@@ -41,6 +51,7 @@ public sealed class EventParticipantTests
         Assert.Equal(ParticipantStatus.Rejected, participant.Status);
     }
 
+    /// <summary>Onaylı katılımcı ayrılınca durum Left olur ve bir yer boşaldığı bildirilir (true).</summary>
     [Fact]
     public void Approved_participant_leaving_frees_a_seat()
     {
@@ -49,6 +60,7 @@ public sealed class EventParticipantTests
         Assert.Equal(ParticipantStatus.Left, participant.Status);
     }
 
+    /// <summary>Reddedilmiş ya da zaten ayrılmış kişi yeniden ayrılamaz: participant.not_active.</summary>
     [Theory]
     [InlineData(ParticipantStatus.Rejected)]
     [InlineData(ParticipantStatus.Left)]
@@ -58,6 +70,10 @@ public sealed class EventParticipantTests
         Assert.Equal("participant.not_active", ex.Code);
     }
 
+    /// <summary>
+    /// Kaydı duran kişi yeniden katılamaz; her durumun kendi hata kodu vardır: bekleyen istek
+    /// (already_pending), onaylı katılım (already_joined), reddedilmiş istek (rejected).
+    /// </summary>
     [Theory]
     [InlineData(ParticipantStatus.Pending, "participant.already_pending")]
     [InlineData(ParticipantStatus.Approved, "participant.already_joined")]
@@ -68,6 +84,10 @@ public sealed class EventParticipantTests
         Assert.Equal(code, ex.Code);
     }
 
+    /// <summary>
+    /// Bekleme listesindeki kişi sıraya alınabilir: etkinliğin katılım şekline göre doğrudan onaylı ya da
+    /// onay bekleyen duruma geçer.
+    /// </summary>
     [Theory]
     [InlineData(ParticipantStatus.Approved)]
     [InlineData(ParticipantStatus.Pending)]
@@ -78,6 +98,7 @@ public sealed class EventParticipantTests
         Assert.Equal(newStatus, participant.Status);
     }
 
+    /// <summary>Bekleme listesinde olmayan kayıt sıraya alınamaz: participant.not_waitlisted.</summary>
     [Fact]
     public void Only_waitlisted_participants_can_be_promoted()
     {
@@ -85,6 +106,7 @@ public sealed class EventParticipantTests
         Assert.Equal("participant.not_waitlisted", ex.Code);
     }
 
+    /// <summary>Bekleme listesinden ayrılan kişi yer boşaltmaz (false döner); kaydı Left olur.</summary>
     [Fact]
     public void Leaving_the_waitlist_frees_no_seat()
     {
@@ -93,6 +115,9 @@ public sealed class EventParticipantTests
         Assert.Equal(ParticipantStatus.Left, participant.Status);
     }
 
+    /// <summary>
+    /// Bekleme listesindeki kişi ikinci kez katılma isteği gönderemez: participant.already_waitlisted.
+    /// </summary>
     [Fact]
     public void Waitlisted_participant_cannot_join_again()
     {
@@ -100,6 +125,7 @@ public sealed class EventParticipantTests
         Assert.Equal("participant.already_waitlisted", ex.Code);
     }
 
+    /// <summary>Ayrılmış kişi yeniden katılabilir; kaydı verilen yeni duruma (burada Pending) geçer.</summary>
     [Fact]
     public void Participant_who_left_can_rejoin()
     {

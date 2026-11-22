@@ -6,12 +6,17 @@ namespace Yakinda.Infrastructure.Persistence.Repositories;
 
 internal sealed class ChatRepository(DbSession session) : RepositoryBase(session), IChatRepository
 {
+    /// <summary>Sohbet mesajını ekler.</summary>
     public Task AddAsync(Guid id, Guid eventId, Guid authorId, string body, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO event_messages (id, event_id, author_id, body, created_at)
             VALUES (@Id, @EventId, @AuthorId, @Body, @Now)
             """, new { Id = id, EventId = eventId, AuthorId = authorId, Body = body, Now = nowUtc }, cancellationToken);
 
+    /// <summary>
+    /// Mesajın hangi etkinliğe ait olduğunu ve yazarını okur; mesaj yoksa null döner. Silme isteğinde
+    /// yetki kontrolü (yazar mı, organizatör mü) bu bilgiyle yapılır.
+    /// </summary>
     public async Task<(Guid EventId, Guid AuthorId)?> GetOwnershipAsync(Guid messageId, CancellationToken cancellationToken)
     {
         var row = await QuerySingleOrDefaultAsync<MessageOwnership>(
@@ -34,12 +39,20 @@ internal sealed class ChatRepository(DbSession session) : RepositoryBase(session
                AND n.type = @ChatType AND n.created_at = m.created_at;
             """;
 
+    /// <summary>
+    /// Mesajın deleted_at alanını doldurur ve o mesajın ürettiği sohbet bildirimlerinin gövdesini "Mesaj
+    /// silindi" yapar; böylece silinen metin bildirim listesinde kalmaz.
+    /// </summary>
     public Task SoftDeleteAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync(
             SoftDeleteSql,
             new { Id = messageId, Now = nowUtc, ChatType = (short)NotificationType.ChatMessage },
             cancellationToken);
 
+    /// <summary>
+    /// Tek INSERT ... SELECT ile organizatöre ve onaylı katılımcılara sohbet bildirimi ekler. Yazan kişi,
+    /// bu etkinlik için okunmamış sohbet bildirimi bulunanlar ve yazanla arasında engel olanlar hariç tutulur.
+    /// </summary>
     public Task NotifyMembersAsync(Guid eventId, Guid authorId, NotificationContent content, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO notifications (id, user_id, type, event_id, actor_id, title, body, created_at)
@@ -69,6 +82,7 @@ internal sealed class ChatRepository(DbSession session) : RepositoryBase(session
             },
             cancellationToken);
 
+    /// <summary>Kullanıcının bu etkinliğe ait okunmamış sohbet bildirimlerini okundu yapar.</summary>
     public Task MarkNotificationsReadAsync(Guid eventId, Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             UPDATE notifications SET read_at = @Now

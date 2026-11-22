@@ -23,6 +23,13 @@ internal sealed class ReviewParticipantCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<ReviewParticipantCommand, Unit>
 {
+    /// <summary>
+    /// Organizatörün bir katılım isteğini onaylaması ya da reddetmesi (ret, onaylı katılımcıyı çıkarmak için
+    /// de kullanılır). Etkinliği satır kilidiyle okur; isteği yapan organizatör değilse 403 döner. Onayda
+    /// katılımı Approved yapar ve sayacı artırır (kontenjan doluysa hata fırlar, hiçbir şey yazılmaz). Rette
+    /// katılımı Rejected yapar, kişi onaylıydıysa sayacı düşürür ve boşalan yere bekleme listesinden kişi
+    /// alır. Katılımcıya sonucu bildiren bildirim eklenir; ilgili cache etiketleri temizlenir.
+    /// </summary>
     public async Task<Unit> Handle(ReviewParticipantCommand request, CancellationToken cancellationToken)
     {
         var organizerId = currentUser.RequireUserId();

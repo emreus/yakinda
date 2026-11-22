@@ -27,6 +27,9 @@ public interface ICacheService
 /// </summary>
 public interface ICacheInvalidator
 {
+    /// <summary>
+    /// Verilen etiketleri kuyruğa ekler; etiketler işlem başarıyla commit edildikten sonra temizlenir.
+    /// </summary>
     void InvalidateAfterCommit(params string[] tags);
 }
 
@@ -50,9 +53,13 @@ public static class CacheTag
 {
     public const string Categories = "categories";
 
-    /// <summary>Etkinlik detayı (paylaşılan kısım) ve yorum sayfaları.</summary>
+    /// <summary>
+    /// Etkinliğe ait cache kayıtlarının etiketi: etkinlik detayı (paylaşılan kısım) ve yorum sayfaları.
+    /// </summary>
     public static string Event(Guid eventId) => $"event:{eventId}";
 
-    /// <summary>Kullanıcı profili (organizatör puanı, sayılar, dağılım).</summary>
+    /// <summary>
+    /// Kullanıcıya ait cache kayıtlarının etiketi: profil (organizatör puanı, sayılar, dağılım).
+    /// </summary>
     public static string User(Guid userId) => $"user:{userId}";
 }

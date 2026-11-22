@@ -10,6 +10,10 @@ import { colors, font, spacing } from '@/theme';
 
 type FieldErrors = Partial<Record<'email' | 'password' | 'displayName', string>>;
 
+/**
+ * Kayıt ekranı: ad, e-posta, şifre ve koşulların kabulü. Onay kutusu işaretlenmeden buton açılmaz;
+ * koşullar ve gizlilik politikası bağlantıyla açılır.
+ */
 export default function RegisterScreen() {
   const { signUp } = useAuth();
   const [displayName, setDisplayName] = useState('');
@@ -20,6 +24,8 @@ export default function RegisterScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Kaydı gönderir (şifre 8 karakterden kısaysa istek atılmaz). Sunucu alan hatası dönerse ilgili kutunun
+  // altına, diğer hataları genel hata olarak yazar.
   const submit = async () => {
     setError(null);
     setFieldErrors({});

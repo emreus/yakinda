@@ -16,6 +16,9 @@ public sealed class MediaOptions
     /// </summary>
     public string RootPath { get; set; } = "data/media";
 
+    /// <summary>
+    /// Görsel klasörünün tam yolunu verir; ayardaki yol göreliyse uygulamanın içerik köküne göre çözülür.
+    /// </summary>
     public static string ResolveRoot(MediaOptions options, string contentRootPath) =>
         Path.GetFullPath(options.RootPath, contentRootPath);
 }
@@ -29,6 +32,11 @@ internal sealed partial class LocalMediaStorage(IOptions<MediaOptions> options, 
 {
     private string Root => MediaOptions.ResolveRoot(options.Value, environment.ContentRootPath);
 
+    /// <summary>
+    /// Görseli diske yazar ve anahtarını döner. Klasör adı yalnızca küçük harflerden oluşmalıdır. Dosya adı
+    /// sunucuda üretilir (UUIDv7 ve biçime göre uzantı); içerik önce nokta ile başlayan geçici dosyaya
+    /// yazılır, sonra asıl adına taşınır.
+    /// </summary>
     public async Task<string> SaveAsync(string folder, ImageFile image, CancellationToken cancellationToken)
     {
         if (!FolderPattern().IsMatch(folder))
@@ -45,6 +53,10 @@ internal sealed partial class LocalMediaStorage(IOptions<MediaOptions> options, 
         return $"{folder}/{name}";
     }
 
+    /// <summary>
+    /// Anahtarı verilen dosyayı siler. Anahtar beklenen kalıba (klasör/32 haneli ad.uzantı) uymuyorsa
+    /// hiçbir şey yapmaz; böylece dışarıdan gelen bir değer başka bir dosyayı sildiremez.
+    /// </summary>
     public Task DeleteAsync(string key, CancellationToken cancellationToken)
     {
         if (KeyPattern().IsMatch(key))
@@ -52,9 +64,13 @@ internal sealed partial class LocalMediaStorage(IOptions<MediaOptions> options, 
         return Task.CompletedTask;
     }
 
+    /// <summary>Geçerli klasör adı: yalnızca küçük harfler.</summary>
     [GeneratedRegex("^[a-z]+$")]
     private static partial Regex FolderPattern();
 
+    /// <summary>
+    /// Geçerli anahtar: küçük harfli klasör, eğik çizgi, 32 haneli onaltılık ad ve jpg, png ya da webp uzantısı.
+    /// </summary>
     [GeneratedRegex("^[a-z]+/[0-9a-f]{32}\\.(jpg|png|webp)$")]
     private static partial Regex KeyPattern();
 }

@@ -3,7 +3,10 @@ namespace Yakinda.Application.Events.Common;
 /// <summary>Okuma tarafında tekrar kullanılan SQL parçaları.</summary>
 internal static class EventSql
 {
-    /// <summary>Puan ortalaması: hiç oy yoksa NULL döner.</summary>
+    /// <summary>
+    /// Puan ortalamasını hesaplayan SQL ifadesini üretir (toplam / adet, iki ondalığa yuvarlanır); hiç oy
+    /// yoksa sonuç NULL olur.
+    /// </summary>
     public static string Average(string sumColumn, string countColumn) =>
         $"round({sumColumn}::numeric / NULLIF({countColumn}, 0), 2)::float8";
 

@@ -5,6 +5,7 @@ namespace Yakinda.Infrastructure.Persistence.Repositories;
 
 internal sealed class RatingRepository(DbSession session) : RepositoryBase(session), IRatingRepository
 {
+    /// <summary>Kullanıcının bu etkinliğe verdiği puan kaydını okur; yoksa null döner.</summary>
     public Task<EventRating?> GetAsync(Guid eventId, Guid raterId, CancellationToken cancellationToken) =>
         QuerySingleOrDefaultAsync<EventRating>("""
             SELECT event_id, rater_id, score, comment, created_at, updated_at
@@ -12,6 +13,9 @@ internal sealed class RatingRepository(DbSession session) : RepositoryBase(sessi
             WHERE event_id = @EventId AND rater_id = @RaterId
             """, new { EventId = eventId, RaterId = raterId }, cancellationToken);
 
+    /// <summary>
+    /// INSERT ... ON CONFLICT DO UPDATE: puan yoksa ekler, varsa puanı, yorumu ve güncelleme zamanını değiştirir.
+    /// </summary>
     public Task UpsertAsync(EventRating rating, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO event_ratings (event_id, rater_id, score, comment, created_at, updated_at)

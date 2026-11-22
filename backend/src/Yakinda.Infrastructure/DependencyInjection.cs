@@ -25,6 +25,11 @@ namespace Yakinda.Infrastructure;
 
 public static class DependencyInjection
 {
+    /// <summary>
+    /// Infrastructure katmanını DI'a kaydeder: Dapper'ın alt çizgili kolon adlarını özelliklere eşlemesini
+    /// açar; veritabanı, kimlik doğrulama, cache, bildirim, e-posta ve görsel deposu servislerini ekler;
+    /// sistem saatini TimeProvider olarak kaydeder (testlerde sahte saat verilebilsin diye).
+    /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         // snake_case kolonlar <-> PascalCase property'ler (starts_at -> StartsAt)
@@ -119,6 +124,12 @@ public static class DependencyInjection
         services.AddSingleton<Application.Abstractions.Media.IMediaStorage, Media.LocalMediaStorage>();
     }
 
+    /// <summary>
+    /// Veritabanı servislerini kaydeder: bağlantı cümlesinden uygulama boyunca tek bir NpgsqlDataSource
+    /// (bağlantı havuzu) kurar; okuma tarafının bağlantı fabrikasını, migration çalıştırıcıyı, istek başına
+    /// DbSession'ı (aynı nesne IUnitOfWork olarak da verilir) ve repository'leri ekler. Bağlantı cümlesi
+    /// yoksa uygulama açılışta hata verir.
+    /// </summary>
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("Default")
@@ -148,6 +159,12 @@ public static class DependencyInjection
         services.AddScoped<IPasswordResetRepository, PasswordResetRepository>();
     }
 
+    /// <summary>
+    /// Kimlik doğrulamayı kurar. JWT ayarlarını bağlar ve açılışta doğrular (imza anahtarı en az 32
+    /// karakter). Şifre özetleyiciyi, token servisini ve UserAccessGuard'ı kaydeder. JWT Bearer'ı yapılandırır:
+    /// issuer, audience, imza ve süre denetlenir, saat farkı toleransı 30 saniyedir; token doğrulandıktan
+    /// sonra UserAccessGuard ile kullanıcının hâlâ geçerli olduğuna bakılır, değilse istek reddedilir.
+    /// </summary>
     private static void AddAuth(IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<JwtOptions>()

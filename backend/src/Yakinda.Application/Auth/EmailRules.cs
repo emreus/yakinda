@@ -16,9 +16,15 @@ internal static partial class EmailRules
         RegexOptions.CultureInvariant)]
     private static partial Regex Pattern();
 
+    /// <summary>
+    /// Değer tek bir düz e-posta adresi mi? Boş olmamalı, 256 karakteri geçmemeli ve yukarıdaki kalıba uymalı.
+    /// </summary>
     public static bool IsValid(string? email) =>
         email is not null && email.Length <= 256 && Pattern().IsMatch(email.Trim());
 
+    /// <summary>
+    /// IsValid kontrolünü FluentValidation kuralı olarak sunar: RuleFor(...).ValidEmail() biçiminde kullanılır.
+    /// </summary>
     public static IRuleBuilderOptions<T, string> ValidEmail<T>(this IRuleBuilder<T, string> rule) =>
         rule.Must(IsValid).WithMessage("Geçerli bir e-posta adresi yaz (ör. ad@ornek.com).");
 }

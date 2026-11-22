@@ -9,7 +9,10 @@ import { useNearbyFilters } from '@/state/NearbyFilters';
 import { colors, radius, spacing } from '@/theme';
 import { formatEventDate, formatSpots } from '@/utils/format';
 
-/** Yarıçapın tamamı ekrana sığacak kadar zoom. */
+/**
+ * Haritada gösterilecek bölgeyi hesaplar: merkez verilen noktadır, yükseklik yarıçapın tamamı ekrana
+ * sığacak kadardır (çapın 1,2 katı); boylam açıklığı enleme göre düzeltilir.
+ */
 function regionFor(center: Coords, radiusKm: number): Region {
   const latitudeDelta = (radiusKm / 111) * 2.4;
   const longitudeDelta = latitudeDelta / Math.max(0.2, Math.cos((center.latitude * Math.PI) / 180));
@@ -23,6 +26,12 @@ function approxDistanceKm(a: Coords, b: Coords): number {
   return Math.sqrt(dLat * dLat + dLng * dLng);
 }
 
+/**
+ * Harita sekmesi: yakındaki etkinlikleri pin olarak gösterir (listeyle aynı filtreler, 50 etkinliğe
+ * kadar). Pinin balonuna dokununca etkinlik detayı açılır. Harita başka bir yere kaydırılırsa "Bu bölgede
+ * ara" butonu çıkar; basılınca arama merkezi haritanın ortasına taşınır. Konum butonu aramayı yeniden
+ * kullanıcının kendi konumuna döndürür.
+ */
 export default function MapScreen() {
   const location = useCurrentLocation();
   const { filters } = useNearbyFilters();

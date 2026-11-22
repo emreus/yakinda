@@ -16,6 +16,11 @@ internal sealed class JwtTokenService(IOptions<JwtOptions> options, TimeProvider
 
     public TimeSpan RefreshTokenLifetime => TimeSpan.FromDays(_options.RefreshTokenDays);
 
+    /// <summary>
+    /// Erişim token'ını (JWT) üretir. Kullanıcının kimliği, e-postası, adı, benzersiz token kimliği ve oturum
+    /// sürümü claim olarak eklenir; token HMAC-SHA256 ile imzalanır ve ayarlanan süre (varsayılan 30 dakika)
+    /// sonunda geçersiz olur.
+    /// </summary>
     public AccessToken CreateAccessToken(User user)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;

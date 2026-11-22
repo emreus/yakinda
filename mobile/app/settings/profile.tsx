@@ -29,11 +29,14 @@ export default function EditProfileScreen() {
     setBio(profile.data.bio ?? '');
   }, [profile.data]);
 
+  // Kendi profilimi ve herkese açık profil kaydımı yeniden yükletir.
   const refreshProfile = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.me });
     if (profile.data) queryClient.invalidateQueries({ queryKey: queryKeys.user(profile.data.id) });
   };
 
+  // Profil fotoğrafını değiştirir ya da kaldırır. Değiştirmede fotoğraf seçtirilir (kare kırpılmış) ve
+  // seçilir seçilmez yüklenir; seçim iptal edilirse yükleme yapılmaz.
   const avatar = useMutation({
     mutationFn: async (action: 'change' | 'remove') => {
       if (action === 'remove') return mediaApi.deleteAvatar();
@@ -44,6 +47,8 @@ export default function EditProfileScreen() {
     onError: (error) => Alert.alert('Fotoğraf yüklenemedi', errorMessage(error)),
   });
 
+  // Görünen adı ve tanıtım yazısını kaydeder. Başarıda profili, etkinlik listelerini ve detaylarını
+  // yeniletip geri döner; sunucu alan hatası dönerse ilgili kutunun altında gösterir.
   const save = useMutation({
     mutationFn: () => profileApi.update({ displayName: displayName.trim(), bio: bio.trim() || null }),
     onSuccess: () => {

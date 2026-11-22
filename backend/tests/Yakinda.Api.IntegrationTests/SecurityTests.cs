@@ -23,6 +23,12 @@ public sealed class SecurityTests(ApiFixture api)
 
     private static readonly string[] PublicApiRoutes = ["/api/auth/", "/api/categories"];
 
+    /// <summary>
+    /// /api altındaki bütün uçları uygulamanın kendi rota listesinden çıkarır (en az 40 uç bekler), herkese
+    /// açık olanları (/api/auth/ ve /api/categories) atlar ve kalanların her HTTP yöntemini oturumsuz dener.
+    /// Hepsi 401 dönmelidir; dönmeyen uçlar hata mesajında listelenir. Yeni eklenen bir uç korumasız
+    /// kalırsa bu test yakalar.
+    /// </summary>
     [Fact]
     public async Task Every_api_endpoint_except_the_public_ones_requires_a_token()
     {
@@ -56,6 +62,12 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.True(open.Count == 0, "Token istemeyen uç noktalar: " + string.Join(", ", open));
     }
 
+    /// <summary>
+    /// Sahte ya da oynanmış token'lar reddedilir. Önce kontrol: aynı içerik doğru anahtarla imzalanınca
+    /// geçerlidir. Sonra denenenler: gövdede kimliği kurbanınkiyle değiştirip eski imzayı bırakmak, imzasız
+    /// (alg=none) token, başka anahtarla imza, süresi dolmuş token, başka hedef ya da yayıncı ve bozuk metin.
+    /// Hepsi 401 almalıdır.
+    /// </summary>
     [Fact]
     public async Task Forged_or_tampered_tokens_are_rejected()
     {
@@ -84,6 +96,10 @@ public sealed class SecurityTests(ApiFixture api)
             Assert.True(await StatusWithTokenAsync(token) == HttpStatusCode.Unauthorized, $"Sahte token kabul edildi: {name}");
     }
 
+    /// <summary>
+    /// Kayıtlı olmayan e-posta ile yanlış şifre birebir aynı yanıtı alır (aynı kod ve aynı mesaj); böylece
+    /// giriş ekranından hangi adreslerin kayıtlı olduğu öğrenilemez.
+    /// </summary>
     [Fact]
     public async Task Login_gives_the_same_answer_for_unknown_email_and_wrong_password()
     {
@@ -99,6 +115,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(wrongPassword["detail"]!.GetValue<string>(), unknownEmail["detail"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// Yasaklanan kullanıcının yasaktan önce aldığı ve süresi dolmamış access token'ı hemen geçersiz olur:
+    /// hem okuma hem yazma isteği 401 döner.
+    /// </summary>
     [Fact]
     public async Task Banned_users_lose_access_immediately()
     {
@@ -113,6 +133,7 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.Unauthorized, (await target.Client.PostAsJsonAsync("/api/events", EventBody("Yasakli etkinligi"))).StatusCode);
     }
 
+    /// <summary>Hesabını silen kullanıcının elindeki access token artık kabul edilmez (401).</summary>
     [Fact]
     public async Task A_deleted_accounts_token_stops_working()
     {
@@ -123,6 +144,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.Unauthorized, (await user.Client.PostAsJsonAsync("/api/events", EventBody("Silinmis hesap etkinligi"))).StatusCode);
     }
 
+    /// <summary>
+    /// Şifre sıfırlanınca eski oturumun access token'ı da geçersiz olur (ele geçirilmiş bir oturum böylece
+    /// kapanır); sıfırlamanın döndürdüğü yeni token ise çalışır.
+    /// </summary>
     [Fact]
     public async Task Password_reset_ends_existing_sessions_including_access_tokens()
     {
@@ -137,6 +162,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.OK, await StatusWithTokenAsync(reset["accessToken"]!.GetValue<string>()));
     }
 
+    /// <summary>
+    /// Çıkış yapılınca refresh token iptal edilir ve yenileme 401 auth.invalid_refresh_token döner.
+    /// Bilinmeyen bir token ile çıkış da 204 döner; yanıttan token'ın var olup olmadığı anlaşılmaz.
+    /// </summary>
     [Fact]
     public async Task Logout_revokes_the_refresh_token()
     {
@@ -155,6 +184,10 @@ public sealed class SecurityTests(ApiFixture api)
         await (await client.PostAsJsonAsync("/api/auth/logout", new { refreshToken = "olmayan-token" })).ExpectAsync(HttpStatusCode.NoContent);
     }
 
+    /// <summary>
+    /// Bir hesap için günde en fazla 5 sıfırlama kodu üretilir: 8 istekten yalnızca 5'i e-posta gönderir.
+    /// İstekler arasındaki 60 saniyelik bekleme, kayıtların zamanı veritabanında geri alınarak atlanır.
+    /// </summary>
     [Fact]
     public async Task Reset_codes_are_capped_per_account_per_day()
     {
@@ -173,6 +206,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(5, api.Emails.To(user.Email).Count);
     }
 
+    /// <summary>
+    /// Sıfırlama kodu e-postanın konu satırında yer almaz (konu kilit ekranında ve loglarda görünür),
+    /// yalnızca gövdesinde bulunur.
+    /// </summary>
     [Fact]
     public async Task Reset_code_is_not_in_the_email_subject()
     {
@@ -184,6 +221,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Matches("[0-9]{6}", mail.TextBody);
     }
 
+    /// <summary>
+    /// Bozuk adreslerle kayıt olunamaz (400 validation_failed): virgülle iki adres, görünen adlı biçim,
+    /// boşluk, satır sonu ekleyip başlık sızdırma denemesi, çift @ işareti ve noktasız alan adı.
+    /// </summary>
     [Theory]
     [InlineData("a@test.local,b@test.local")]
     [InlineData("Sahte Ad <sahte@test.local>")]
@@ -199,6 +240,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal("validation_failed", await response.ProblemCodeAsync(HttpStatusCode.BadRequest));
     }
 
+    /// <summary>
+    /// Sıkı e-posta kuralı sıradan adresleri engellemez: nokta, artı işareti, tire ve çok parçalı alan adı
+    /// içeren adresle kayıt olunabilir.
+    /// </summary>
     [Fact]
     public async Task Ordinary_email_addresses_still_register()
     {
@@ -208,6 +253,10 @@ public sealed class SecurityTests(ApiFixture api)
         await response.ExpectAsync(HttpStatusCode.OK);
     }
 
+    /// <summary>
+    /// İstek gövdesine eklenen fazladan alanlar (isAdmin, role, ratingSum gibi) yok sayılır: kayıt başarılı
+    /// olur ama kullanıcı yönetici olmaz ve puanı değişmez (veritabanından doğrulanır).
+    /// </summary>
     [Fact]
     public async Task Extra_json_fields_cannot_grant_privileges()
     {
@@ -232,6 +281,11 @@ public sealed class SecurityTests(ApiFixture api)
 
     // ================================================================== 2) Yetki ve gizlilik
 
+    /// <summary>
+    /// Başkasının etkinliği yönetilemez: ilgisiz bir kullanıcı da, isteği bekleyen kişi de düzenleme, iptal,
+    /// onaylama, reddetme ve kapak silme isteklerinde 403 alır. Onay bekleyenler katılımcı listesinde
+    /// yalnızca organizatöre görünür; yönetici uçları sıradan kullanıcıya kapalıdır.
+    /// </summary>
     [Fact]
     public async Task Users_cannot_manage_other_peoples_events()
     {
@@ -272,6 +326,11 @@ public sealed class SecurityTests(ApiFixture api)
             (await stranger.Client.PostAsJsonAsync($"/api/admin/reports/{Guid.NewGuid()}/resolve", new { action = "BanUser" })).StatusCode);
     }
 
+    /// <summary>
+    /// Aynı etkinliğe katılan iki kişiden biri diğerini engellediyse katılımcı listesinde birbirlerini
+    /// görmezler; organizatör ikisini de görmeye devam eder. Organizatörün engellediği kişi için ise etkinlik
+    /// yok sayılır: detay, katılımcılar ve yorumlar 404 döner.
+    /// </summary>
     [Fact]
     public async Task Blocked_users_do_not_see_each_other_in_participant_lists()
     {
@@ -303,6 +362,11 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.NotFound, (await blocked.Client.GetAsync($"/api/events/{eventId}/ratings")).StatusCode);
     }
 
+    /// <summary>
+    /// Yöneticinin kaldırdığı etkinliğin başlığı, açıklaması, mekanı ve adresi (hepsine aynı işaret metni
+    /// konur) ne katılımcıya ne de bağlantıyı bilen başka birine gösterilir; katılımcının "katıldıklarım"
+    /// listesinde de görünmez. Organizatör kendi etkinliğini "Removed" durumunda görmeye devam eder.
+    /// </summary>
     [Fact]
     public async Task Removed_event_content_is_hidden_from_everyone_but_the_organizer()
     {
@@ -331,6 +395,9 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal("Removed", own["status"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// Silinen mesajın metni yalnızca sohbetten değil, organizatöre gitmiş bildirimin önizlemesinden de silinir.
+    /// </summary>
     [Fact]
     public async Task Deleted_messages_disappear_from_notification_previews_too()
     {
@@ -349,6 +416,11 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.DoesNotContain(marker, await (await organizer.Client.GetAsync($"/api/events/{eventId}/messages")).Content.ReadAsStringAsync());
     }
 
+    /// <summary>
+    /// Hesap silinince kişinin sohbet mesajlarının metni, bu mesajların bildirim önizlemeleri ve düzenlediği
+    /// etkinliklerin açıklama, adres ve görsel bilgileri de silinir. Hem API yanıtlarından hem veritabanından
+    /// doğrulanır.
+    /// </summary>
     [Fact]
     public async Task Deleting_an_account_erases_its_messages_and_private_event_details()
     {
@@ -377,6 +449,11 @@ public sealed class SecurityTests(ApiFixture api)
 
     // ================================================================== 3) Kötüye kullanım sınırları
 
+    /// <summary>
+    /// Giriş yapmış kullanıcıya hız sınırı uygulanır (bu testte dakikada 5 yazma, 12 istek). Altıncı yazma
+    /// isteği 429, "rate_limited" kodu ve Retry-After başlığıyla reddedilir; okumalar yazma sınırına takılmaz
+    /// ama kendi sınırlarına takılır. Sınır kullanıcı başınadır, başka kullanıcı etkilenmez.
+    /// </summary>
     [Fact]
     public async Task Authenticated_requests_are_rate_limited_per_user()
     {
@@ -408,6 +485,10 @@ public sealed class SecurityTests(ApiFixture api)
         await (await other.Client.PostAsync("/api/notifications/read-all", null)).ExpectAsync(HttpStatusCode.NoContent);
     }
 
+    /// <summary>
+    /// Etkinliğe tekrar tekrar girip çıkan kişi organizatöre her seferinde bildirim gönderemez; dört
+    /// katılmadan sonra organizatörde tek "katıldı" bildirimi bulunur.
+    /// </summary>
     [Fact]
     public async Task Rejoining_repeatedly_does_not_spam_the_organizer()
     {
@@ -425,6 +506,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Single((await organizer.NotificationsAsync()).Types(), type => type == "ParticipantJoined");
     }
 
+    /// <summary>
+    /// Bir hesabın aynı anda en fazla 50 yaklaşan etkinliği olabilir: haftalık tekrarla 13'er etkinlik açan
+    /// üç istek (39 etkinlik) kabul edilir, dördüncüsü 422 event.too_many_upcoming alır.
+    /// </summary>
     [Fact]
     public async Task One_account_cannot_flood_the_map_with_events()
     {
@@ -439,6 +524,9 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal("event.too_many_upcoming", await overLimit.ProblemCodeAsync(HttpStatusCode.UnprocessableEntity));
     }
 
+    /// <summary>
+    /// Kullanıcı başına en fazla 10 cihaz token'ı saklanır: 14 kayıt isteğinden sonra veritabanında 10 kalır.
+    /// </summary>
     [Fact]
     public async Task Device_tokens_are_capped_per_user()
     {
@@ -450,6 +538,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal(10L, await api.ScalarAsync<long>("SELECT count(*) FROM device_push_tokens WHERE user_id = @id", new { id = user.Id }));
     }
 
+    /// <summary>
+    /// Aşırı büyük sayfa numarası (int üst sınırı) taşma hatasına yol açmaz; bildirimler, yakındakiler ve
+    /// yorumlar uçlarında 400 ile reddedilir.
+    /// </summary>
     [Fact]
     public async Task Absurd_page_numbers_are_rejected_instead_of_crashing()
     {
@@ -472,6 +564,11 @@ public sealed class SecurityTests(ApiFixture api)
 
     // ================================================================== 4) Enjeksiyon ve çıktı kodlama
 
+    /// <summary>
+    /// Aramaya yazılan SQL parçaları ve joker karakterleri (tırnak, DROP TABLE, UNION SELECT, ters bölü,
+    /// yüzde, alt çizgi) düz metin olarak aranır ve hiçbir sonuç bulmaz. Kontrol olarak normal arama aynı
+    /// etkinliği bulur ve users tablosu yerinde durur.
+    /// </summary>
     [Theory]
     [InlineData("' OR '1'='1")]
     [InlineData("'; DROP TABLE users; --")]
@@ -495,6 +592,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.True(await api.ScalarAsync<long>("SELECT count(*) FROM users") > 0);
     }
 
+    /// <summary>
+    /// İçinde SQL parçaları olan başlık, açıklama, mekan ve kullanıcı adı olduğu gibi saklanır ve aynen
+    /// geri okunur; içlerindeki komutlar çalışmaz (kullanıcı yönetici olmaz).
+    /// </summary>
     [Fact]
     public async Task Sql_metacharacters_in_stored_text_round_trip_unchanged()
     {
@@ -508,6 +609,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.False(await api.ScalarAsync<bool>("SELECT is_admin FROM users WHERE id = @id", new { id = user.Id }));
     }
 
+    /// <summary>
+    /// Kullanıcının yazdığı HTML ve betik etiketleri (ad, başlık ve mekan adında) paylaşım sayfasında ve
+    /// şifre sıfırlama e-postasının HTML gövdesinde kodlanmış olarak yer alır; ham etiket olarak çıkmaz.
+    /// </summary>
     [Fact]
     public async Task Html_in_user_content_is_escaped_on_public_pages_and_emails()
     {
@@ -527,6 +632,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Contains("&lt;b&gt;Org", mail.HtmlBody);
     }
 
+    /// <summary>
+    /// Yanıtlar tarayıcı güvenlik başlıklarını taşır: HTML sayfada nosniff, çerçeve içinde gösterme yasağı,
+    /// no-referrer ve her şeyi kapatan (default-src 'none') içerik güvenlik politikası; JSON yanıtta nosniff.
+    /// </summary>
     [Fact]
     public async Task Responses_carry_browser_hardening_headers()
     {
@@ -545,6 +654,10 @@ public sealed class SecurityTests(ApiFixture api)
         Assert.Equal("nosniff", Header(json, "X-Content-Type-Options"));
     }
 
+    /// <summary>
+    /// /media yolu yalnızca yüklenmiş görselleri sunar. Klasöre bir şekilde girmiş HTML, metin ve geçici
+    /// dosyalar, klasör listesi ve klasörün dışına çıkma denemeleri 404 döner.
+    /// </summary>
     [Fact]
     public async Task Media_route_serves_only_stored_images()
     {
@@ -573,6 +686,11 @@ public sealed class SecurityTests(ApiFixture api)
         }
     }
 
+    /// <summary>
+    /// Hata yanıtları iç ayrıntı sızdırmaz: bozuk JSON (400), olmayan etkinlik ve olmayan adres (404)
+    /// yanıtlarında istisna adı, yığın izi ya da veritabanı sürücüsünün adı geçmez; Server ve X-Powered-By
+    /// başlıkları gönderilmez.
+    /// </summary>
     [Fact]
     public async Task Errors_do_not_leak_internals()
     {
@@ -600,6 +718,11 @@ public sealed class SecurityTests(ApiFixture api)
 
     // ================================================================== yardımcılar
 
+    /// <summary>
+    /// Etkinlik oluşturma ve düzenleme isteklerinin gövdesi. Varsayılanlar: iki gün sonra başlar,
+    /// İstanbul'dadır, herkese açık ve kontenjansızdır; başlık, açıklama, mekan, adres, tekrar sayısı ve
+    /// konum parametreyle değiştirilir.
+    /// </summary>
     private static object EventBody(
         string title,
         string? description = "Guvenlik testi",
@@ -623,12 +746,16 @@ public sealed class SecurityTests(ApiFixture api)
         repeatWeeks
     };
 
+    /// <summary>Verilen gövdeyle etkinlik oluşturur (201 bekler) ve kimliğini döner.</summary>
     private static async Task<Guid> CreateAsync(TestUser organizer, object body)
     {
         var json = await (await organizer.Client.PostAsJsonAsync("/api/events", body)).ReadJsonAsync(HttpStatusCode.Created);
         return Guid.Parse(json["id"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// Katılımcı listesinin, verilen kullanıcının gözünden görünen hâlindeki kullanıcı kimliklerini döner.
+    /// </summary>
     private static async Task<List<Guid>> ParticipantIdsAsync(TestUser viewer, Guid eventId)
     {
         var json = await (await viewer.Client.GetAsync($"/api/events/{eventId}/participants")).ReadJsonAsync(HttpStatusCode.OK);
@@ -650,6 +777,9 @@ public sealed class SecurityTests(ApiFixture api)
             .ExpectAsync(HttpStatusCode.NoContent);
     }
 
+    /// <summary>
+    /// Verilen token ile kendi profil ucuna istek atar ve durum kodunu döner (token kabul ediliyor mu?).
+    /// </summary>
     private async Task<HttpStatusCode> StatusWithTokenAsync(string token)
     {
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/me");
@@ -657,12 +787,18 @@ public sealed class SecurityTests(ApiFixture api)
         return (await api.Factory.CreateClient().SendAsync(request)).StatusCode;
     }
 
+    /// <summary>
+    /// Başlık ve gövdeyi verilen anahtarla HMAC-SHA256 kullanarak imzalar, üç parçalı token'ı döner.
+    /// </summary>
     private static string Sign(string header, string payload, string key)
     {
         var signature = HMACSHA256.HashData(Encoding.UTF8.GetBytes(key), Encoding.ASCII.GetBytes($"{header}.{payload}"));
         return $"{header}.{payload}.{Base64Url.EncodeToString(signature)}";
     }
 
+    /// <summary>
+    /// Token gövdesini çözer (Base64Url ile kodlanmış JSON), verilen değişikliği uygular ve yeniden kodlar.
+    /// </summary>
     private static string EditPayload(string payload, Action<JsonObject> edit)
     {
         var json = JsonNode.Parse(Encoding.UTF8.GetString(Base64Url.DecodeFromChars(payload)))!.AsObject();
@@ -670,6 +806,7 @@ public sealed class SecurityTests(ApiFixture api)
         return Base64Url.EncodeToString(Encoding.UTF8.GetBytes(json.ToJsonString()));
     }
 
+    /// <summary>Yanıtın başlıklarında ya da içerik başlıklarında verilen adı arar; yoksa null döner.</summary>
     private static string? Header(HttpResponseMessage response, string name) =>
         response.Headers.TryGetValues(name, out var values) || response.Content.Headers.TryGetValues(name, out values)
             ? string.Join(",", values)

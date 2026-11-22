@@ -22,6 +22,9 @@ public sealed record CreateReportCommand(ReportTargetType TargetType, Guid Targe
 
 internal sealed class CreateReportCommandValidator : AbstractValidator<CreateReportCommand>
 {
+    /// <summary>
+    /// Şikayet türü ve neden geçerli birer değer olmalı; açıklama en fazla 500 karakter olabilir.
+    /// </summary>
     public CreateReportCommandValidator()
     {
         RuleFor(x => x.TargetType).IsInEnum().WithName("Şikayet türü");
@@ -38,6 +41,11 @@ internal sealed class CreateReportCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<CreateReportCommand, Unit>
 {
+    /// <summary>
+    /// Şikayet oluşturur. Hedefin (etkinlik, kullanıcı ya da mesaj) sahibini bulur; hedef yoksa 404,
+    /// kişi kendi içeriğini şikayet ediyorsa 409 döner. Sonra şikayeti Open durumda kaydeder; aynı kişinin
+    /// aynı içerik için açık şikayeti varsa yeni kayıt oluşmaz ama yanıt yine başarılıdır.
+    /// </summary>
     public async Task<Unit> Handle(CreateReportCommand request, CancellationToken cancellationToken)
     {
         var reporterId = currentUser.RequireUserId();
@@ -72,6 +80,7 @@ internal sealed class CreateReportCommandHandler(
 /// <summary>Mesaj gibi ayrı tablolardaki şikayet hedeflerinin sahibini bulur.</summary>
 public interface IReportTargetLookup
 {
+    /// <summary>Sohbet mesajının yazarını döner; mesaj yoksa null.</summary>
     Task<Guid?> GetMessageAuthorAsync(Guid messageId, CancellationToken cancellationToken);
 }
 
@@ -117,6 +126,10 @@ public sealed record GetOpenReportsQuery : IQuery<IReadOnlyList<OpenReportDto>>;
 internal sealed class GetOpenReportsQueryHandler(IDbConnectionFactory db, IUserRepository users, ICurrentUser currentUser)
     : IRequestHandler<GetOpenReportsQuery, IReadOnlyList<OpenReportDto>>
 {
+    /// <summary>
+    /// Yönetici kuyruğunu listeler. Önce isteği yapanın yönetici olduğunu denetler (değilse 403); sonra
+    /// açık şikayetleri en eski önce, hedefin özeti, sahibi ve aynı içerik için açık şikayet sayısıyla okur.
+    /// </summary>
     public async Task<IReadOnlyList<OpenReportDto>> Handle(GetOpenReportsQuery request, CancellationToken cancellationToken)
     {
         await AdminGuard.RequireAdminAsync(users, currentUser, cancellationToken);
@@ -177,6 +190,12 @@ internal sealed class ResolveReportCommandHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<ResolveReportCommand, Unit>
 {
+    /// <summary>
+    /// Yöneticinin şikayeti sonuçlandırması. Yönetici değilse 403, şikayet yoksa 404, zaten kapatılmışsa
+    /// 409 döner. Dismiss hiçbir şey yapmaz; RemoveContent içeriği kaldırır; BanUser içeriğin sahibini
+    /// yasaklar, yaklaşan etkinliklerini kaldırır, katılımlarını boşaltır ve içeriği kaldırır. En sonda
+    /// aynı içerik için açık olan bütün şikayetler tek seferde kapatılır.
+    /// </summary>
     public async Task<Unit> Handle(ResolveReportCommand request, CancellationToken cancellationToken)
     {
         var adminId = await AdminGuard.RequireAdminAsync(users, currentUser, cancellationToken);
@@ -217,6 +236,11 @@ internal sealed class ResolveReportCommandHandler(
         return Unit.Value;
     }
 
+    /// <summary>
+    /// Şikayet edilen içeriği kaldırır. Etkinlikse: yönetici kaldırması olarak kapatılır ve kapak görseli
+    /// silinir. Mesajsa: silinmiş olarak işaretlenir. Kullanıcıysa: profil fotoğrafı ve tanıtım yazısı
+    /// kaldırılır, profil cache'i temizlenir.
+    /// </summary>
     private async Task RemoveContentAsync(ReportRecord report, DateTime now, CancellationToken cancellationToken)
     {
         switch (report.TargetType)
@@ -238,6 +262,10 @@ internal sealed class ResolveReportCommandHandler(
         }
     }
 
+    /// <summary>
+    /// Şikayet edilen içeriğin sahibini bulur: etkinliğin organizatörü, kullanıcının kendisi ya da mesajın
+    /// yazarı. Bulunamazsa 404 fırlatır.
+    /// </summary>
     private async Task<Guid> GetOwnerAsync(ReportRecord report, CancellationToken cancellationToken) =>
         report.TargetType switch
         {
@@ -251,5 +279,6 @@ internal sealed class ResolveReportCommandHandler(
 /// <summary>Mesaj gibi ayrı tablolardaki içeriği kaldırır.</summary>
 public interface IModerationContentRemover
 {
+    /// <summary>Sohbet mesajını yönetici kararıyla silinmiş olarak işaretler.</summary>
     Task RemoveMessageAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken);
 }

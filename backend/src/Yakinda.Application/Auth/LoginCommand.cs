@@ -13,6 +13,9 @@ public sealed record LoginCommand(string Email, string Password) : ICommand<Auth
 
 internal sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
 {
+    /// <summary>
+    /// Giriş kuralları: e-posta ve şifre dolu olmalı; uzunluk üst sınırları (256 ve 128) aşılmamalı.
+    /// </summary>
     public LoginCommandValidator()
     {
         // Üst sınırlar: çok büyük gövdelerle şifre özetleme hattını meşgul etmeyi önler.
@@ -26,6 +29,11 @@ internal sealed class LoginCommandHandler(
     IPasswordHasher passwordHasher,
     AuthTokenIssuer tokenIssuer) : IRequestHandler<LoginCommand, AuthResponse>
 {
+    /// <summary>
+    /// E-posta ve şifreyle giriş. Kullanıcıyı e-postasıyla bulur ve şifreyi doğrular; hesap yoksa,
+    /// silinmişse ya da şifre yanlışsa aynı 401 hatasını verir (hangisinin yanlış olduğu söylenmez).
+    /// Şifre doğru ama hesap yasaklıysa 403 döner. Başarılıysa yeni token'ları üretir.
+    /// </summary>
     public async Task<AuthResponse> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
         var user = await users.GetByEmailAsync(User.NormalizeEmail(request.Email), cancellationToken);
@@ -46,6 +54,7 @@ internal sealed class LoginCommandHandler(
         return await tokenIssuer.IssueAsync(user, cancellationToken);
     }
 
+    /// <summary>"E-posta veya şifre hatalı" hatasını üretir (auth.invalid_credentials, 401).</summary>
     private static UnauthorizedException InvalidCredentials() =>
         new("auth.invalid_credentials", "E-posta veya şifre hatalı.");
 }

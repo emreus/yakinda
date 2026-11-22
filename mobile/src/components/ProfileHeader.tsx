@@ -44,6 +44,7 @@ export function ProfileHeader({ profile }: { profile: UserProfile }) {
   );
 }
 
+/** Profil kartındaki tek sayı kutusu: büyük bir sayı ve altında etiketi. */
 function Stat({ value, label }: { value: number; label: string }) {
   return (
     <View style={styles.stat}>

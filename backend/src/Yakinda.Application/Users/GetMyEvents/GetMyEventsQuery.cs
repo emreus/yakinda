@@ -25,6 +25,12 @@ internal sealed class GetMyEventsQueryHandler(
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<GetMyEventsQuery, IReadOnlyList<EventListItemDto>>
 {
+    /// <summary>
+    /// Kullanıcının kendi etkinliklerini listeler: role göre düzenledikleri ya da katıldıkları (bekleyen,
+    /// onaylı ya da bekleme listesinde). Yaklaşanlar önce (en yakın tarih), geçmişler sonra (en yeni önce)
+    /// gelir; en fazla 100 satır döner. Katıldıklarından yöneticinin kaldırdığı etkinliklerin başlığı,
+    /// mekanı ve görseli gizlenir.
+    /// </summary>
     public async Task<IReadOnlyList<EventListItemDto>> Handle(GetMyEventsQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

@@ -7,10 +7,16 @@ import { usePushNotifications } from '@/notifications/usePushNotifications';
 import { NearbyFiltersProvider } from '@/state/NearbyFilters';
 import { colors } from '@/theme';
 
+/** Sekme simgesi: emoji; seçili değilken yarı saydam görünür. */
 function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return <Text style={{ fontSize: 20, opacity: focused ? 1 : 0.5 }}>{emoji}</Text>;
 }
 
+/**
+ * Ana sekmelerin düzeni. Oturum yüklenirken gösterge çıkar; giriş yapılmamışsa giriş ekranına yönlendirir.
+ * Beş sekmeyi (Yakınımda, Harita, Oluştur, Bildirimler, Profil) kurar, Bildirimler sekmesinde okunmamış
+ * sayısını rozet olarak gösterir ve push bildirimlerini burada etkinleştirir.
+ */
 export default function TabsLayout() {
   const { status } = useAuth();
   const signedIn = status === 'signedIn';

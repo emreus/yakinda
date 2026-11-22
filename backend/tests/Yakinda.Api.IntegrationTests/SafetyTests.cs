@@ -9,6 +9,12 @@ public sealed class SafetyTests(ApiFixture api)
 {
     // ------------------------------------------------------------------ engelleme
 
+    /// <summary>
+    /// Engelleme iki yönlü çalışır: iki taraf da diğerinin etkinliğini yakındakiler listesinde görmez.
+    /// Engelleyen kişi etkinliğin detayını ve organizatörün profilini açamaz (404), etkinliğe katılamaz
+    /// (403 event.blocked). Engel listesinde kişinin adı görünür; engel kaldırılınca etkinlik yeniden
+    /// listelenir ve katılım mümkün olur.
+    /// </summary>
     [Fact]
     public async Task Blocking_hides_events_both_ways_and_prevents_joining()
     {
@@ -33,6 +39,7 @@ public sealed class SafetyTests(ApiFixture api)
         await (await blocker.JoinAsync(eventId)).ExpectAsync(HttpStatusCode.OK);
     }
 
+    /// <summary>Kullanıcı kendisini engelleyemez: 409 block.self.</summary>
     [Fact]
     public async Task Users_cannot_block_themselves()
     {
@@ -43,6 +50,11 @@ public sealed class SafetyTests(ApiFixture api)
 
     // ------------------------------------------------------------------ şikayet + moderasyon
 
+    /// <summary>
+    /// Aynı kişinin aynı içerik için ikinci şikayeti yeni kayıt açmaz (veritabanında tek açık şikayet kalır).
+    /// Kişi kendi içeriğini şikayet edemez (409 report.own_content) ve şikayet listesini yalnızca yönetici
+    /// görebilir (403 auth.admin_only).
+    /// </summary>
     [Fact]
     public async Task Reports_are_deduplicated_and_only_admins_can_review_them()
     {
@@ -60,6 +72,10 @@ public sealed class SafetyTests(ApiFixture api)
         Assert.Equal("auth.admin_only", await (await reporter.Client.GetAsync("/api/admin/reports")).ProblemCodeAsync(HttpStatusCode.Forbidden));
     }
 
+    /// <summary>
+    /// Yönetici şikayet edilen etkinliği kaldırınca etkinlik listelerden çıkar, katılımcıya "Etkinlik
+    /// kaldırıldı" bildirimi gider, yeni katılım 422 event.removed alır ve etkinlik için açık şikayet kalmaz.
+    /// </summary>
     [Fact]
     public async Task Admin_removing_an_event_hides_it_and_notifies_participants()
     {
@@ -82,6 +98,10 @@ public sealed class SafetyTests(ApiFixture api)
         Assert.Equal(0L, await api.ScalarAsync<long>("SELECT count(*) FROM reports WHERE target_id = @id AND status = 0", new { id = eventId }));
     }
 
+    /// <summary>
+    /// Yönetici kullanıcıyı yasaklayınca o kullanıcı giriş yapamaz (403 auth.banned) ve etkinlikleri
+    /// yakındakiler listesinden çıkar.
+    /// </summary>
     [Fact]
     public async Task Banned_users_cannot_log_in_and_their_events_disappear()
     {
@@ -102,6 +122,12 @@ public sealed class SafetyTests(ApiFixture api)
 
     // ------------------------------------------------------------------ hesap silme
 
+    /// <summary>
+    /// Hesap silme, şifre doğruysa çalışır (yanlış şifre 401 auth.invalid_password). Sonrasında: eski
+    /// bilgilerle giriş yapılamaz ve e-posta yeniden kayıt için serbest kalır; kullanıcının düzenlediği
+    /// etkinlik iptal edilip katılımcısına haber verilir; katıldığı etkinlikteki yeri bekleme listesindeki
+    /// kişiye geçer; herkese açık profilinde adı "Silinmiş kullanıcı" olarak görünür.
+    /// </summary>
     [Fact]
     public async Task Deleting_an_account_frees_seats_cancels_events_and_removes_personal_data()
     {
@@ -139,6 +165,9 @@ public sealed class SafetyTests(ApiFixture api)
 
     // ------------------------------------------------------------------ içerik filtresi + yasal sayfalar
 
+    /// <summary>
+    /// Harf yerine rakam yazılarak gizlenmiş küfür içeren etkinlik başlığı 400 ve title alanı hatasıyla reddedilir.
+    /// </summary>
     [Fact]
     public async Task Objectionable_event_titles_are_rejected()
     {
@@ -157,6 +186,10 @@ public sealed class SafetyTests(ApiFixture api)
         Assert.NotNull(problem["errors"]!["title"]);
     }
 
+    /// <summary>
+    /// Yasal sayfalar (gizlilik, kullanım koşulları, hesap silme) oturum gerektirmeden HTML olarak sunulur
+    /// ve beklenen ifadeyi içerir.
+    /// </summary>
     [Theory]
     [InlineData("/legal/privacy", "Gizlilik Politikası")]
     [InlineData("/legal/terms", "sıfır tolerans")]
@@ -172,6 +205,9 @@ public sealed class SafetyTests(ApiFixture api)
 
     // ------------------------------------------------------------------ yardımcılar
 
+    /// <summary>
+    /// Yeni bir kullanıcı kaydeder ve yönetici yetkisini doğrudan veritabanından verir (API'de bunun ucu yoktur).
+    /// </summary>
     private async Task<TestUser> AdminAsync()
     {
         var admin = await api.RegisterAsync("Yönetici");
@@ -179,9 +215,13 @@ public sealed class SafetyTests(ApiFixture api)
         return admin;
     }
 
+    /// <summary>Verilen hedefi (etkinlik ya da kullanıcı) "uygunsuz içerik" nedeniyle şikayet eder.</summary>
     private static Task<HttpResponseMessage> Report(TestUser reporter, string targetType, Guid targetId) =>
         reporter.Client.PostAsJsonAsync("/api/reports", new { targetType, targetId, reason = "Inappropriate", details = "test" });
 
+    /// <summary>
+    /// Yöneticinin açık şikayet listesinden verilen hedefe ait şikayetin kimliğini bulur (tam bir tane bekler).
+    /// </summary>
     private static async Task<Guid> OpenReportId(TestUser admin, Guid targetId)
     {
         var reports = (await (await admin.Client.GetAsync("/api/admin/reports")).ReadJsonAsync(HttpStatusCode.OK)).AsArray();
@@ -189,6 +229,9 @@ public sealed class SafetyTests(ApiFixture api)
         return report["id"]!.GetValue<Guid>();
     }
 
+    /// <summary>
+    /// Verilen noktanın 5 km çevresinde kullanıcıya listelenen etkinliklerin kimliklerini döner.
+    /// </summary>
     private static async Task<List<Guid>> NearbyIds(TestUser user, double lat = 10.0, double lng = 10.0)
     {
         var url = FormattableString.Invariant($"/api/events/nearby?lat={lat}&lng={lng}&radiusKm=5");
@@ -199,6 +242,10 @@ public sealed class SafetyTests(ApiFixture api)
 
 public sealed class ContentFilterTests
 {
+    /// <summary>
+    /// Filtre küfürleri ve bilinen kaçamakları yakalar: harf yerine rakam ya da simge, uzatılmış harfler,
+    /// büyük harfle yazım ve bitişik yazılmış sözcükler.
+    /// </summary>
     [Theory]
     [InlineData("amk")]
     [InlineData("S1KT1R git")]
@@ -209,6 +256,10 @@ public sealed class ContentFilterTests
     public void Catches_profanity_and_common_evasions(string text) =>
         Assert.True(ContentFilter.IsObjectionable(text));
 
+    /// <summary>
+    /// Filtre sıradan metne dokunmaz: yasaklı bir sözcüğü yalnızca harf dizisi olarak içeren masum
+    /// sözcükler, boş metin ve null uygunsuz sayılmaz.
+    /// </summary>
     [Theory]
     [InlineData("Sıkıcı bir pazar, sıkıntıdan kurtulalım")]  // "sık" ≠ "sik"
     [InlineData("Beni eve götür")]                          // "göt" sadece tam kelime

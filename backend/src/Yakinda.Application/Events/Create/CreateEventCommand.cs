@@ -30,6 +30,12 @@ internal sealed class CreateEventCommandValidator : AbstractValidator<CreateEven
 {
     public const int MaxRepeatWeeks = 12;
 
+    /// <summary>
+    /// Etkinlik oluşturma kuralları: kategori seçilmiş; başlık dolu ve en fazla 120 karakter; başlık,
+    /// açıklama ve mekan adı içerik filtresinden geçmeli; tekrar 0 ile 12 hafta arasında; başlangıç
+    /// gelecekte ve en fazla 1 yıl sonra; bitiş başlangıçtan sonra ve en fazla 7 gün sonra; enlem ve boylam
+    /// geçerli aralıkta; kontenjan (verildiyse) 1 ile 10.000 arasında; katılım şekli geçerli bir değer.
+    /// </summary>
     public CreateEventCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.CategoryId).GreaterThan((short)0).WithName("Kategori");
@@ -64,6 +70,12 @@ internal sealed class CreateEventCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<CreateEventCommand, Guid>
 {
+    /// <summary>
+    /// Etkinliği (ve istenirse haftalık tekrarlarını) oluşturur. Kategori yoksa 400 döner. Kullanıcının
+    /// yaklaşan etkinlik sayısı yenileriyle birlikte 50'yi aşacaksa 422 döner. Sonra her hafta için saatleri
+    /// UTC'ye çevirip 7'şer gün kaydırarak ayrı bir Event üretir ve kaydeder. Organizatörün profil cache'ini
+    /// (düzenlediği etkinlik sayısı) temizletir ve ilk etkinliğin kimliğini döner.
+    /// </summary>
     public async Task<Guid> Handle(CreateEventCommand request, CancellationToken cancellationToken)
     {
         var organizerId = currentUser.RequireUserId();

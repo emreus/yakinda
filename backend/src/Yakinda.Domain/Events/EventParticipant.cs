@@ -4,7 +4,10 @@ namespace Yakinda.Domain.Events;
 
 public sealed class EventParticipant
 {
-    // Dapper için
+    /// <summary>
+    /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// Uygulama kodu katılım kaydını Create ile oluşturur.
+    /// </summary>
     private EventParticipant() { }
 
     public Guid EventId { get; private set; }
@@ -15,6 +18,9 @@ public sealed class EventParticipant
 
     public bool IsActive => Status is ParticipantStatus.Pending or ParticipantStatus.Approved or ParticipantStatus.Waitlisted;
 
+    /// <summary>
+    /// Yeni katılım kaydı üretir. Durumu (onaylı, bekleyen ya da bekleme listesinde) Event.Admit belirler.
+    /// </summary>
     public static EventParticipant Create(Guid eventId, Guid userId, ParticipantStatus status, DateTime nowUtc) => new()
     {
         EventId = eventId,
@@ -24,7 +30,11 @@ public sealed class EventParticipant
         UpdatedAt = nowUtc
     };
 
-    /// <summary>Daha önce kaydı olan kullanıcı tekrar katılmak isterse.</summary>
+    /// <summary>
+    /// Daha önce kaydı olan kullanıcı yeniden katılmak istediğinde çağrılır. Kayıt hâlâ geçerliyse
+    /// (bekleyen, onaylı, reddedilmiş ya da bekleme listesinde) duruma özel bir DomainException fırlatır;
+    /// yalnızca ayrılmış (Left) kullanıcı için hata vermeden döner.
+    /// </summary>
     public void EnsureCanRejoin()
     {
         switch (Status)
@@ -52,6 +62,10 @@ public sealed class EventParticipant
         UpdatedAt = nowUtc;
     }
 
+    /// <summary>
+    /// Daha önce ayrılmış kullanıcıyı yeniden katılımcı yapar. Önce EnsureCanRejoin ile mevcut durumu
+    /// denetler (yalnızca Left durumundan dönülebilir), sonra Event.Admit'in verdiği yeni durumu yazar.
+    /// </summary>
     public void Rejoin(ParticipantStatus newStatus, DateTime nowUtc)
     {
         EnsureCanRejoin();
@@ -59,6 +73,10 @@ public sealed class EventParticipant
         UpdatedAt = nowUtc;
     }
 
+    /// <summary>
+    /// Organizatörün katılım isteğini onaylaması. Yalnızca bekleyen (Pending) istek onaylanabilir;
+    /// durum Approved olur. Etkinliğin katılımcı sayacını artırmak çağıranın işidir.
+    /// </summary>
     public void Approve(DateTime nowUtc)
     {
         if (Status != ParticipantStatus.Pending)
@@ -67,7 +85,12 @@ public sealed class EventParticipant
         UpdatedAt = nowUtc;
     }
 
-    /// <returns>Kullanıcı reddedilmeden önce onaylı katılımcı mıydı? (sayaç düşülsün diye)</returns>
+    /// <summary>
+    /// İsteği reddeder ya da onaylı katılımcıyı etkinlikten çıkarır; durum Rejected olur.
+    /// Aktif bir katılım (bekleyen, onaylı ya da bekleme listesinde) yoksa hata verir.
+    /// Dönen değer kullanıcının önceden onaylı olup olmadığıdır; true ise çağıran, etkinliğin
+    /// katılımcı sayacını düşürür.
+    /// </summary>
     public bool Reject(DateTime nowUtc)
     {
         if (!IsActive)
@@ -78,7 +101,11 @@ public sealed class EventParticipant
         return wasApproved;
     }
 
-    /// <returns>Kullanıcı ayrılmadan önce onaylı katılımcı mıydı?</returns>
+    /// <summary>
+    /// Kullanıcının etkinlikten (ya da bekleme listesinden) ayrılması; durum Left olur.
+    /// Aktif bir katılım yoksa hata verir. Dönen değer kullanıcının ayrılmadan önce onaylı katılımcı
+    /// olup olmadığıdır; true ise çağıran, etkinliğin katılımcı sayacını düşürür.
+    /// </summary>
     public bool Leave(DateTime nowUtc)
     {
         if (!IsActive)

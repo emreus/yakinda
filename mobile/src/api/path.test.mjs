@@ -11,10 +11,13 @@ function chatReadUrl(id) {
   return new URL(`${base}/api/events/${seg(id)}/messages/read`);
 }
 
+// Geçerli bir kimlik kodlamadan etkilenmez: kurulan adres beklenen yolla birebir aynıdır.
 test('geçerli kimlik adresi değiştirmez', () => {
   assert.equal(chatReadUrl(EVENT).pathname, `/api/events/${EVENT}/messages/read`);
 });
 
+// Kimliğin sonuna "/cancel?" eklenirse bu karakterler kodlanır ve değer tek bir yol parçası olarak
+// kalır: sorgu bölümü oluşmaz, adres yine /messages/read ile biter ve parça sayısı değişmez.
 test('kimliğe eklenen "/…?" başka bir uca istek attıramaz', () => {
   // Kodlanmasaydı: POST /api/events/<id>/cancel?/messages/read  → etkinlik iptal olurdu
   const url = chatReadUrl(`${EVENT}/cancel?`);
@@ -23,6 +26,9 @@ test('kimliğe eklenen "/…?" başka bir uca istek attıramaz', () => {
   assert.equal(url.pathname.split('/').length, 6); // "", api, events, <tek parça>, messages, read
 });
 
+// Üst klasöre çıkma denemelerinin (düz ya da kodlanmış "../", "#" ile kesme, araya ikinci bir kimlik
+// ekleme) hiçbiri işe yaramaz: adres /api/events/ altında kalır, /messages/read ile biter; sorgu ve
+// çapa bölümü oluşmaz.
 test('"../" ile başka kaynağa çıkılamaz', () => {
   for (const id of ['../users/me/delete?x=', '..%2Fusers', '../../health#', `${EVENT}/../${EVENT}/leave?`]) {
     const url = chatReadUrl(id);
@@ -34,12 +40,15 @@ test('"../" ile başka kaynağa çıkılamaz', () => {
   }
 });
 
+// ".", ".." ve boş değer "-" ile değiştirilir; değiştirilmeseydi adres çözümlenirken yol kısalırdı.
 test('".", ".." ve boş değer adresi kısaltamaz', () => {
   for (const id of ['.', '..', '']) {
     assert.equal(chatReadUrl(id).pathname, '/api/events/-/messages/read');
   }
 });
 
+// isUuid küçük ve büyük harfli kimliği kabul eder; sonuna ek yapılmış, başında boşluk ya da sonunda
+// satır sonu olan değeri, sıradan metni, boş değeri ve metin olmayan türleri reddeder.
 test('isUuid yalnız kayıt kimliklerini kabul eder', () => {
   assert.equal(isUuid(EVENT), true);
   assert.equal(isUuid(EVENT.toUpperCase()), true);

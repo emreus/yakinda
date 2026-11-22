@@ -88,6 +88,7 @@ export function toFormErrors(error: unknown): EventFormErrors {
   };
 }
 
+/** Şu andan hoursAhead saat sonraki tam saati verir (formun varsayılan başlangıç saati). */
 function nextFullHour(hoursAhead = 1): Date {
   const date = new Date();
   date.setMinutes(0, 0, 0);
@@ -95,10 +96,15 @@ function nextFullHour(hoursAhead = 1): Date {
   return date;
 }
 
+/** Tarihe verilen kadar saat ekler. */
 function addHours(date: Date, hours: number): Date {
   return new Date(date.getTime() + hours * 60 * 60 * 1000);
 }
 
+/**
+ * Koordinattan bulunan adresi tek satıra çevirir: yer adı (yoksa sokak), semt ve şehir (yoksa alt
+ * bölge) virgülle birleştirilir; boş ve tekrarlanan parçalar atılır.
+ */
 function formatAddress(address: Location.LocationGeocodedAddress | undefined): string {
   if (!address) return '';
   const parts = [address.name ?? address.street, address.district, address.city ?? address.subregion]
@@ -106,6 +112,12 @@ function formatAddress(address: Location.LocationGeocodedAddress | undefined): s
   return [...new Set(parts)].join(', ');
 }
 
+/**
+ * Etkinlik oluşturma ve düzenleme ekranlarının ortak formu. Alanların durumunu tutar, kapak görseli
+ * seçtirir, haritadan konum aldırır ve seçilen noktanın adresini otomatik doldurur. Göndermeden önce
+ * alanları kendisi denetler; sunucudan gelen alan hatalarını da ilgili alanın altında gösterir.
+ * Düzenleme modunda şablonlar ve haftalık tekrar gizlenir, katılım şekli değiştirilemez.
+ */
 export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitting, serverErrors, onSubmit }: EventFormProps) {
   const editing = mode === 'edit';
   const categories = useCategories();
@@ -132,6 +144,8 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
   const coverUri =
     cover.kind === 'set' ? cover.image.uri : cover.kind === 'remove' ? null : mediaUrl(initial?.imageUrl ?? null);
 
+  // Kapak görseli seçtirir (16:9 kırpılmış); seçim yapılırsa formda "yeni görsel" olarak işaretler,
+  // görsel açılamazsa uyarı gösterir.
   const chooseCover = async () => {
     try {
       const image = await pickImage('wide');
@@ -173,6 +187,8 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
     return map;
   }, [categories.data]);
 
+  // Hazır şablonu uygular: kategoriyi, başlığı, kontenjanı, onay gereksinimini ve bitiş saatini
+  // (başlangıç + şablonun süresi) doldurur.
   const applyTemplate = (template: (typeof TEMPLATES)[number]) => {
     const category = categoryBySlug.get(template.slug);
     if (category) setCategoryId(category.id);
@@ -184,11 +200,16 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
     setEndsAt(addHours(startsAt, template.hours));
   };
 
+  // Haritadaki pini taşır. Düzenlemede adresin yeni yere göre otomatik dolması için "elle yazıldı"
+  // işaretini kaldırır.
   const movePin = (coords: Coords) => {
     setPoint(coords);
     if (editing) setAddressTouched(false); // yeni yerin adresini doldur
   };
 
+  // Formu denetler (kategori, başlık, gelecekte bir başlangıç, başlangıçtan sonra bir bitiş, konum, en
+  // düşük kontenjan); hata varsa alanların altında gösterir ve durur. Hata yoksa değerleri API'nin
+  // beklediği biçime çevirip onSubmit ile ekrana verir.
   const submit = () => {
     const next: EventFormErrors = {};
     if (categoryId === null) next.categoryId = 'Bir kategori seç.';

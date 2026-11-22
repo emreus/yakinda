@@ -22,6 +22,10 @@ internal sealed class BlockUserCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<BlockUserCommand, Unit>
 {
+    /// <summary>
+    /// Kullanıcıyı engeller. Kişi kendini engelleyemez (409); hedef kullanıcı yoksa 404 döner. Engel
+    /// kaydını ekler ve iki tarafın profil cache etiketlerini temizletir.
+    /// </summary>
     public async Task<Unit> Handle(BlockUserCommand request, CancellationToken cancellationToken)
     {
         var me = currentUser.RequireUserId();
@@ -42,6 +46,7 @@ public sealed record UnblockUserCommand(Guid UserId) : ICommand<Unit>;
 internal sealed class UnblockUserCommandHandler(IBlockRepository blocks, ICurrentUser currentUser)
     : IRequestHandler<UnblockUserCommand, Unit>
 {
+    /// <summary>Engeli kaldırır: isteği yapanın bu kullanıcı için koyduğu engel kaydını siler.</summary>
     public async Task<Unit> Handle(UnblockUserCommand request, CancellationToken cancellationToken)
     {
         await blocks.UnblockAsync(currentUser.RequireUserId(), request.UserId, cancellationToken);
@@ -62,6 +67,9 @@ public sealed record GetMyBlocksQuery : IQuery<IReadOnlyList<BlockedUserDto>>;
 internal sealed class GetMyBlocksQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser)
     : IRequestHandler<GetMyBlocksQuery, IReadOnlyList<BlockedUserDto>>
 {
+    /// <summary>
+    /// İsteği yapanın engellediği kullanıcıları (ad ve engelleme tarihiyle) en yeni önce listeler.
+    /// </summary>
     public async Task<IReadOnlyList<BlockedUserDto>> Handle(GetMyBlocksQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);
@@ -82,6 +90,10 @@ public sealed record IsBlockedQuery(Guid OtherUserId) : IQuery<bool>;
 internal sealed class IsBlockedQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser)
     : IRequestHandler<IsBlockedQuery, bool>
 {
+    /// <summary>
+    /// İsteği yapanla verilen kullanıcı arasında herhangi bir yönde engel var mı? Tek satırlık EXISTS
+    /// sorgusuyla yanıtlar.
+    /// </summary>
     public async Task<bool> Handle(IsBlockedQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);
@@ -95,7 +107,10 @@ internal sealed class IsBlockedQueryHandler(IDbConnectionFactory db, ICurrentUse
 /// <summary>Okuma sorgularında kullanılan engel koşulu.</summary>
 internal static class BlockSql
 {
-    /// <summary>a ile b arasında herhangi bir yönde engel varsa true dönen ifade.</summary>
+    /// <summary>
+    /// İki kullanıcı arasında herhangi bir yönde engel varsa true olan SQL koşulunu üretir; a ve b,
+    /// kullanıcı kimliğini veren kolon ya da parametre adlarıdır.
+    /// </summary>
     public static string EitherWay(string a, string b) => $"""
         EXISTS (SELECT 1 FROM user_blocks ub
                 WHERE (ub.blocker_id = {a} AND ub.blocked_id = {b})

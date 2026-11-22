@@ -35,6 +35,7 @@ public sealed record GetNotificationsQuery(int Page = 1, int PageSize = 20) : IQ
 
 internal sealed class GetNotificationsQueryValidator : AbstractValidator<GetNotificationsQuery>
 {
+    /// <summary>Sayfa 1 ile 1000, sayfa boyutu 1 ile 50 arasında olmalı.</summary>
     public GetNotificationsQueryValidator()
     {
         RuleFor(x => x.Page).InclusiveBetween(1, Paging.MaxPage);
@@ -59,6 +60,10 @@ internal sealed class GetNotificationsQueryHandler(IDbConnectionFactory db, ICur
         LIMIT @Limit OFFSET @Offset
         """;
 
+    /// <summary>
+    /// Kullanıcının bildirimlerini en yeni önce, sayfalı döner. Bir fazla satır isteyerek sonraki sayfanın
+    /// olup olmadığını (HasMore) belirler.
+    /// </summary>
     public async Task<PagedResult<NotificationDto>> Handle(GetNotificationsQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -90,6 +95,7 @@ public sealed record GetUnreadNotificationCountQuery : IQuery<UnreadCountDto>;
 internal sealed class GetUnreadNotificationCountQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser)
     : IRequestHandler<GetUnreadNotificationCountQuery, UnreadCountDto>
 {
+    /// <summary>Kullanıcının okunmamış bildirim sayısını döner (sekmedeki rozet için).</summary>
     public async Task<UnreadCountDto> Handle(GetUnreadNotificationCountQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

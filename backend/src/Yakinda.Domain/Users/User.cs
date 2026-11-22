@@ -2,7 +2,10 @@ namespace Yakinda.Domain.Users;
 
 public sealed class User
 {
-    // Dapper için
+    /// <summary>
+    /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// Uygulama kodu kullanıcıyı Register ile oluşturur.
+    /// </summary>
     private User() { }
 
     public Guid Id { get; private set; }
@@ -39,7 +42,10 @@ public sealed class User
 
     public bool IsBanned => BannedAt is not null;
 
-    /// <summary>Veritabanında oturum sürümü artırıldıktan sonra (yeni token doğru sürümle üretilsin diye).</summary>
+    /// <summary>
+    /// Nesnedeki oturum sürümünü, veritabanında artırılmış yeni değere eşitler. Şifre sıfırlamada çağrılır;
+    /// böylece hemen ardından üretilen token yeni sürümü taşır ve geçerli olur.
+    /// </summary>
     public void SessionsRevoked(int newTokenVersion) => TokenVersion = newTokenVersion;
 
     /// <summary>
@@ -49,8 +55,13 @@ public sealed class User
     public double? AverageRating =>
         RatingCount == 0 ? null : Math.Round((double)RatingSum / RatingCount, 2);
 
+    /// <summary>E-postayı kırpıp küçük harfe çevirir; kayıt ve girişte aynı biçim karşılaştırılsın diye.</summary>
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
+    /// <summary>
+    /// Yeni kullanıcı üretir: zaman sıralı kimlik (UUIDv7) verir, e-postayı normalize eder, adı kırpar,
+    /// puan toplamlarını sıfırdan başlatır ve koşulların kabul edildiği anı kayıt anı olarak işaretler.
+    /// </summary>
     public static User Register(string email, string passwordHash, string displayName, DateTime nowUtc) => new()
     {
         Id = Guid.CreateVersion7(),

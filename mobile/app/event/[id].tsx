@@ -13,6 +13,12 @@ import { queryKeys, useEventDetail, useInvalidateEvent, useParticipants, useRati
 import { colors, font, radius, spacing } from '@/theme';
 import { formatDateTimeLong, formatEventDate, formatSpots, formatTime } from '@/utils/format';
 
+/**
+ * Etkinlik detay ekranı. Adresteki kimlikle detayı yükler; yüklenirken gösterge, hata ya da boş
+ * sonuçta "bulunamadı" durumu gösterir. Sayfayı bölümlerden kurar: başlık, eylem butonları, katılımcılar
+ * (organizatöre yönetim paneli, diğerlerine liste), oylama, şikayet/engelle bağlantıları ve yorumlar.
+ * Aşağı çekince detay yenilenir.
+ */
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const eventQuery = useEventDetail(id);
@@ -60,9 +66,14 @@ export default function EventDetailScreen() {
 
 // ------------------------------------------------------------------ Başlık + bilgiler
 
+/**
+ * Etkinliğin üst kısmı: kapak görseli, başlık, durum ve kontenjan rozetleri, tarih, mekan, katılımcı
+ * bilgisi, küçük harita ve organizatör kartı.
+ */
 function Header({ event }: { event: EventDetail }) {
   const spots = formatSpots(event);
 
+  // Yol tarifini telefonun harita uygulamasında açar: iOS'ta Apple Maps adresi, Android'de geo: bağlantısı.
   const openDirections = () => {
     const { latitude, longitude } = event;
     const label = encodeURIComponent(event.placeName ?? event.title);
@@ -141,6 +152,7 @@ function Header({ event }: { event: EventDetail }) {
   );
 }
 
+/** Tek bilgi satırı: solda simge, sağda metin. */
 function InfoRow({ icon, text }: { icon: string; text: string }) {
   return (
     <View style={styles.infoRow}>
@@ -170,10 +182,18 @@ function joinBlockedReason(event: EventDetail): string | null {
   return null;
 }
 
+/**
+ * Eylem butonları. Hangi butonun görüneceğini sunucunun gönderdiği bayraklar belirler (canJoin, canLeave,
+ * canCancel, canEdit, canChat); kullanıcının katılım durumu ve bekleme listesindeki sırası da yazılır.
+ * Katıl butonu yoksa nedeni gösterilir.
+ */
 function ActionPanel({ event }: { event: EventDetail }) {
   const invalidate = useInvalidateEvent();
+  // Başarısız işlemde sunucunun mesajını uyarı olarak gösterir.
   const onError = (error: unknown) => Alert.alert('İşlem yapılamadı', errorMessage(error));
 
+  // Katılma isteği. Başarıda etkinlik verisini yeniletir; durum "bekleyen" ya da "bekleme listesi" ise
+  // kullanıcıya ne olacağını açıklayan bir uyarı gösterir.
   const join = useMutation({
     mutationFn: () => eventsApi.join(event.id),
     onSuccess: (result) => {
@@ -186,9 +206,12 @@ function ActionPanel({ event }: { event: EventDetail }) {
     onError,
   });
 
+  // Etkinlikten ayrılma isteği; başarıda etkinlik verisini yeniletir.
   const leave = useMutation({ mutationFn: () => eventsApi.leave(event.id), onSuccess: () => invalidate(event.id), onError });
+  // Etkinliği iptal etme isteği (organizatör); başarıda etkinlik verisini yeniletir.
   const cancel = useMutation({ mutationFn: () => eventsApi.cancel(event.id), onSuccess: () => invalidate(event.id), onError });
 
+  // "Vazgeç / Evet" onay penceresi açar; Evet'e basılırsa verilen işlemi çalıştırır.
   const confirm = (title: string, message: string, onConfirm: () => void) =>
     Alert.alert(title, message, [
       { text: 'Vazgeç', style: 'cancel' },
@@ -209,6 +232,7 @@ function ActionPanel({ event }: { event: EventDetail }) {
   const blockedReason = joinBlockedReason(event);
 
   const shareUrl = `${API_URL}/e/${event.id}`;
+  // Telefonun paylaşım menüsünü açar: etkinliğin adı, tarihi ve API'deki paylaşım sayfasının bağlantısı.
   const share = () =>
     Share.share({
       message: `${event.categoryEmoji} ${event.title}\n${formatDateTimeLong(event.startsAt)}\n${shareUrl}`,
@@ -276,6 +300,8 @@ function ActionPanel({ event }: { event: EventDetail }) {
 /** App Store 1.2: kullanıcı içeriğini şikayet etme ve kötü niyetli kullanıcıyı engelleme. */
 function SafetyLinks({ event }: { event: EventDetail }) {
   const invalidate = useInvalidateEvent();
+  // Organizatörü engeller; başarıda listeleri yeniletir, bilgi verir ve önceki ekrana döner (etkinlik
+  // artık görünmez).
   const block = useMutation({
     mutationFn: () => safetyApi.block(event.organizerId),
     onSuccess: () => {
@@ -311,11 +337,16 @@ function SafetyLinks({ event }: { event: EventDetail }) {
 
 // ------------------------------------------------------------------ Katılımcılar
 
+/**
+ * Organizatörün katılımcı paneli: önce bekleyen istekler (Onayla / Reddet butonlarıyla), sonra onaylı
+ * katılımcılar. Butonlar yalnızca etkinlik aktifken ve başlamadan önce görünür.
+ */
 function ParticipantsPanel({ event }: { event: EventDetail }) {
   const participants = useParticipants(event.id);
   const invalidate = useInvalidateEvent();
   const queryClient = useQueryClient();
 
+  // Bekleyen isteği onaylar ya da reddeder; başarıda etkinliği ve katılımcı listesini yeniletir.
   const review = useMutation({
     mutationFn: ({ userId, approve }: { userId: string; approve: boolean }) =>
       approve ? eventsApi.approve(event.id, userId) : eventsApi.reject(event.id, userId),
@@ -363,6 +394,10 @@ function ParticipantsPanel({ event }: { event: EventDetail }) {
   );
 }
 
+/**
+ * Organizatör olmayanlara gösterilen "Katılanlar" listesi. Hiç katılımcı yoksa istek atılmaz ve bölüm
+ * gösterilmez.
+ */
 function AttendeesPreview({ event }: { event: EventDetail }) {
   const participants = useParticipants(event.id, event.participantCount > 0);
   if (event.participantCount === 0) return null;
@@ -376,6 +411,10 @@ function AttendeesPreview({ event }: { event: EventDetail }) {
   );
 }
 
+/**
+ * Tek katılımcı satırı: fotoğraf, ad ve kendi organizatör puanı. Satıra dokununca kullanıcının profili
+ * açılır; sağ tarafa (children) eylem butonları konabilir.
+ */
 function ParticipantRow({ participant, children }: { participant: Participant; children?: ReactNode }) {
   return (
     <View style={styles.participantRow}>
@@ -393,6 +432,11 @@ function ParticipantRow({ participant, children }: { participant: Participant; c
 
 // ------------------------------------------------------------------ Oylama
 
+/**
+ * Oylama paneli: yalnızca onaylı katılımcıya gösterilir (organizatöre ve iptal edilmiş etkinlikte
+ * gösterilmez). Oylama henüz açılmadıysa ya da kapandıysa bunu yazar; açıksa yıldız ve yorum formunu
+ * gösterir. Daha önce verilen puan formda hazır gelir.
+ */
 function RatingPanel({ event }: { event: EventDetail }) {
   const invalidate = useInvalidateEvent();
   const queryClient = useQueryClient();
@@ -404,6 +448,8 @@ function RatingPanel({ event }: { event: EventDetail }) {
     setComment(event.myComment ?? '');
   }, [event.myScore, event.myComment]);
 
+  // Puanı gönderir (boş yorum null olarak gider). Başarıda etkinliği ve yorum listesini yeniletir,
+  // teşekkür mesajı gösterir.
   const rate = useMutation({
     mutationFn: () => eventsApi.rate(event.id, score, comment.trim() || null),
     onSuccess: () => {
@@ -454,6 +500,10 @@ function RatingPanel({ event }: { event: EventDetail }) {
   );
 }
 
+/**
+ * Etkinliğe gelen puan ve yorumların listesi; başlığın sağında ortalama ve oy sayısı. Hiç oy yoksa
+ * bölüm gösterilmez.
+ */
 function RatingsList({ event }: { event: EventDetail }) {
   const ratings = useRatings(event.id);
   if (event.ratingCount === 0) return null;

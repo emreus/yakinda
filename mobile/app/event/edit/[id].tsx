@@ -16,6 +16,8 @@ export default function EditEventScreen() {
   const invalidate = useInvalidateEvent();
   const [serverErrors, setServerErrors] = useState<EventFormErrors>({});
 
+  // Kaydetme: önce etkinliği günceller, sonra kapak görseli değişikliğini (yeni görsel ya da kaldırma)
+  // uygular. Başarıda etkinliği yeniletip geri döner; hata olursa alan hatalarını forma verir.
   const mutation = useMutation({
     mutationFn: async ({ input, cover }: { input: UpdateEventInput; cover: CoverChange }) => {
       await eventsApi.update(id, input);

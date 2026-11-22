@@ -17,6 +17,12 @@ internal sealed class LeaveEventCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<LeaveEventCommand, Unit>
 {
+    /// <summary>
+    /// Etkinlikten (ya da bekleme listesinden) ayrılır. Etkinliği satır kilidiyle okur; etkinlik aktif ve
+    /// başlamamış olmalıdır. Katılım kaydı yoksa 404 döner. Kullanıcı onaylı katılımcıysa sayaç bir düşer;
+    /// boşalan yere bekleme listesinden kişi alınır. Etkinliğin, ayrılanın ve listeden alınanların cache
+    /// etiketleri commit sonrası temizlenir.
+    /// </summary>
     public async Task<Unit> Handle(LeaveEventCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

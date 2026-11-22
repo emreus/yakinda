@@ -63,6 +63,7 @@ app.UseAuthentication();
 app.UseRateLimiter();
 app.UseAuthorization();
 
+// Sağlık kontrolü: giriş gerektirmez, {"status":"ok"} döner. Docker ve CI, API'nin ayakta olduğunu buradan anlar.
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 var api = app.MapGroup("/api");

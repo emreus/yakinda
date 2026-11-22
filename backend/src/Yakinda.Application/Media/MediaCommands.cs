@@ -20,6 +20,9 @@ public static class MediaUrl
 {
     public const string Prefix = "/media/";
 
+    /// <summary>
+    /// Görsel anahtarından herkese açık adresi üretir ("/media/" + anahtar); anahtar yoksa null döner.
+    /// </summary>
     public static string? For(string? key) => key is null ? null : Prefix + key;
 
     /// <summary>SQL'de anahtar kolonundan adres üretir (kolon NULL ise sonuç da NULL).</summary>
@@ -31,9 +34,17 @@ internal static class ImageRules
     public const string InvalidMessage =
         "Görsel okunamadı. JPEG, PNG ya da WebP biçiminde, en fazla 5 MB ve 8000×8000 piksel bir fotoğraf seç.";
 
+    /// <summary>
+    /// Yüklenen baytların geçerli bir görsel olduğunu denetleyen FluentValidation kuralı; hata "file"
+    /// alanına yazılır.
+    /// </summary>
     public static IRuleBuilderOptions<T, byte[]> ValidImage<T>(this IRuleBuilder<T, byte[]> rule) =>
         rule.Must(data => ImageFile.TryRead(data) is not null).WithMessage(InvalidMessage).OverridePropertyName("file");
 
+    /// <summary>
+    /// Baytları ImageFile'a çevirir. Validator'dan geçtiği için burada başarısız olması beklenmez;
+    /// olursa hata fırlatır.
+    /// </summary>
     public static ImageFile Read(byte[] data) =>
         ImageFile.TryRead(data) ?? throw new DomainException("media.invalid_image", InvalidMessage);
 }
@@ -44,6 +55,7 @@ public sealed record SetMyAvatarCommand(byte[] Data) : ICommand<MediaResult>;
 
 internal sealed class SetMyAvatarCommandValidator : AbstractValidator<SetMyAvatarCommand>
 {
+    /// <summary>Yüklenen dosya geçerli bir görsel olmalı.</summary>
     public SetMyAvatarCommandValidator() => RuleFor(x => x.Data).ValidImage();
 }
 
@@ -53,6 +65,10 @@ internal sealed class SetMyAvatarCommandHandler(
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator) : IRequestHandler<SetMyAvatarCommand, MediaResult>
 {
+    /// <summary>
+    /// Profil fotoğrafını değiştirir. Görseli avatars klasörüne kaydeder, anahtarını kullanıcıya yazar ve
+    /// eski fotoğrafı commit sonrası silinmek üzere işaretler. Profil cache'ini temizletir; yeni adresi döner.
+    /// </summary>
     public async Task<MediaResult> Handle(SetMyAvatarCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -72,6 +88,10 @@ internal sealed class DeleteMyAvatarCommandHandler(
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator) : IRequestHandler<DeleteMyAvatarCommand, Unit>
 {
+    /// <summary>
+    /// Profil fotoğrafını kaldırır: anahtarı boşaltır, eski dosyayı commit sonrası sildirir ve profil
+    /// cache'ini temizletir.
+    /// </summary>
     public async Task<Unit> Handle(DeleteMyAvatarCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -87,6 +107,7 @@ public sealed record SetEventImageCommand(Guid EventId, byte[] Data) : ICommand<
 
 internal sealed class SetEventImageCommandValidator : AbstractValidator<SetEventImageCommand>
 {
+    /// <summary>Yüklenen dosya geçerli bir görsel olmalı.</summary>
     public SetEventImageCommandValidator() => RuleFor(x => x.Data).ValidImage();
 }
 
@@ -97,6 +118,11 @@ internal sealed class SetEventImageCommandHandler(
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator) : IRequestHandler<SetEventImageCommand, MediaResult>
 {
+    /// <summary>
+    /// Etkinliğin kapak görselini değiştirir. Önce isteği yapanın organizatör ve etkinliğin aktif olduğunu
+    /// denetler. Görseli events klasörüne kaydeder, anahtarını etkinliğe yazar, eski görseli commit sonrası
+    /// sildirir. Etkinlik cache'ini temizletir; yeni adresi döner.
+    /// </summary>
     public async Task<MediaResult> Handle(SetEventImageCommand request, CancellationToken cancellationToken)
     {
         await EventImageAccess.RequireOrganizerAsync(events, currentUser, request.EventId, cancellationToken);
@@ -117,6 +143,10 @@ internal sealed class DeleteEventImageCommandHandler(
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator) : IRequestHandler<DeleteEventImageCommand, Unit>
 {
+    /// <summary>
+    /// Etkinliğin kapak görselini kaldırır (yalnızca organizatör, yalnızca aktif etkinlikte); eski dosya
+    /// commit sonrası silinir ve etkinlik cache'i temizlenir.
+    /// </summary>
     public async Task<Unit> Handle(DeleteEventImageCommand request, CancellationToken cancellationToken)
     {
         await EventImageAccess.RequireOrganizerAsync(events, currentUser, request.EventId, cancellationToken);
@@ -129,6 +159,10 @@ internal sealed class DeleteEventImageCommandHandler(
 
 internal static class EventImageAccess
 {
+    /// <summary>
+    /// Görsel işlemlerinin ortak yetki kontrolü: etkinliği satır kilidiyle okur; yoksa 404, isteği yapan
+    /// organizatör değilse 403, etkinlik aktif değilse 422 (event.not_active) fırlatır.
+    /// </summary>
     public static async Task RequireOrganizerAsync(
         IEventRepository events, ICurrentUser currentUser, Guid eventId, CancellationToken cancellationToken)
     {
@@ -148,6 +182,10 @@ internal sealed class UpdateProfileCommandValidator : AbstractValidator<UpdatePr
 {
     public const int BioMaxLength = 300;
 
+    /// <summary>
+    /// Görünen ad 2 ile 50 karakter arasında, tanıtım yazısı en fazla 300 karakter olmalı; ikisi de içerik
+    /// filtresinden geçmeli.
+    /// </summary>
     public UpdateProfileCommandValidator()
     {
         RuleFor(x => x.DisplayName).NotEmpty().MinimumLength(2).MaximumLength(50).NotObjectionable().WithName("Görünen ad");
@@ -160,6 +198,10 @@ internal sealed class UpdateProfileCommandHandler(
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator) : IRequestHandler<UpdateProfileCommand, Unit>
 {
+    /// <summary>
+    /// Görünen adı ve tanıtım yazısını günceller (boş tanıtım yazısı null olarak yazılır) ve profil
+    /// cache'ini temizletir.
+    /// </summary>
     public async Task<Unit> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();

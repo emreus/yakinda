@@ -6,6 +6,10 @@ import { ApiError } from '@/api/client';
 import { AuthProvider } from '@/auth/AuthContext';
 import { colors } from '@/theme';
 
+/**
+ * Uygulamanın kök düzeni. Veri önbelleğini (QueryClient: veri 30 saniye taze sayılır, 4xx hatalarında
+ * yeniden denenmez) ve oturum sağlayıcısını kurar; ekran yığınını ve başlıklarını tanımlar.
+ */
 export default function RootLayout() {
   const [queryClient] = useState(
     () =>

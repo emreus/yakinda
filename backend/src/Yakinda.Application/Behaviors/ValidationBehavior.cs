@@ -12,6 +12,10 @@ internal sealed class ValidationBehavior<TRequest, TResponse>(IEnumerable<IValid
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
+    /// <summary>
+    /// İstek tipine kayıtlı bütün validator'ları sırayla çalıştırır ve hataları toplar. En az bir hata
+    /// varsa ValidationException fırlatır (handler hiç çalışmaz); hata yoksa sonraki adıma geçer.
+    /// </summary>
     public async Task<TResponse> Handle(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,

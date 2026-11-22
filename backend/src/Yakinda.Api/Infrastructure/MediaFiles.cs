@@ -80,5 +80,6 @@ public static class MediaFiles
         return buffer.ToArray();
     }
 
+    /// <summary>"file" alanına bağlı doğrulama hatası üretir; API bunu 400 olarak döner.</summary>
     private static ValidationException Invalid(string message) => new([new ValidationFailure("file", message)]);
 }

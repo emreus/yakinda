@@ -17,6 +17,12 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, ILogger<Migrati
     private const long AdvisoryLockKey = 7_316_001;
     private const string Marker = ".Migrations.";
 
+    /// <summary>
+    /// Uygulanmamış migration'ları sırayla çalıştırır. Assembly'ye gömülü .sql dosyalarını ada göre
+    /// sıralar, pg_advisory_lock ile kilidi alır (aynı anda açılan ikinci kopya bekler), schema_migrations
+    /// tablosunu yoksa oluşturur ve daha önce uygulanmamış her dosyayı kendi transaction'ında çalıştırıp
+    /// sürümünü kaydeder. Sonunda, hata olsa bile, kilidi bırakır.
+    /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         var assembly = typeof(MigrationRunner).Assembly;
@@ -66,6 +72,7 @@ public sealed class MigrationRunner(NpgsqlDataSource dataSource, ILogger<Migrati
         }
     }
 
+    /// <summary>Gömülü SQL dosyasının içeriğini metin olarak okur; kaynak bulunamazsa hata fırlatır.</summary>
     private static async Task<string> ReadResourceAsync(Assembly assembly, string resourceName)
     {
         await using var stream = assembly.GetManifestResourceStream(resourceName)

@@ -9,10 +9,14 @@ namespace Yakinda.Application;
 
 public static class DependencyInjection
 {
-    /// <param name="mediatRLicenseKey">
-    /// MediatR lisans anahtarı. Boş bırakılırsa MEDIATR_LICENSE_KEY ortam değişkenine bakılır;
-    /// o da yoksa MediatR çalışır ama log'a lisans uyarısı yazar.
-    /// </param>
+    /// <summary>
+    /// Application katmanını DI'a kaydeder: MediatR handler'larını bulur, altı pipeline adımını sırasıyla
+    /// ekler (Logging, Validation, QueryCaching, CacheInvalidation, MediaChanges, Transaction), bütün
+    /// validator'ları kaydeder, doğrulama mesajlarını Türkçe yapar ve istek başına kullanılan yardımcı
+    /// servisleri (token üretici, bekleme listesi, hesap temizliği, görsel değişiklikleri, cache kuyruğu) ekler.
+    /// Lisans anahtarı boş bırakılırsa MEDIATR_LICENSE_KEY ortam değişkenine bakılır; o da yoksa MediatR
+    /// çalışır ama log'a lisans uyarısı yazar.
+    /// </summary>
     public static IServiceCollection AddApplication(this IServiceCollection services, string? mediatRLicenseKey)
     {
         var assembly = typeof(DependencyInjection).Assembly;

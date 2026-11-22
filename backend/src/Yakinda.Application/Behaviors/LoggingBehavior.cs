@@ -11,6 +11,10 @@ internal sealed class LoggingBehavior<TRequest, TResponse>(ILogger<LoggingBehavi
 {
     private const long SlowRequestThresholdMs = 500;
 
+    /// <summary>
+    /// Kronometreyi başlatır, sonraki adımı (next) çalıştırır ve süreyi loglar: 500 ms'den uzun süren
+    /// istek uyarı (Warning) olarak, diğerleri Debug seviyesinde yazılır. Yanıta dokunmaz.
+    /// </summary>
     public async Task<TResponse> Handle(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,

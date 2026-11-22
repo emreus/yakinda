@@ -5,6 +5,7 @@ namespace Yakinda.Infrastructure.Persistence.Repositories;
 
 internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(session), IParticipantRepository
 {
+    /// <summary>Kullanıcının bu etkinlikteki katılım kaydını okur; yoksa null döner.</summary>
     public Task<EventParticipant?> GetAsync(Guid eventId, Guid userId, CancellationToken cancellationToken) =>
         QuerySingleOrDefaultAsync<EventParticipant>("""
             SELECT event_id, user_id, status, created_at, updated_at
@@ -12,6 +13,10 @@ internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(
             WHERE event_id = @EventId AND user_id = @UserId
             """, new { EventId = eventId, UserId = userId }, cancellationToken);
 
+    /// <summary>
+    /// INSERT ... ON CONFLICT DO UPDATE: kayıt yoksa ekler, varsa yalnızca durumu ve güncelleme zamanını
+    /// değiştirir (ilk katılım zamanı korunur).
+    /// </summary>
     public Task UpsertAsync(EventParticipant participant, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO event_participants (event_id, user_id, status, created_at, updated_at)
@@ -21,6 +26,10 @@ internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(
                    updated_at = EXCLUDED.updated_at
             """, participant, cancellationToken);
 
+    /// <summary>
+    /// Bekleme listesinin başındaki kişiyi döner: listeye en erken giren (updated_at, sonra created_at,
+    /// sonra kullanıcı kimliği sırasıyla ilk kayıt).
+    /// </summary>
     public Task<EventParticipant?> GetFirstWaitlistedAsync(Guid eventId, CancellationToken cancellationToken) =>
         QuerySingleOrDefaultAsync<EventParticipant>("""
             SELECT event_id, user_id, status, created_at, updated_at
@@ -30,12 +39,17 @@ internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(
             LIMIT 1
             """, new { EventId = eventId, Waitlisted = (short)ParticipantStatus.Waitlisted }, cancellationToken);
 
+    /// <summary>Etkinlikte verilen durumdaki katılım kayıtlarını sayar.</summary>
     public Task<int> CountAsync(Guid eventId, ParticipantStatus status, CancellationToken cancellationToken) =>
         ExecuteScalarAsync<int>(
             "SELECT count(*)::int FROM event_participants WHERE event_id = @EventId AND status = @Status",
             new { EventId = eventId, Status = (short)status },
             cancellationToken);
 
+    /// <summary>
+    /// Kullanıcının bekleyen, onaylı ya da bekleme listesinde olduğu; aktif ve henüz başlamamış
+    /// etkinliklerin kimliklerini döner.
+    /// </summary>
     public Task<IReadOnlyList<Guid>> GetUpcomingActiveEventIdsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
         QueryAsync<Guid>("""
             SELECT p.event_id

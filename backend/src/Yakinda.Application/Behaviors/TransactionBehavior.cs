@@ -13,6 +13,11 @@ internal sealed class TransactionBehavior<TRequest, TResponse>(IUnitOfWork unitO
     : IPipelineBehavior<TRequest, TResponse>
     where TRequest : notnull
 {
+    /// <summary>
+    /// İstek command değilse ya da zaten açık bir transaction varsa doğrudan sonraki adıma geçer.
+    /// Aksi halde transaction açar; handler başarıyla dönerse commit eder, hata fırlarsa rollback yapıp
+    /// hatayı yeniden fırlatır.
+    /// </summary>
     public async Task<TResponse> Handle(
         TRequest request,
         RequestHandlerDelegate<TResponse> next,

@@ -15,6 +15,10 @@ public sealed record RegisterCommand(string Email, string Password, string Displ
 
 internal sealed class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 {
+    /// <summary>
+    /// Kayıt kuralları: e-posta dolu, en fazla 256 karakter ve geçerli biçimde; şifre 8 ile 128 karakter
+    /// arasında; görünen ad 2 ile 50 karakter arasında ve içerik filtresinden geçmeli; koşullar kabul edilmiş olmalı.
+    /// </summary>
     public RegisterCommandValidator()
     {
         RuleFor(x => x.Email).NotEmpty().MaximumLength(256).ValidEmail().WithName("E-posta");
@@ -33,6 +37,10 @@ internal sealed class RegisterCommandHandler(
     AuthTokenIssuer tokenIssuer,
     TimeProvider timeProvider) : IRequestHandler<RegisterCommand, AuthResponse>
 {
+    /// <summary>
+    /// Yeni hesap açar. E-postayı normalize eder; aynı e-postayla hesap varsa 409 (auth.email_taken) döner.
+    /// Şifreyi özetler, kullanıcıyı ekler ve giriş yapmış sayılması için token'ları üretip döner.
+    /// </summary>
     public async Task<AuthResponse> Handle(RegisterCommand request, CancellationToken cancellationToken)
     {
         var email = User.NormalizeEmail(request.Email);

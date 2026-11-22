@@ -17,8 +17,14 @@ public static class ShareEndpoints
 {
     private static readonly CultureInfo Turkish = CultureInfo.GetCultureInfo("tr-TR");
 
+    /// <summary>
+    /// Paylaşım sayfasını (/e/{id}) ve uygulama bağlantısı doğrulama dosyalarını (/.well-known) bağlar;
+    /// hepsi giriş gerektirmez.
+    /// </summary>
     public static IEndpointRouteBuilder MapSharePages(this IEndpointRouteBuilder app)
     {
+        // GET /e/{id}: paylaşılan etkinliğin açılış sayfası. Etkinlik aktifse özetini ve "uygulamada aç"
+        // butonunu içeren HTML'i, değilse "bulunamadı" sayfasını döner.
         app.MapGet("/e/{id:guid}", async (Guid id, HttpRequest request, ISender sender, IConfiguration config, CancellationToken ct) =>
             {
                 var ev = await sender.Send(new GetPublicEventQuery(id), ct);
@@ -29,7 +35,9 @@ public static class ShareEndpoints
             .AllowAnonymous()
             .ExcludeFromDescription();
 
-        // iOS Universal Links
+        // GET /.well-known/apple-app-site-association: iOS Universal Links doğrulama dosyası. iOS, /e/* ile
+        // başlayan bağlantıların bu uygulamaya ait olduğunu buradan doğrular. App:AppleAppId ayarlı değilse
+        // 404 döner.
         app.MapGet("/.well-known/apple-app-site-association", (IConfiguration config) =>
             {
                 var appId = config["App:AppleAppId"]; // TEAMID.com.emreus.yakinda
@@ -42,7 +50,8 @@ public static class ShareEndpoints
             .AllowAnonymous()
             .ExcludeFromDescription();
 
-        // Android App Links
+        // GET /.well-known/assetlinks.json: Android App Links doğrulama dosyası (paket adı ve imza parmak
+        // izleri). App:AndroidPackage ya da parmak izleri ayarlı değilse 404 döner.
         app.MapGet("/.well-known/assetlinks.json", (IConfiguration config) =>
             {
                 var package = config["App:AndroidPackage"];
@@ -69,8 +78,13 @@ public static class ShareEndpoints
         return app;
     }
 
+    /// <summary>Metni HTML'e güvenle yazılabilecek hâle getirir; null ise boş metin döner.</summary>
     private static string Encode(string? value) => WebUtility.HtmlEncode(value ?? string.Empty);
 
+    /// <summary>
+    /// Sayfada saatin gösterileceği saat dilimini ayardan okur (App:TimeZone, varsayılan Europe/Istanbul);
+    /// dilim sistemde bulunamazsa sabit UTC+3 (Türkiye) kullanır.
+    /// </summary>
     private static TimeZoneInfo TimeZone(IConfiguration config)
     {
         try
@@ -83,6 +97,11 @@ public static class ShareEndpoints
         }
     }
 
+    /// <summary>
+    /// Etkinliğin paylaşım sayfasını üretir: Open Graph etiketleri (mesajlaşma uygulamalarındaki önizleme
+    /// kartı için), kapak görseli, başlık, tarih, mekan, organizatör, uygulamayı açan buton ve ayarlıysa
+    /// mağaza bağlantıları. Kullanıcıdan gelen bütün metinler HTML olarak kodlanır.
+    /// </summary>
     private static string EventPage(PublicEventDto ev, IConfiguration config, string baseUrl)
     {
         var image = ev.ImageUrl is null ? null : baseUrl + ev.ImageUrl;
@@ -139,6 +158,7 @@ public static class ShareEndpoints
             """;
     }
 
+    /// <summary>Etkinlik yoksa, iptal edilmiş ya da kaldırılmışsa gösterilen sabit "bulunamadı" sayfası.</summary>
     private static string NotFoundPage() => """
         <!DOCTYPE html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Etkinlik bulunamadı · Yakında</title>

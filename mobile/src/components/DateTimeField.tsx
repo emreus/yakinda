@@ -34,6 +34,8 @@ export function DateTimeField({ label, value, onChange, minimumDate }: DateTimeF
     );
   }
 
+  // Android'de tek pencerede tarih ve saat seçilemediği için önce tarih penceresini, onaylanınca saat
+  // penceresini açar ve ikisini birleştirip onChange ile bildirir. Pencerelerden biri kapatılırsa değer değişmez.
   const openAndroidPicker = () => {
     DateTimePickerAndroid.open({
       value,

@@ -26,7 +26,11 @@ internal static class EventVisibility
         WHERE e.id = @EventId
         """;
 
-    /// <returns>Organizatörün kimliği.</returns>
+    /// <summary>
+    /// Etkinliğin var olduğunu ve isteği yapanla organizatör arasında engel bulunmadığını tek sorguyla
+    /// denetler. Etkinlik yoksa ya da engel varsa 404 (event.not_found) fırlatır; aksi halde
+    /// organizatörün kimliğini döner.
+    /// </summary>
     public static async Task<Guid> RequireVisibleAsync(
         DbConnection connection, Guid eventId, Guid userId, CancellationToken cancellationToken)
     {
@@ -46,6 +50,7 @@ public sealed record EnsureEventVisibleQuery(Guid EventId) : IQuery<Unit>;
 internal sealed class EnsureEventVisibleQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser)
     : IRequestHandler<EnsureEventVisibleQuery, Unit>
 {
+    /// <summary>Bağlantı açar ve RequireVisibleAsync kontrolünü çalıştırır; sorun yoksa boş sonuç döner.</summary>
     public async Task<Unit> Handle(EnsureEventVisibleQuery request, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);

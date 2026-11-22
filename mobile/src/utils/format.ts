@@ -11,11 +11,12 @@ const fullFormat = new Intl.DateTimeFormat(LOCALE, {
   minute: '2-digit',
 });
 
+/** Tarihin, o günün gece yarısına denk gelen zaman damgasını döner (gün karşılaştırmaları için). */
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
-/** "Bugün 20:30", "Yarın 14:00", "Cmt 22 Kas 19:00" */
+/** "Bugün 20:30", "Yarın 14:00", "22 Kas Cmt 19:00" */
 export function formatEventDate(iso: string): string {
   const date = new Date(iso);
   const dayDiff = Math.round((startOfDay(date) - startOfDay(new Date())) / 86_400_000);
@@ -24,7 +25,7 @@ export function formatEventDate(iso: string): string {
   return `${day} ${timeFormat.format(date)}`;
 }
 
-/** Bildirimler için: "az önce", "5 dk önce", "3 sa önce", "Dün 14:05", "Cmt 22 Kas 19:00" */
+/** Bildirimler için: "az önce", "5 dk önce", "3 sa önce", "Dün 14:05", "22 Kas Cmt 19:00" */
 export function formatRelativeTime(iso: string): string {
   const date = new Date(iso);
   const minutes = Math.floor((Date.now() - date.getTime()) / 60_000);
@@ -34,22 +35,27 @@ export function formatRelativeTime(iso: string): string {
   return formatEventDate(iso);
 }
 
+/** Uzun tarih ve saat: gün, ay, gün adı ve saat (ör. "22 Kasım Cumartesi 19:00"). */
 export function formatDateTimeLong(value: string | Date): string {
   return fullFormat.format(typeof value === 'string' ? new Date(value) : value);
 }
 
+/** Yalnızca saat ve dakika (ör. "19:00"). */
 export function formatTime(iso: string): string {
   return timeFormat.format(new Date(iso));
 }
 
-/** "850 m", "3,2 km" */
+/**
+ * Mesafeyi yazıya çevirir: 1 km'den azsa 10 metreye yuvarlanmış metre ("850 m"), değilse tek ondalıklı
+ * kilometre ("3,2 km"); değer yoksa boş metin döner.
+ */
 export function formatDistance(meters: number | null | undefined): string {
   if (meters == null) return '';
   if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
   return `${(meters / 1000).toLocaleString(LOCALE, { maximumFractionDigits: 1 })} km`;
 }
 
-/** "4,6" */
+/** Puanı tek ondalıkla yazar ("4,6"); değer yoksa "–" döner. */
 export function formatRating(value: number | null | undefined): string {
   if (value == null) return '–';
   return value.toLocaleString(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 });

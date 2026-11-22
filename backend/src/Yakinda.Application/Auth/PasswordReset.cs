@@ -31,6 +31,10 @@ internal static class PasswordResetRules
     public static string Hash(Guid userId, string code) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes($"{userId:N}:{code}")));
 
+    /// <summary>
+    /// Girilen kodun özeti saklanan özetle aynı mı? Karşılaştırma sabit sürede yapılır; yanıt süresinden
+    /// kodun kaç hanesinin tuttuğu anlaşılamaz.
+    /// </summary>
     public static bool Matches(string storedHash, Guid userId, string code) =>
         CryptographicOperations.FixedTimeEquals(
             Encoding.ASCII.GetBytes(storedHash),
@@ -47,6 +51,7 @@ public sealed record ForgotPasswordCommand(string Email) : ICommand<Unit>;
 
 internal sealed class ForgotPasswordCommandValidator : AbstractValidator<ForgotPasswordCommand>
 {
+    /// <summary>E-posta dolu, en fazla 256 karakter ve geçerli biçimde olmalı.</summary>
     public ForgotPasswordCommandValidator() =>
         RuleFor(x => x.Email).NotEmpty().MaximumLength(256).ValidEmail().WithName("E-posta");
 }
@@ -57,6 +62,12 @@ internal sealed class ForgotPasswordCommandHandler(
     IEmailSender email,
     TimeProvider timeProvider) : IRequestHandler<ForgotPasswordCommand, Unit>
 {
+    /// <summary>
+    /// Şifre sıfırlama kodu gönderir. Hesap yoksa, silinmişse ya da yasaklıysa hiçbir şey yapmadan döner.
+    /// Son koddan beri 60 saniye geçmediyse ya da son 24 saatte 5 kod üretildiyse yine sessizce döner.
+    /// Aksi halde 6 haneli rastgele bir kod üretir, kullanıcıya bağlı özetini 15 dakika geçerli olacak
+    /// şekilde kaydeder ve kodu düz metin ve HTML gövdeli bir e-postayla gönderir.
+    /// </summary>
     public async Task<Unit> Handle(ForgotPasswordCommand request, CancellationToken cancellationToken)
     {
         var user = await users.GetByEmailAsync(User.NormalizeEmail(request.Email), cancellationToken);
@@ -112,11 +123,15 @@ public sealed record ResetPasswordCommand(string Email, string Code, string NewP
 /// </summary>
 public sealed record ResetPasswordResult(AuthResponse? Auth, string? ErrorCode = null, string? ErrorMessage = null)
 {
+    /// <summary>
+    /// Başarısız sonucu üretir: oturum bilgisi yok, hata kodu ve kullanıcıya gösterilecek mesaj var.
+    /// </summary>
     public static ResetPasswordResult Fail(string code, string message) => new(null, code, message);
 }
 
 internal sealed class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordCommand>
 {
+    /// <summary>E-posta geçerli biçimde, kod tam 6 rakam, yeni şifre 8 ile 128 karakter arasında olmalı.</summary>
     public ResetPasswordCommandValidator()
     {
         RuleFor(x => x.Email).NotEmpty().MaximumLength(256).ValidEmail().WithName("E-posta");
@@ -133,6 +148,12 @@ internal sealed class ResetPasswordCommandHandler(
     AuthTokenIssuer tokenIssuer,
     TimeProvider timeProvider) : IRequestHandler<ResetPasswordCommand, ResetPasswordResult>
 {
+    /// <summary>
+    /// Kodla şifreyi değiştirir. Kullanıcıyı ve geçerli kodu (satır kilidiyle) okur; biri yoksa "süresi
+    /// dolmuş" sonucunu döner. Deneme hakkı bittiyse reddeder. Kod yanlışsa deneme sayacını artırır.
+    /// Kod doğruysa şifreyi değiştirir (oturum sürümü de artar), kodu kullanıldı işaretler, bütün
+    /// refresh token'ları iptal eder ve yeni token'larla giriş yapmış sonucu döner.
+    /// </summary>
     public async Task<ResetPasswordResult> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;
@@ -163,9 +184,14 @@ internal sealed class ResetPasswordCommandHandler(
         return new ResetPasswordResult(await tokenIssuer.IssueAsync(user, cancellationToken));
     }
 
+    /// <summary>
+    /// "Kodun süresi dolmuş ya da geçersiz" sonucunu üretir. Hesap yokken de aynı sonuç döner;
+    /// böylece e-postanın kayıtlı olup olmadığı anlaşılamaz.
+    /// </summary>
     private static ResetPasswordResult Expired() =>
         ResetPasswordResult.Fail("auth.code_expired", "Kodun süresi dolmuş ya da geçersiz. Yeni bir kod iste.");
 
+    /// <summary>"Çok fazla hatalı deneme" sonucunu üretir; kullanıcının yeni kod istemesi gerekir.</summary>
     private static ResetPasswordResult TooManyAttempts() =>
         ResetPasswordResult.Fail("auth.code_attempts_exceeded", "Çok fazla hatalı deneme yapıldı. Yeni bir kod iste.");
 }

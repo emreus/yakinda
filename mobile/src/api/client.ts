@@ -34,6 +34,10 @@ export class ApiError extends Error {
   readonly code?: string;
   readonly fieldErrors?: Record<string, string[]>;
 
+  /**
+   * Sunucunun döndüğü ProblemDetails'ten hata nesnesi kurar. Mesaj olarak sırasıyla detail, title ya da
+   * duruma göre varsayılan metin kullanılır; code ve alan hataları (fieldErrors) ayrıca saklanır.
+   */
   constructor(status: number, problem: ApiProblem | null) {
     super(problem?.detail ?? problem?.title ?? defaultMessage(status));
     this.name = 'ApiError';
@@ -43,13 +47,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Sunucu mesaj döndürmediğinde gösterilecek Türkçe metin: 0 = bağlantı kurulamadı, 500 ve üzeri = sunucu hatası.
+ */
 function defaultMessage(status: number): string {
   if (status === 0) return 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.';
   if (status >= 500) return 'Sunucuda bir sorun oluştu, lütfen tekrar dene.';
   return 'Bir hata oluştu.';
 }
 
-/** Kullanıcıya gösterilecek hata metni. */
+/**
+ * Kullanıcıya gösterilecek hata metni: ApiError ya da başka bir Error ise kendi mesajı, tanınmayan
+ * bir değerse genel "Bir hata oluştu." metni.
+ */
 export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
@@ -67,6 +77,9 @@ export interface AuthBridge {
 
 let authBridge: AuthBridge | null = null;
 
+/**
+ * AuthContext'in kendini HTTP katmanına tanıtması: apiRequest token'ı ve yenileme fonksiyonunu buradan alır.
+ */
 export function setAuthBridge(bridge: AuthBridge | null): void {
   authBridge = bridge;
 }
@@ -82,6 +95,9 @@ export interface RequestOptions {
   anonymous?: boolean;
 }
 
+/**
+ * Nesneden "?a=1&b=2" biçiminde sorgu metni üretir; boş, null ve undefined değerleri atlar, kalanları kodlar.
+ */
 function buildQuery(query?: Record<string, QueryValue>): string {
   if (!query) return '';
   const parts = Object.entries(query)
@@ -90,6 +106,12 @@ function buildQuery(query?: Record<string, QueryValue>): string {
   return parts.length > 0 ? `?${parts.join('&')}` : '';
 }
 
+/**
+ * Her API isteğinin geçtiği tek nokta. Authorization başlığını ekler (anonymous değilse), gövdeyi JSON
+ * olarak ya da FormData ise olduğu gibi gönderir. Ağ hatasında ApiError(0) fırlatır. 401 gelirse bir kez
+ * token yeniler ve isteği tekrarlar. Başarısız yanıtta gövdedeki ProblemDetails ile ApiError fırlatır;
+ * 204'te undefined, diğer durumda çözülmüş JSON döner.
+ */
 export async function apiRequest<T>(path: string, options: RequestOptions = {}, isRetry = false): Promise<T> {
   const headers: Record<string, string> = { Accept: 'application/json' };
   const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;

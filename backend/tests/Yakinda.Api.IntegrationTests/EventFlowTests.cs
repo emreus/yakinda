@@ -12,6 +12,11 @@ public sealed class EventFlowTests(ApiFixture api)
 {
     // ------------------------------------------------------------------ yakındakiler
 
+    /// <summary>
+    /// Yakındakiler listesi yalnızca yarıçapın içindeki etkinlikleri döner: 10 km'lik aramada arama noktasının
+    /// hemen yanındaki etkinlik gelir, yaklaşık 55 km uzaktaki gelmez. Diğer testlerle karışmaması için ıssız
+    /// bir konum kullanılır.
+    /// </summary>
     [Fact]
     public async Task Nearby_returns_events_inside_the_radius_only()
     {
@@ -28,6 +33,7 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.DoesNotContain(far, ids);
     }
 
+    /// <summary>Boş başlıklı ve başlangıcı geçmişte olan etkinlik isteği 400 ile reddedilir.</summary>
     [Fact]
     public async Task Event_creation_validates_input()
     {
@@ -48,6 +54,10 @@ public sealed class EventFlowTests(ApiFixture api)
 
     // ------------------------------------------------------------------ katılım + bildirim
 
+    /// <summary>
+    /// Herkese açık etkinliğe katılan kişi hemen onaylanır, katılımcı sayısı 1 olur ve organizatöre içinde
+    /// katılanın adı geçen bir ParticipantJoined bildirimi gider.
+    /// </summary>
     [Fact]
     public async Task Joining_an_open_event_approves_and_notifies_the_organizer()
     {
@@ -66,6 +76,11 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Contains("Burak", notifications[0]!["body"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// Onaylı katılım akışı: istek Pending olur ve organizatöre JoinRequested bildirimi gider; organizatör
+    /// onaylayınca katılımcıya RequestApproved gelir ve okunmamış sayısı 1 olur; "tümünü okundu yap"tan
+    /// sonra sayı 0'a iner.
+    /// </summary>
     [Fact]
     public async Task Approval_flow_notifies_both_sides_and_marks_read()
     {
@@ -87,6 +102,9 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal(0, await guest.UnreadCountAsync());
     }
 
+    /// <summary>
+    /// Kullanıcı başkasına ait bir bildirimi okundu yapamaz; bildirim ona yokmuş gibi 404 notification.not_found döner.
+    /// </summary>
     [Fact]
     public async Task Users_cannot_mark_someone_elses_notification_read()
     {
@@ -100,6 +118,11 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal("notification.not_found", await response.ProblemCodeAsync(HttpStatusCode.NotFound));
     }
 
+    /// <summary>
+    /// Dolu ve herkese açık etkinlikte sonradan gelenler bekleme listesine girer ve sıralarını görür.
+    /// Katılımcı ayrılınca sıradaki ilk kişi kendiliğinden onaylanır ve WaitlistPromoted bildirimi alır;
+    /// arkasındaki kişinin sırası 2'den 1'e iner.
+    /// </summary>
     [Fact]
     public async Task Full_open_event_waitlists_and_promotes_when_a_seat_frees()
     {
@@ -127,6 +150,11 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal(1, (await Detail(third, eventId))["myWaitlistPosition"]!.GetValue<int>());
     }
 
+    /// <summary>
+    /// Onay gerektiren dolu etkinlikte yer açılınca (organizatör onaylı katılımcıyı çıkarınca) bekleme
+    /// listesindeki kişi doğrudan katılmaz, isteği Pending olur; kendisine WaitlistPromoted bildirimi,
+    /// organizatöre de adının geçtiği bir bildirim gider.
+    /// </summary>
     [Fact]
     public async Task Approval_event_promotes_waitlist_to_a_request_after_rejection()
     {
@@ -149,6 +177,10 @@ public sealed class EventFlowTests(ApiFixture api)
 
     // ------------------------------------------------------------------ düzenleme
 
+    /// <summary>
+    /// Etkinliğin saati değişince katılımcıya EventUpdated bildirimi gider ve daha önce gönderilmiş
+    /// hatırlatma işareti (reminder_sent_at) temizlenir; böylece yeni saate göre yeniden hatırlatılır.
+    /// </summary>
     [Fact]
     public async Task Editing_time_notifies_participants_and_resets_the_reminder()
     {
@@ -168,6 +200,10 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.False(await api.ScalarAsync<bool>("SELECT reminder_sent_at IS NOT NULL FROM events WHERE id = @id", new { id = eventId }));
     }
 
+    /// <summary>
+    /// Etkinliği yalnızca organizatörü düzenleyebilir (katılımcı 403 alır); organizatör de kontenjanı mevcut
+    /// katılımcı sayısının altına indiremez (422 event.capacity_below_participants).
+    /// </summary>
     [Fact]
     public async Task Only_the_organizer_can_edit_and_capacity_cannot_drop_below_participants()
     {
@@ -186,6 +222,7 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal("event.capacity_below_participants", await tooSmall.ProblemCodeAsync(HttpStatusCode.UnprocessableEntity));
     }
 
+    /// <summary>Kontenjan artırılınca bekleme listesindeki kişi kendiliğinden onaylanır.</summary>
     [Fact]
     public async Task Raising_capacity_lets_the_waitlist_in()
     {
@@ -204,6 +241,10 @@ public sealed class EventFlowTests(ApiFixture api)
 
     // ------------------------------------------------------------------ tekrar, arama, sıralama
 
+    /// <summary>
+    /// Haftalık tekrar: repeatWeeks = 3 ile oluşturulan etkinlik, ilkiyle birlikte toplam 4 etkinlik kaydı
+    /// üretir (aynı başlıkla, veritabanından sayılır).
+    /// </summary>
     [Fact]
     public async Task Recurring_event_creates_one_event_per_week()
     {
@@ -225,6 +266,10 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal(4, await api.ScalarAsync<long>("SELECT count(*) FROM events WHERE title = @title", new { title }));
     }
 
+    /// <summary>
+    /// Arama başlığı büyük/küçük harf ayırmadan eşleştirir ve yalnızca eşleşen etkinliği döner. "%" işareti
+    /// joker sayılmaz, düz metin olarak aranır; bu yüzden tek başına "%" araması hiçbir şey bulmaz.
+    /// </summary>
     [Fact]
     public async Task Search_matches_title_case_insensitively_and_treats_wildcards_literally()
     {
@@ -239,6 +284,11 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Empty(await NearbyIds(organizer, -60.0, 20.0, "&q=%25"));  // "%" joker değil, düz metin
     }
 
+    /// <summary>
+    /// Puana göre sıralamada az oylu ortalamalar genel ortalamaya doğru çekilir: tek oyla 5,0 almış
+    /// organizatörün etkinliği, 200 oyla 4,8 almış organizatörün etkinliğinin önüne geçemez. Puanlar ve
+    /// genel ortalama test içinde doğrudan veritabanına yazılır.
+    /// </summary>
     [Fact]
     public async Task Rating_sort_does_not_let_a_single_vote_win()
     {
@@ -257,6 +307,7 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal(new[] { veteranEvent, newcomerEvent }, ids);
     }
 
+    /// <summary>Organizatör kendi etkinliğine katılamaz: 422 event.organizer_cannot_join.</summary>
     [Fact]
     public async Task Organizer_cannot_join_own_event()
     {
@@ -268,6 +319,10 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal("event.organizer_cannot_join", await response.ProblemCodeAsync(HttpStatusCode.UnprocessableEntity));
     }
 
+    /// <summary>
+    /// İptal edilen etkinlikte hem onaylı katılımcıya hem isteği bekleyen kişiye EventCancelled bildirimi
+    /// gider; sonradan katılmak isteyen 422 event.cancelled alır.
+    /// </summary>
     [Fact]
     public async Task Cancelling_notifies_participants_and_closes_the_event()
     {
@@ -290,6 +345,11 @@ public sealed class EventFlowTests(ApiFixture api)
 
     // ------------------------------------------------------------------ oylama
 
+    /// <summary>
+    /// Verilen puanlar etkinliğin ortalamasını günceller (5 ve 2 → 3,5); puanını değiştiren kişi oy sayısını
+    /// artırmaz, yalnızca ortalamayı değiştirir (3 ve 2 → 2,5). Aynı ortalama ve oy sayısı organizatörün
+    /// profiline de yansır.
+    /// </summary>
     [Fact]
     public async Task Ratings_update_event_and_organizer_averages()
     {
@@ -316,6 +376,11 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Equal(2, profile["ratingCount"]!.GetValue<int>());
     }
 
+    /// <summary>
+    /// Oylama kuralları API üzerinden: etkinlik başlamadan puan verilemez (rating.not_open_yet); başladıktan
+    /// sonra katılımcı olmayan (rating.not_participant) ve organizatörün kendisi (rating.own_event) veremez.
+    /// Üçü de 422 döner.
+    /// </summary>
     [Fact]
     public async Task Only_participants_can_rate_and_not_before_start()
     {
@@ -339,6 +404,12 @@ public sealed class EventFlowTests(ApiFixture api)
 
     // ------------------------------------------------------------------ zamanlanmış bildirimler
 
+    /// <summary>
+    /// Zamanlayıcı elle çalıştırılır. Başlangıcı 30 dakika sonraya çekilen etkinlik hatırlatma süresinin
+    /// (son 1 saat) içine girer: organizatöre ve katılımcıya birer hatırlatma gider, ikinci turda
+    /// tekrarlanmaz. Etkinlik bittikten sonra (başlangıç 5 saat geriye çekilir) yalnızca katılımcıya
+    /// puanlama bildirimi gider.
+    /// </summary>
     [Fact]
     public async Task Scheduler_sends_reminder_once_and_rating_prompt_after_the_event()
     {
@@ -366,6 +437,10 @@ public sealed class EventFlowTests(ApiFixture api)
 
     // ------------------------------------------------------------------ yardımcılar
 
+    /// <summary>
+    /// Zamanlanmış bildirim servisini test veritabanına bağlı olarak elle kurar (API içinde kapalıdır);
+    /// testler RunOnceAsync ile tek tur çalıştırır.
+    /// </summary>
     private ScheduledNotificationService CreateScheduler() =>
         new(api.Factory.Services.GetRequiredService<NpgsqlDataSource>(),
             TimeProvider.System,
@@ -375,9 +450,14 @@ public sealed class EventFlowTests(ApiFixture api)
     private Task StartEventAsync(Guid eventId) =>
         api.ExecuteSqlAsync("UPDATE events SET starts_at = now() - interval '1 hour' WHERE id = @id", new { id = eventId });
 
+    /// <summary>Etkinlik detayını verilen kullanıcının gözünden okur (200 bekler).</summary>
     private static async Task<System.Text.Json.Nodes.JsonNode> Detail(TestUser user, Guid eventId) =>
         await (await user.Client.GetAsync($"/api/events/{eventId}")).ReadJsonAsync(HttpStatusCode.OK);
 
+    /// <summary>
+    /// Verilen noktanın 5 km çevresindeki etkinliklerin kimliklerini, listedeki sırasıyla döner. extra ile
+    /// arama ya da sıralama parametresi eklenir; koordinatlar noktayla yazılsın diye sabit kültür kullanılır.
+    /// </summary>
     private static async Task<List<Guid>> NearbyIds(TestUser user, double lat, double lng, string extra = "")
     {
         var url = FormattableString.Invariant($"/api/events/nearby?lat={lat}&lng={lng}&radiusKm=5{extra}");
@@ -385,6 +465,9 @@ public sealed class EventFlowTests(ApiFixture api)
         return json["items"]!.AsArray().Select(i => Guid.Parse(i!["id"]!.GetValue<string>())).ToList();
     }
 
+    /// <summary>
+    /// Etkinlik düzenleme isteğinin gövdesi: başlık, başlangıç ve kontenjan parametreden, diğer alanlar sabit.
+    /// </summary>
     private static object EditBody(string title, DateTimeOffset startsAt, int? capacity) => new
     {
         categoryId = 1,
@@ -399,6 +482,9 @@ public sealed class EventFlowTests(ApiFixture api)
         capacity
     };
 
+    /// <summary>
+    /// Kullanıcı adına etkinliğe puan verir (200 bekler) ve yeni ortalamayı içeren yanıtı döner.
+    /// </summary>
     private static async Task<System.Text.Json.Nodes.JsonNode> Rate(TestUser user, Guid eventId, int score) =>
         await (await user.Client.PutAsJsonAsync($"/api/events/{eventId}/rating", new { score, comment = "test" }))
             .ReadJsonAsync(HttpStatusCode.OK);

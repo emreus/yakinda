@@ -6,6 +6,10 @@ namespace Yakinda.Api.Endpoints;
 
 public static class AuthEndpoints
 {
+    /// <summary>
+    /// Kimlik uçlarını /api/auth altına bağlar. Hepsi giriş gerektirmez ve IP başına sıkı istek sınırına
+    /// ("auth" politikası) tabidir.
+    /// </summary>
     public static RouteGroupBuilder MapAuthEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/auth")
@@ -13,29 +17,36 @@ public static class AuthEndpoints
             .AllowAnonymous()
             .RequireRateLimiting(RateLimitingSetup.AuthPolicy);
 
+        // POST /api/auth/register: yeni hesap açar; token'ları ve kullanıcı özetini döner.
         group.MapPost("/register", async (RegisterCommand command, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(command, ct)));
 
+        // POST /api/auth/login: e-posta ve şifreyle giriş; token'ları döner.
         group.MapPost("/login", async (LoginCommand command, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(command, ct)));
 
+        // POST /api/auth/refresh: refresh token'ı yenisiyle değiştirir ve yeni erişim token'ı verir.
         group.MapPost("/refresh", async (RefreshTokenCommand command, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(command, ct)));
 
-        // Çıkış: refresh token sunucuda iptal edilir
+        // POST /api/auth/logout: çıkış. Gönderilen refresh token sunucuda iptal edilir; token bilinmiyorsa da
+        // 204 döner (yanıttan token'ın var olup olmadığı anlaşılmaz).
         group.MapPost("/logout", async (LogoutCommand command, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(command, ct);
             return Results.NoContent();
         });
 
-        // Şifre sıfırlama: önce e-postaya kod, sonra kodla yeni şifre (başarılıysa giriş yapılmış olarak döner)
+        // POST /api/auth/forgot-password: şifre sıfırlamanın ilk adımı; hesabın e-postasına 6 haneli kod
+        // gönderir. Adres kayıtlı olsun olmasın 204 döner. İkinci adım aşağıdaki reset-password ucudur.
         group.MapPost("/forgot-password", async (ForgotPasswordCommand command, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(command, ct);
             return Results.NoContent();
         });
 
+        // POST /api/auth/reset-password: kod doğruysa şifreyi değiştirir ve token'ları döner. Kod hatalıysa
+        // ya da süresi dolduysa handler'ın döndüğü hata 400 ProblemDetails'e çevrilir.
         group.MapPost("/reset-password", async (ResetPasswordCommand command, ISender sender, CancellationToken ct) =>
         {
             var result = await sender.Send(command, ct);

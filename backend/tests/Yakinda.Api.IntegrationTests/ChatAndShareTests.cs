@@ -9,6 +9,11 @@ public sealed class ChatAndShareTests(ApiFixture api)
 {
     // ------------------------------------------------------------------ erişim
 
+    /// <summary>
+    /// Sohbeti yalnızca organizatör ve onaylı katılımcılar kullanabilir. Onaylı üye mesaj yazar ve
+    /// organizatör bunu okur; isteği bekleyen kişi okuyamaz, etkinlikle ilgisi olmayan kişi yazamaz
+    /// (403 chat.not_member). Üyenin etkinlik detayında canChat true gelir.
+    /// </summary>
     [Fact]
     public async Task Only_the_organizer_and_approved_participants_can_use_the_chat()
     {
@@ -32,6 +37,10 @@ public sealed class ChatAndShareTests(ApiFixture api)
 
     // ------------------------------------------------------------------ bildirimler
 
+    /// <summary>
+    /// Sohbet bildirimi okunana kadar tektir: art arda üç mesaj organizatöre tek bildirim üretir, yazan
+    /// kişiye hiç üretmez. Organizatör sohbeti okundu yaptıktan sonra gelen mesaj ikinci bildirimi oluşturur.
+    /// </summary>
     [Fact]
     public async Task Chat_notifies_once_until_the_chat_is_read()
     {
@@ -51,6 +60,10 @@ public sealed class ChatAndShareTests(ApiFixture api)
 
     // ------------------------------------------------------------------ sayfalama
 
+    /// <summary>
+    /// Mesajlar iki yönde sayfalanır: limit=2 en yeni iki mesajı ve hasMore=true döner; before ile daha
+    /// eskiler gelir; after ile yalnızca verilen mesajdan sonra yazılanlar gelir (yeni mesaj yokken boş liste).
+    /// </summary>
     [Fact]
     public async Task Messages_page_backwards_and_poll_forwards()
     {
@@ -72,6 +85,10 @@ public sealed class ChatAndShareTests(ApiFixture api)
 
     // ------------------------------------------------------------------ silme, filtre, engel, şikayet
 
+    /// <summary>
+    /// Mesajı yalnızca yazarı ve organizatör silebilir; başka bir katılımcı 403 chat.cannot_delete alır.
+    /// Silinen mesajlar listede kalır ama isDeleted=true ve gövdesiz döner.
+    /// </summary>
     [Fact]
     public async Task Authors_and_organizers_can_delete_but_others_cannot()
     {
@@ -93,6 +110,7 @@ public sealed class ChatAndShareTests(ApiFixture api)
         });
     }
 
+    /// <summary>Küfür içeren mesaj içerik filtresine takılır ve 400 ile reddedilir.</summary>
     [Fact]
     public async Task Objectionable_messages_are_rejected()
     {
@@ -101,6 +119,10 @@ public sealed class ChatAndShareTests(ApiFixture api)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    /// <summary>
+    /// Engellenen kullanıcının mesajları engelleyene gösterilmez: organizatör üyeyi engelleyince sohbette
+    /// yalnızca kendi mesajını görür.
+    /// </summary>
     [Fact]
     public async Task Blocked_users_messages_are_hidden()
     {
@@ -113,6 +135,11 @@ public sealed class ChatAndShareTests(ApiFixture api)
         Assert.Equal(new[] { "Görünecek" }, Bodies(await Messages(organizer, eventId)));
     }
 
+    /// <summary>
+    /// Şikayet edilen mesaj yönetici listesine düşer (özet olarak mesaj metni, sahibi olarak yazarı görünür).
+    /// Yönetici şikayeti "içeriği kaldır" ile kapatınca mesaj sohbette silinmiş olarak görünür. Yönetici
+    /// yetkisi test içinde doğrudan veritabanından verilir.
+    /// </summary>
     [Fact]
     public async Task Reported_messages_reach_the_admin_and_can_be_removed()
     {
@@ -136,6 +163,11 @@ public sealed class ChatAndShareTests(ApiFixture api)
 
     // ------------------------------------------------------------------ paylaşım bağlantısı
 
+    /// <summary>
+    /// Paylaşım sayfası (/e/{id}) oturum olmadan açılır ve önizleme etiketlerini, etkinlik başlığını,
+    /// organizatörün adını ve uygulama bağlantısını (yakinda://event/{id}) içerir. Etkinlik iptal edilince
+    /// sayfa "Etkinlik bulunamadı" gösterir. Universal Links ayarlanmamışken Apple doğrulama dosyası 404 döner.
+    /// </summary>
     [Fact]
     public async Task Share_page_shows_a_preview_and_hides_cancelled_events()
     {
@@ -158,6 +190,10 @@ public sealed class ChatAndShareTests(ApiFixture api)
 
     // ------------------------------------------------------------------ yardımcılar
 
+    /// <summary>
+    /// Sohbet testlerinin ortak kurulumu: bir organizatör ve bir üye kaydeder, etkinlik oluşturur ve üyeyi
+    /// katar; etkinlik onay gerektiriyorsa organizatör üyeyi onaylar.
+    /// </summary>
     private async Task<(TestUser Organizer, TestUser Member, Guid EventId)> EventWithMemberAsync(string joinPolicy = "Open")
     {
         var organizer = await api.RegisterAsync("Organizatör");
@@ -169,17 +205,23 @@ public sealed class ChatAndShareTests(ApiFixture api)
         return (organizer, member, eventId);
     }
 
+    /// <summary>Kullanıcı adına sohbete mesaj yazar (200 bekler) ve mesajın kimliğini döner.</summary>
     private static async Task<Guid> Send(TestUser user, Guid eventId, string body)
     {
         var json = await (await user.Client.PostAsJsonAsync($"/api/events/{eventId}/messages", new { body })).ReadJsonAsync(HttpStatusCode.OK);
         return json["id"]!.GetValue<Guid>();
     }
 
+    /// <summary>
+    /// Kullanıcı adına sohbet mesajlarını okur; query ile sayfalama parametreleri (limit, before, after) eklenir.
+    /// </summary>
     private static async Task<JsonNode> Messages(TestUser user, Guid eventId, string query = "") =>
         await (await user.Client.GetAsync($"/api/events/{eventId}/messages{query}")).ReadJsonAsync(HttpStatusCode.OK);
 
+    /// <summary>Sayfadaki mesajların metinlerini sırasıyla döner (silinmiş mesaj için boş metin).</summary>
     private static string[] Bodies(JsonNode page) =>
         page["items"]!.AsArray().Select(m => m!["body"]?.GetValue<string>() ?? "").ToArray();
 
+    /// <summary>Sayfada verilen sıradaki mesajın kimliğini döner.</summary>
     private static string Id(JsonNode page, Index index) => page["items"]!.AsArray()[index]!["id"]!.GetValue<string>();
 }

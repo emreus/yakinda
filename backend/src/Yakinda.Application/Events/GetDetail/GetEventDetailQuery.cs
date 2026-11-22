@@ -183,6 +183,12 @@ internal sealed class GetEventDetailQueryHandler(
             {Safety.BlockSql.EitherWay("@UserId", "@OrganizerId")} AS is_blocked
         """;
 
+    /// <summary>
+    /// Etkinlik detayını iki parçadan kurar. Herkes için aynı olan kısım (EventSnapshot) cache'ten, yoksa
+    /// veritabanından gelir ve 5 dakika saklanır. İsteği yapana özel kısım (katılım durumu, puanı, bekleme
+    /// listesindeki sırası, engel durumu) her istekte taze okunur. Organizatörle arada engel varsa 404
+    /// döner. Sonunda Compose ikisini birleştirip yetki bayraklarını hesaplar.
+    /// </summary>
     public async Task<EventDetailDto> Handle(GetEventDetailQuery request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -214,6 +220,10 @@ internal sealed class GetEventDetailQueryHandler(
         return Compose(snapshot, viewer, isOrganizer, now);
     }
 
+    /// <summary>
+    /// Etkinliğin paylaşılan kısmını (kategori ve organizatör bilgisiyle) tek sorguyla okur. Etkinlik
+    /// yoksa 404 fırlatır; hata cache'lenmediği için var olmayan kimlikler cache'i doldurmaz.
+    /// </summary>
     private async Task<EventSnapshot> LoadSnapshotAsync(Guid eventId, CancellationToken cancellationToken)
     {
         await using var connection = await db.OpenConnectionAsync(cancellationToken);
@@ -223,7 +233,11 @@ internal sealed class GetEventDetailQueryHandler(
                ?? throw EventErrors.NotFound();
     }
 
-    /// <summary>Paylaşılan kısım + kullanıcıya özel kısım → yetkileri de hesaplanmış DTO.</summary>
+    /// <summary>
+    /// Yanıtı kurar: herkes için aynı olan (cache'lenen) kısmı isteği yapana özel durumla birleştirir ve
+    /// yetki bayraklarını hesaplar (katılabilir, ayrılabilir, iptal edebilir, düzenleyebilir, sohbete
+    /// girebilir, puan verebilir).
+    /// </summary>
     private static EventDetailDto Compose(EventSnapshot s, ViewerState viewer, bool isOrganizer, DateTime now)
     {
         var isActive = s.Status == EventStatus.Active;

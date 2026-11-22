@@ -26,6 +26,10 @@ const ICONS: Record<NotificationType, string> = {
 
 type NotificationPages = InfiniteData<PagedResult<AppNotification>>;
 
+/**
+ * Bildirimler sekmesi: en yeni önce, sonsuz kaydırmalı liste. Okunmamış varsa üstte sayı ve "Tümünü
+ * okundu yap" bağlantısı görünür. Sekmeye her gelindiğinde liste ve rozet tazelenir.
+ */
 export default function NotificationsScreen() {
   const queryClient = useQueryClient();
   const query = useNotifications();
@@ -65,20 +69,26 @@ export default function NotificationsScreen() {
     [queryClient],
   );
 
+  // Bildirim listesini ve okunmamış sayısını sunucudan yeniden istetir.
   const refreshAll = () => queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
 
+  // Tek bildirimi okundu yapar. Ekran sunucu yanıtını beklemeden güncellenir; istek bitince liste
+  // sunucudan tazelenir.
   const markRead = useMutation({
     mutationFn: (id: string) => notificationsApi.markRead(id),
     onMutate: (id) => markLocallyRead([id]),
     onSettled: refreshAll,
   });
 
+  // Bütün bildirimleri okundu yapar; ekran hemen güncellenir, sonra sunucudan tazelenir.
   const markAllRead = useMutation({
     mutationFn: () => notificationsApi.markAllRead(),
     onMutate: () => markLocallyRead('all'),
     onSettled: refreshAll,
   });
 
+  // Bildirime dokunulunca: okunmadıysa okundu yapar, sonra ilgili etkinliği açar (sohbet bildirimiyse
+  // sohbeti). Etkinlik kimliği geçerli biçimde değilse yalnızca okundu yapılır, gezinme yapılmaz.
   const open = (notification: AppNotification) => {
     if (!notification.isRead) markRead.mutate(notification.id);
     if (!isUuid(notification.eventId)) return;
@@ -141,6 +151,10 @@ export default function NotificationsScreen() {
   );
 }
 
+/**
+ * Tek bildirim satırı: türe göre simge, başlık, metin ve ne kadar önce geldiği. Okunmamış satır vurgulu
+ * gösterilir.
+ */
 function NotificationRow({ notification, onPress }: { notification: AppNotification; onPress: () => void }) {
   const unread = !notification.isRead;
   return (
@@ -165,6 +179,7 @@ function NotificationRow({ notification, onPress }: { notification: AppNotificat
   );
 }
 
+/** Satırlar arasındaki boşluk. */
 function Separator() {
   return <View style={styles.separator} />;
 }

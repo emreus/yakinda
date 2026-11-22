@@ -17,6 +17,12 @@ internal sealed class CancelEventCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<CancelEventCommand, Unit>
 {
+    /// <summary>
+    /// Etkinliği iptal eder. Etkinliği satır kilidiyle okur; yoksa 404, isteği yapan organizatör değilse
+    /// 403 döner. ev.Cancel kuralı uygular (başlamış etkinlik iptal edilemez), etkinlik kaydedilir ve onaylı
+    /// katılımcılarla isteği bekleyenlere "iptal edildi" bildirimi eklenir. Etkinliğin ve organizatörün
+    /// cache etiketleri commit sonrası temizlenir.
+    /// </summary>
     public async Task<Unit> Handle(CancelEventCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
