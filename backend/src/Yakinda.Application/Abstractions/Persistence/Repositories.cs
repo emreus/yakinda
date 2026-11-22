@@ -14,12 +14,20 @@ public interface IEventRepository
     Task AddAsync(Event ev, CancellationToken cancellationToken);
     Task UpdateAsync(Event ev, CancellationToken cancellationToken);
     Task<bool> CategoryExistsAsync(short categoryId, CancellationToken cancellationToken);
+
+    /// <summary>Saat değişince hatırlatma ve puanlama bildirimlerinin yeni saate göre tekrar gitmesi için.</summary>
+    Task ResetScheduledNotificationsAsync(Guid eventId, CancellationToken cancellationToken);
 }
 
 public interface IParticipantRepository
 {
     Task<EventParticipant?> GetAsync(Guid eventId, Guid userId, CancellationToken cancellationToken);
     Task UpsertAsync(EventParticipant participant, CancellationToken cancellationToken);
+
+    /// <summary>Bekleme listesinin başındaki kişi (en erken giren). Etkinlik satırı kilitliyken çağrılmalı.</summary>
+    Task<EventParticipant?> GetFirstWaitlistedAsync(Guid eventId, CancellationToken cancellationToken);
+
+    Task<int> CountAsync(Guid eventId, ParticipantStatus status, CancellationToken cancellationToken);
 }
 
 public interface IRatingRepository

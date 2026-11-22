@@ -94,6 +94,19 @@ public sealed class ApiFixture : IAsyncLifetime
         }
         await command.ExecuteNonQueryAsync();
     }
+
+    public async Task<T> ScalarAsync<T>(string sql, object? parameters = null)
+    {
+        await using var connection = new NpgsqlConnection(ConnectionString);
+        await connection.OpenAsync();
+        await using var command = new NpgsqlCommand(sql, connection);
+        if (parameters is not null)
+        {
+            foreach (var property in parameters.GetType().GetProperties())
+                command.Parameters.AddWithValue(property.Name, property.GetValue(parameters) ?? DBNull.Value);
+        }
+        return (T)(await command.ExecuteScalarAsync())!;
+    }
 }
 
 [CollectionDefinition(Name)]

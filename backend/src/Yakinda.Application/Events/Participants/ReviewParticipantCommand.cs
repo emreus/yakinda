@@ -3,6 +3,7 @@ using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Events.Common;
 using Yakinda.Application.Notifications;
 
 namespace Yakinda.Application.Events.Participants;
@@ -17,6 +18,7 @@ internal sealed class ReviewParticipantCommandHandler(
     IEventRepository events,
     IParticipantRepository participants,
     INotificationRepository notifications,
+    WaitlistPromoter waitlist,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<ReviewParticipantCommand, Unit>
@@ -54,6 +56,11 @@ internal sealed class ReviewParticipantCommandHandler(
 
         await participants.UpsertAsync(participant, cancellationToken);
         await notifications.AddAsync(request.UserId, content, ev.Id, organizerId, now, cancellationToken);
+
+        // Ret ile yer ya da bekleyen istek kotası boşaldıysa bekleme listesinden biri alınır
+        var promoted = request.Approve ? [] : await waitlist.FillOpenSeatsAsync(ev, now, cancellationToken);
+        foreach (var promotedUserId in promoted)
+            cacheInvalidator.InvalidateAfterCommit(CacheTag.User(promotedUserId));
 
         ev.Touch(now);
         await events.UpdateAsync(ev, cancellationToken);

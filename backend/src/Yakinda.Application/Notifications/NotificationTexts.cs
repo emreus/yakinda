@@ -49,6 +49,29 @@ public static class NotificationTexts
             "Etkinlik yaklaşıyor",
             $"\"{eventTitle}\" 1 saat içinde başlıyor.");
 
+    public static NotificationContent EventUpdated(string eventTitle, bool timeChanged, bool placeChanged)
+    {
+        var what = (timeChanged, placeChanged) switch
+        {
+            (true, true) => "saati ve yeri",
+            (true, false) => "saati",
+            _ => "yeri"
+        };
+        return new(NotificationType.EventUpdated,
+            "Etkinlik güncellendi",
+            $"\"{eventTitle}\" etkinliğinin {what} değişti. Ayrıntılara göz at.");
+    }
+
+    /// <param name="approved">true: açık etkinlik, doğrudan katıldı. false: onaylı etkinlik, isteği organizatöre iletildi.</param>
+    public static NotificationContent WaitlistPromoted(string eventTitle, bool approved) =>
+        approved
+            ? new(NotificationType.WaitlistPromoted,
+                "Yer açıldı!",
+                $"\"{eventTitle}\" etkinliğinde yer açıldı, artık katılımcısın.")
+            : new(NotificationType.WaitlistPromoted,
+                "Sıran geldi",
+                $"\"{eventTitle}\" etkinliğinde yer açıldı; katılım isteğin organizatöre iletildi.");
+
     public static NotificationContent RatingPrompt(string eventTitle) =>
         new(NotificationType.RatingPrompt,
             "Etkinlik nasıldı?",

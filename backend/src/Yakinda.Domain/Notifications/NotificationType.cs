@@ -22,5 +22,11 @@ public enum NotificationType : short
     EventReminder = 6,
 
     /// <summary>Katılımcılara: etkinlik bitti, puanla.</summary>
-    RatingPrompt = 7
+    RatingPrompt = 7,
+
+    /// <summary>Katılımcılara: organizatör etkinliğin saatini ya da yerini değiştirdi.</summary>
+    EventUpdated = 8,
+
+    /// <summary>Bekleme listesindekine: yer açıldı (katıldı ya da isteği organizatöre iletildi).</summary>
+    WaitlistPromoted = 9
 }

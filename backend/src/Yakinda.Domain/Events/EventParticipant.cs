@@ -13,7 +13,7 @@ public sealed class EventParticipant
     public DateTime CreatedAt { get; private set; }
     public DateTime UpdatedAt { get; private set; }
 
-    public bool IsActive => Status is ParticipantStatus.Pending or ParticipantStatus.Approved;
+    public bool IsActive => Status is ParticipantStatus.Pending or ParticipantStatus.Approved or ParticipantStatus.Waitlisted;
 
     public static EventParticipant Create(Guid eventId, Guid userId, ParticipantStatus status, DateTime nowUtc) => new()
     {
@@ -35,7 +35,21 @@ public sealed class EventParticipant
                 throw new DomainException("participant.already_joined", "Bu etkinliğe zaten katılıyorsun.");
             case ParticipantStatus.Rejected:
                 throw new DomainException("participant.rejected", "Bu etkinliğe katılım isteğin reddedildi.");
+            case ParticipantStatus.Waitlisted:
+                throw new DomainException("participant.already_waitlisted", "Zaten bekleme listesindesin.");
         }
+    }
+
+    /// <summary>Yer açıldığında bekleme listesinden alır: açık etkinlikte onaylı, onaylı etkinlikte bekleyen istek olur.</summary>
+    public void PromoteFromWaitlist(ParticipantStatus newStatus, DateTime nowUtc)
+    {
+        if (Status != ParticipantStatus.Waitlisted)
+            throw new DomainException("participant.not_waitlisted", "Bu kullanıcı bekleme listesinde değil.");
+        if (newStatus is not (ParticipantStatus.Approved or ParticipantStatus.Pending))
+            throw new ArgumentOutOfRangeException(nameof(newStatus));
+
+        Status = newStatus;
+        UpdatedAt = nowUtc;
     }
 
     public void Rejoin(ParticipantStatus newStatus, DateTime nowUtc)

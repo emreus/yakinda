@@ -68,6 +68,38 @@ public sealed class EventParticipantTests
         Assert.Equal(code, ex.Code);
     }
 
+    [Theory]
+    [InlineData(ParticipantStatus.Approved)]
+    [InlineData(ParticipantStatus.Pending)]
+    public void Waitlisted_participant_can_be_promoted(ParticipantStatus newStatus)
+    {
+        var participant = With(ParticipantStatus.Waitlisted);
+        participant.PromoteFromWaitlist(newStatus, Now);
+        Assert.Equal(newStatus, participant.Status);
+    }
+
+    [Fact]
+    public void Only_waitlisted_participants_can_be_promoted()
+    {
+        var ex = Assert.Throws<DomainException>(() => With(ParticipantStatus.Pending).PromoteFromWaitlist(ParticipantStatus.Approved, Now));
+        Assert.Equal("participant.not_waitlisted", ex.Code);
+    }
+
+    [Fact]
+    public void Leaving_the_waitlist_frees_no_seat()
+    {
+        var participant = With(ParticipantStatus.Waitlisted);
+        Assert.False(participant.Leave(Now));
+        Assert.Equal(ParticipantStatus.Left, participant.Status);
+    }
+
+    [Fact]
+    public void Waitlisted_participant_cannot_join_again()
+    {
+        var ex = Assert.Throws<DomainException>(() => With(ParticipantStatus.Waitlisted).Rejoin(ParticipantStatus.Approved, Now));
+        Assert.Equal("participant.already_waitlisted", ex.Code);
+    }
+
     [Fact]
     public void Participant_who_left_can_rejoin()
     {

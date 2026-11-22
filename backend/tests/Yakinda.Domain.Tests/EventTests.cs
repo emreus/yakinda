@@ -90,14 +90,77 @@ public sealed class EventTests
         Assert.Equal(0, ev.ParticipantCount);
     }
 
-    [Fact]
-    public void Admit_to_full_event_fails()
+    [Theory]
+    [InlineData(JoinPolicy.Open)]
+    [InlineData(JoinPolicy.ApprovalRequired)]
+    public void Admit_to_full_event_goes_to_waitlist(JoinPolicy policy)
     {
-        var ev = NewEvent(capacity: 1);
-        ev.Admit(Guid.NewGuid(), Now);
+        var ev = NewEvent(capacity: 1, policy: policy);
+        if (policy == JoinPolicy.Open)
+            ev.Admit(Guid.NewGuid(), Now);
+        else
+            ev.AddApprovedParticipant(); // organizatör birini onayladı
 
         Assert.True(ev.IsFull);
-        AssertDomainError("event.full", () => ev.Admit(Guid.NewGuid(), Now));
+        Assert.Equal(ParticipantStatus.Waitlisted, ev.Admit(Guid.NewGuid(), Now));
+        Assert.Equal(1, ev.ParticipantCount);
+    }
+
+    [Fact]
+    public void Approving_into_a_full_event_fails()
+    {
+        var ev = NewEvent(capacity: 1, policy: JoinPolicy.ApprovalRequired);
+        ev.AddApprovedParticipant();
+        AssertDomainError("event.full", ev.AddApprovedParticipant);
+    }
+
+    // ---------------------------------------------------------------- Düzenleme
+
+    private static EventChanges Update(Event ev, DateTime? startsAt = null, int? capacity = null,
+        double latitude = 41.0082, string? placeName = null, DateTime? now = null) =>
+        ev.Update(1, "Yeni başlık", null, startsAt ?? ev.StartsAt, ev.EndsAt, latitude, 28.9784,
+            placeName, null, capacity, now ?? Now);
+
+    [Fact]
+    public void Update_reports_what_participants_need_to_know()
+    {
+        var ev = NewEvent(capacity: 2);
+
+        var none = Update(ev, capacity: 2);
+        Assert.False(none.ShouldNotifyParticipants);
+        Assert.Equal("Yeni başlık", ev.Title);
+
+        var time = Update(ev, startsAt: Now.AddDays(2), capacity: 2);
+        Assert.True(time.TimeChanged);
+        Assert.False(time.PlaceChanged);
+
+        var place = Update(ev, latitude: 41.1, capacity: 2);
+        Assert.True(place.PlaceChanged);
+
+        var bigger = Update(ev, latitude: 41.1, capacity: 5);
+        Assert.True(bigger.CapacityIncreased);
+        Assert.False(bigger.ShouldNotifyParticipants);
+    }
+
+    [Fact]
+    public void Capacity_cannot_drop_below_current_participants()
+    {
+        var ev = NewEvent(capacity: 3);
+        ev.Admit(Guid.NewGuid(), Now);
+        ev.Admit(Guid.NewGuid(), Now);
+
+        AssertDomainError("event.capacity_below_participants", () => Update(ev, capacity: 1));
+    }
+
+    [Fact]
+    public void Started_or_cancelled_events_cannot_be_edited()
+    {
+        var started = NewEvent(startsAt: Now.AddHours(1));
+        AssertDomainError("event.already_started", () => Update(started, now: Now.AddHours(2)));
+
+        var cancelled = NewEvent();
+        cancelled.Cancel(Now);
+        AssertDomainError("event.cancelled", () => Update(cancelled));
     }
 
     [Fact]

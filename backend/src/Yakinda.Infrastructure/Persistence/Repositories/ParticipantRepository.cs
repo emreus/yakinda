@@ -20,4 +20,19 @@ internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(
                SET status     = EXCLUDED.status,
                    updated_at = EXCLUDED.updated_at
             """, participant, cancellationToken);
+
+    public Task<EventParticipant?> GetFirstWaitlistedAsync(Guid eventId, CancellationToken cancellationToken) =>
+        QuerySingleOrDefaultAsync<EventParticipant>("""
+            SELECT event_id, user_id, status, created_at, updated_at
+            FROM event_participants
+            WHERE event_id = @EventId AND status = @Waitlisted
+            ORDER BY updated_at, created_at, user_id
+            LIMIT 1
+            """, new { EventId = eventId, Waitlisted = (short)ParticipantStatus.Waitlisted }, cancellationToken);
+
+    public Task<int> CountAsync(Guid eventId, ParticipantStatus status, CancellationToken cancellationToken) =>
+        ExecuteScalarAsync<int>(
+            "SELECT count(*)::int FROM event_participants WHERE event_id = @EventId AND status = @Status",
+            new { EventId = eventId, Status = (short)status },
+            cancellationToken);
 }

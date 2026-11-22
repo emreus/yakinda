@@ -43,6 +43,7 @@ public sealed class EventSnapshot
     public string OrganizerName { get; set; } = string.Empty;
     public double? OrganizerRating { get; set; }
     public int OrganizerRatingCount { get; set; }
+    public int WaitlistCount { get; set; }
 }
 
 /// <summary>İsteği yapan kullanıcıya özel kısım (cache'lenmez).</summary>
@@ -52,6 +53,7 @@ internal sealed class ViewerState
     public short? MyScore { get; set; }
     public string? MyComment { get; set; }
     public int PendingCount { get; set; }
+    public int MyWaitlistPosition { get; set; }
 }
 
 /// <summary>API'nin döndüğü model; mobil uygulamanın beklediği alanlar değişmedi.</summary>
@@ -90,6 +92,12 @@ public sealed class EventDetailDto
     /// <summary>Sadece organizatör için anlamlı: onay bekleyen istek sayısı.</summary>
     public int PendingCount { get; set; }
 
+    /// <summary>Bekleme listesindeki kişi sayısı.</summary>
+    public int WaitlistCount { get; set; }
+
+    /// <summary>Giriş yapan kullanıcı bekleme listesindeyse sırası (1'den başlar).</summary>
+    public int? MyWaitlistPosition { get; set; }
+
     public int? SpotsLeft => Capacity is null ? null : Math.Max(0, Capacity.Value - ParticipantCount);
 
     // Sunucu tarafında hesaplanan yetkiler: mobil uygulama buton göster/gizle için kullanır.
@@ -97,6 +105,7 @@ public sealed class EventDetailDto
     public bool CanJoin { get; set; }
     public bool CanLeave { get; set; }
     public bool CanCancel { get; set; }
+    public bool CanEdit { get; set; }
     public bool CanRate { get; set; }
     public DateTime RatingOpensAt { get; set; }
     public DateTime RatingClosesAt { get; set; }
@@ -132,7 +141,9 @@ internal sealed class GetEventDetailQueryHandler(
                e.organizer_id,
                u.display_name AS organizer_name,
                {EventSql.Average("u.rating_sum", "u.rating_count")} AS organizer_rating,
-               u.rating_count AS organizer_rating_count
+               u.rating_count AS organizer_rating_count,
+               (SELECT count(*) FROM event_participants w
+                 WHERE w.event_id = e.id AND w.status = 4)::int AS waitlist_count
         FROM events e
         JOIN categories c ON c.id = e.category_id
         JOIN users u      ON u.id = e.organizer_id
@@ -152,7 +163,13 @@ internal sealed class GetEventDetailQueryHandler(
                  THEN (SELECT count(*) FROM event_participants pp
                         WHERE pp.event_id = @EventId AND pp.status = 0)
                  ELSE 0
-            END::int AS pending_count
+            END::int AS pending_count,
+            -- Bekleme listesindeysem kaçıncı sıradayım (değilsem 0)
+            (SELECT count(*) FROM event_participants w
+               JOIN event_participants me
+                 ON me.event_id = w.event_id AND me.user_id = @UserId AND me.status = 4
+              WHERE w.event_id = @EventId AND w.status = 4
+                AND (w.updated_at, w.created_at, w.user_id) <= (me.updated_at, me.created_at, me.user_id))::int AS my_waitlist_position
         """;
 
     public async Task<EventDetailDto> Handle(GetEventDetailQuery request, CancellationToken cancellationToken)
@@ -197,8 +214,8 @@ internal sealed class GetEventDetailQueryHandler(
         var isActive = s.Status == EventStatus.Active;
         var notStarted = now < s.StartsAt;
         var myStatus = viewer.MyParticipationStatus;
-        var hasActiveParticipation = myStatus is ParticipantStatus.Pending or ParticipantStatus.Approved;
-        var isFull = s.Capacity is not null && s.ParticipantCount >= s.Capacity;
+        var hasActiveParticipation =
+            myStatus is ParticipantStatus.Pending or ParticipantStatus.Approved or ParticipantStatus.Waitlisted;
 
         return new EventDetailDto
         {
@@ -229,14 +246,18 @@ internal sealed class GetEventDetailQueryHandler(
             MyScore = viewer.MyScore,
             MyComment = viewer.MyComment,
             PendingCount = isOrganizer ? viewer.PendingCount : 0,
+            WaitlistCount = s.WaitlistCount,
+            MyWaitlistPosition = viewer.MyWaitlistPosition > 0 ? viewer.MyWaitlistPosition : null,
 
             IsOrganizer = isOrganizer,
             RatingOpensAt = EventRules.RatingOpensAt(s.StartsAt),
             RatingClosesAt = EventRules.RatingClosesAt(s.StartsAt, s.EndsAt),
-            CanJoin = isActive && notStarted && !isOrganizer && !isFull
+            // Kontenjan doluysa da katılınabilir: kullanıcı bekleme listesine girer.
+            CanJoin = isActive && notStarted && !isOrganizer
                       && (myStatus is null or ParticipantStatus.Left),
             CanLeave = isActive && notStarted && hasActiveParticipation,
             CanCancel = isActive && notStarted && isOrganizer,
+            CanEdit = isActive && notStarted && isOrganizer,
             CanRate = isActive && !isOrganizer
                       && myStatus == ParticipantStatus.Approved
                       && EventRules.IsRatingWindowOpen(s.StartsAt, s.EndsAt, now)
