@@ -35,5 +35,15 @@ services:
       timeout: 3s
       retries: 10
 
+  # Geliştirme için sahte e-posta sunucusu: uygulamanın gönderdiği e-postalar (ör. şifre sıfırlama kodu)
+  # gerçekten gönderilmez, http://localhost:8025 adresinde görünür.
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: yakinda-mailpit
+    ports:
+      - "1025:1025"   # SMTP
+      - "8025:8025"   # web arayüzü
+    restart: unless-stopped
+
 volumes:
   yakinda-pgdata:

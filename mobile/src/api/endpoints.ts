@@ -29,6 +29,18 @@ export const authApi = {
       anonymous: true,
     }),
 
+  /** E-postaya 6 haneli kod gönderir (hesap yoksa da aynı yanıt). */
+  forgotPassword: (email: string) =>
+    apiRequest<void>('/api/auth/forgot-password', { method: 'POST', body: { email }, anonymous: true }),
+
+  /** Kod doğruysa şifreyi değiştirir ve giriş yapılmış oturum döner. */
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    apiRequest<AuthResponse>('/api/auth/reset-password', {
+      method: 'POST',
+      body: { email, code, newPassword },
+      anonymous: true,
+    }),
+
   refresh: (refreshToken: string) =>
     apiRequest<AuthResponse>('/api/auth/refresh', { method: 'POST', body: { refreshToken }, anonymous: true }),
 };

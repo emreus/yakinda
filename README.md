@@ -212,6 +212,28 @@ geçmiş etkinlikler ve diğer kullanıcıların puan ortalamaları bozulmasın.
 
 ---
 
+## Şifre sıfırlama ve e-posta
+
+Giriş ekranı → **Şifremi unuttum** → e-postaya 6 haneli kod → kod + yeni şifre → kullanıcı giriş yapmış olur, diğer
+cihazlardaki oturumlar kapanır. Kod 15 dakika geçerli, en fazla 5 yanlış deneme, aynı hesaba dakikada bir kod.
+Kayıtlı olmayan e-posta için de aynı yanıt döner (hangi adreslerin kayıtlı olduğu anlaşılmasın).
+
+**Geliştirmede** e-postalar gerçekten gönderilmez: `docker compose up -d` ile gelen **Mailpit** hepsini yakalar,
+<http://localhost:8025> adresinde görürsün (`appsettings.Development.json` → `Email:Smtp` zaten buna ayarlı).
+SMTP ayarı hiç yoksa e-posta içeriği backend konsoluna yazılır.
+
+**Canlıda** herhangi bir SMTP sağlayıcısı (Resend, Brevo, Amazon SES, Mailgun…) kullanılabilir:
+
+```bash
+Email__From=no-reply@alanadin.com
+Email__Smtp__Host=smtp.saglayici.com
+Email__Smtp__Port=587
+Email__Smtp__Username=...
+Email__Smtp__Password=...
+```
+
+---
+
 ## Testler
 
 ```bash

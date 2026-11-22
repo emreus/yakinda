@@ -62,6 +62,8 @@ public interface IUserRepository
 
     /// <summary>Yasaklar; oturumlarını ve cihaz token'larını siler.</summary>
     Task BanAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken);
 }
 
 public interface IBlockRepository
@@ -108,6 +110,32 @@ public interface IRefreshTokenRepository
     Task AddAsync(Guid userId, string tokenHash, DateTime expiresAtUtc, CancellationToken cancellationToken);
     Task<RefreshTokenRecord?> GetActiveForUpdateAsync(string tokenHash, DateTime nowUtc, CancellationToken cancellationToken);
     Task RevokeAsync(Guid id, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Kullanıcının bütün oturumlarını kapatır (şifre değişince).</summary>
+    Task RevokeAllForUserAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+}
+
+public interface IPasswordResetRepository
+{
+    /// <summary>Yeni kod ekler; kullanıcının kullanılmamış eski kodları geçersiz olur.</summary>
+    Task AddAsync(Guid userId, string codeHash, DateTime nowUtc, DateTime expiresAtUtc, CancellationToken cancellationToken);
+
+    /// <summary>Son kodun ne zaman gönderildiği (art arda istekleri sınırlamak için).</summary>
+    Task<DateTime?> GetLastIssuedAtAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>Kullanılmamış ve süresi dolmamış en yeni kod (satır kilidiyle).</summary>
+    Task<PasswordResetRecord?> GetActiveForUpdateAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    Task IncrementAttemptsAsync(Guid id, CancellationToken cancellationToken);
+    Task MarkUsedAsync(Guid id, DateTime nowUtc, CancellationToken cancellationToken);
+}
+
+public sealed class PasswordResetRecord
+{
+    public Guid Id { get; set; }
+    public Guid UserId { get; set; }
+    public string CodeHash { get; set; } = string.Empty;
+    public int Attempts { get; set; }
 }
 
 public interface INotificationRepository
