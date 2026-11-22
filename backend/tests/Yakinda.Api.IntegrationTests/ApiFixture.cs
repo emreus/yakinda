@@ -17,8 +17,9 @@ namespace Yakinda.Api.IntegrationTests;
 /// </summary>
 public sealed class ApiFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder()
-        .WithImage("postgis/postgis:17-3.5")
+    // Apple Silicon'da bu imaj (yalnızca amd64) önceden indirilmiş olmalı: docker compose up -d
+    // ya da: docker pull --platform linux/amd64 postgis/postgis:17-3.5
+    private readonly PostgreSqlContainer _database = new PostgreSqlBuilder("postgis/postgis:17-3.5")
         .WithDatabase("yakinda")
         .WithUsername("yakinda")
         .WithPassword("yakinda_test")
