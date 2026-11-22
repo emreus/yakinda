@@ -24,6 +24,8 @@ Kullanıcının yakınındaki etkinlikleri gösteren, etkinlik oluşturmayı ve 
 - **Etkinlik düzenleme**: organizatör başlamadan önce saat, yer, kontenjan vb. değiştirebilir; saat ya da yer değişirse katılımcılara bildirim gider, hatırlatma yeni saate göre kurulur
 - **Tekrarlayan etkinlik**: "her salı okey" için 4, 8 ya da 12 hafta boyunca ayrı etkinlikler
 - **Arama ve sıralama**: başlık/açıklama/mekan araması; yakınlık, zaman ya da organizatör puanına göre (Bayesian ortalama: tek oyla 5,0 alan, 200 oyla 4,8 alanın önüne geçmez)
+- **Etkinlik sohbeti**: organizatör ve onaylı katılımcılar arasında ("taşları kim getiriyor?"); okunana kadar etkinlik başına tek bildirim, uzun basınca sil/şikayet et
+- **Paylaşım bağlantısı**: `https://<api>/e/{id}` (WhatsApp'ta önizlemeli kart, "uygulamada aç" butonu)
 - **Bildirimler**: katılım isteği / yeni katılımcı, onay / ret, iptal, başlamadan 1 saat önce hatırlatma, bitince "puanla"; uygulama içi liste + push
 
 ---
@@ -234,6 +236,24 @@ Email__Smtp__Password=...
 
 ---
 
+## Paylaşım bağlantısı ve deep link
+
+Etkinlik detayındaki **Paylaş**, `https://<api-adresi>/e/{id}` bağlantısını gönderir. Bu sayfa herkese açıktır
+(adres/koordinat göstermez), sosyal medyada önizleme kartı çıkarır ve **Uygulamada aç** butonu `yakinda://event/{id}` ile
+uygulamayı açar. Bağlantının doğrudan uygulamada açılması için (Universal Links / App Links) API'ye şu ayarları ver;
+gereken `/.well-known/apple-app-site-association` ve `/.well-known/assetlinks.json` dosyaları kendiliğinden sunulur:
+
+```bash
+App__AppleAppId=TEAMID.com.emreus.yakinda          # Apple Developer → Membership → Team ID
+App__AndroidPackage=com.emreus.yakinda
+App__AndroidSha256Fingerprints__0=AA:BB:...        # eas credentials → Android → SHA-256
+```
+
+ve `app.json`'a `ios.associatedDomains: ["applinks:api.alanadin.com"]` ile Android `intentFilters` (autoVerify) eklenir
+(sunucuya taşıma bölümünde).
+
+---
+
 ## Testler
 
 ```bash
@@ -345,6 +365,5 @@ kütüphanesine geçebilirsiniz. Mimari aynı kalır.
 ## Sonraki adımlar için öneriler
 
 1. **Bildirim tercihleri**: kullanıcı hangi bildirimleri almak istediğini seçebilsin; eski bildirimleri temizleyen bir iş.
-2. Organizatör ile katılımcılar arası basit **mesajlaşma**.
 3. **Güven**: telefon doğrulama; uygulama içi yönetici ekranı (şikayet kuyruğu).
 6. Profil fotoğrafı / etkinlik görseli (S3/Blob + ön imzalı URL).

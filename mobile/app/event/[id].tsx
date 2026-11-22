@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { errorMessage } from '@/api/client';
+import { API_URL, errorMessage } from '@/api/client';
 import { eventsApi, safetyApi } from '@/api/endpoints';
 import type { EventDetail, Participant } from '@/api/types';
 import { RatingBadge, StarRating } from '@/components/StarRating';
@@ -206,8 +206,21 @@ function ActionPanel({ event }: { event: EventDetail }) {
 
   const blockedReason = joinBlockedReason(event);
 
+  const shareUrl = `${API_URL}/e/${event.id}`;
+  const share = () =>
+    Share.share({
+      message: `${event.categoryEmoji} ${event.title}\n${formatDateTimeLong(event.startsAt)}\n${shareUrl}`,
+      url: shareUrl,
+    }).catch(() => undefined);
+
   return (
     <View style={styles.actions}>
+      <View style={styles.quickRow}>
+        {event.canChat ? (
+          <Button title="💬 Sohbet" variant="secondary" onPress={() => router.push(`/event/chat/${event.id}`)} style={styles.quickButton} />
+        ) : null}
+        {event.status === 'Active' ? <Button title="📤 Paylaş" variant="secondary" onPress={share} style={styles.quickButton} /> : null}
+      </View>
       {statusText ? <Text style={styles.statusText}>{statusText}</Text> : null}
       {blockedReason ? <Text style={[font.small, styles.blockedText]}>{blockedReason}</Text> : null}
 
@@ -462,6 +475,8 @@ function RatingsList({ event }: { event: EventDetail }) {
 }
 
 const styles = StyleSheet.create({
+  quickRow: { flexDirection: 'row', gap: spacing.sm },
+  quickButton: { flex: 1 },
   safetyRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.md, paddingVertical: spacing.sm },
   safetyLink: { fontSize: 13, color: colors.muted },
   flex: { flex: 1 },
