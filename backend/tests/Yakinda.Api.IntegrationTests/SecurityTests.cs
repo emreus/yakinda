@@ -332,6 +332,24 @@ public sealed class SecurityTests(ApiFixture api)
     }
 
     [Fact]
+    public async Task Deleted_messages_disappear_from_notification_previews_too()
+    {
+        const string marker = "silinecek-mesaj-4d2b";
+        var organizer = await api.RegisterAsync("Organizatör");
+        var member = await api.RegisterAsync("Yazan");
+        var eventId = await organizer.CreateEventAsync();
+        await member.JoinAsync(eventId);
+        var message = await (await member.Client.PostAsJsonAsync($"/api/events/{eventId}/messages", new { body = $"Yanlislikla yazdim {marker}" }))
+            .ReadJsonAsync(HttpStatusCode.OK);
+        Assert.Contains(marker, await (await organizer.Client.GetAsync("/api/notifications")).Content.ReadAsStringAsync());
+
+        await (await member.Client.DeleteAsync($"/api/events/{eventId}/messages/{message["id"]}")).ExpectAsync(HttpStatusCode.NoContent);
+
+        Assert.DoesNotContain(marker, await (await organizer.Client.GetAsync("/api/notifications")).Content.ReadAsStringAsync());
+        Assert.DoesNotContain(marker, await (await organizer.Client.GetAsync($"/api/events/{eventId}/messages")).Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task Deleting_an_account_erases_its_messages_and_private_event_details()
     {
         const string marker = "ozel-veri-9c1e";
@@ -347,6 +365,9 @@ public sealed class SecurityTests(ApiFixture api)
 
         var chat = await (await organizer.Client.GetAsync($"/api/events/{eventId}/messages")).Content.ReadAsStringAsync();
         Assert.DoesNotContain(marker, chat);
+        // Mesajın önizlemesini taşıyan bildirim de gitmiş olmalı
+        var notifications = await (await organizer.Client.GetAsync("/api/notifications")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain(marker, notifications);
         Assert.Equal(0L, await api.ScalarAsync<long>(
             "SELECT count(*) FROM event_messages WHERE author_id = @id AND body <> ''", new { id = leaving.Id }));
         Assert.Equal(0L, await api.ScalarAsync<long>(

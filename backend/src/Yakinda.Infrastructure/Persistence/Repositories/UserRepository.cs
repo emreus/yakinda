@@ -57,6 +57,8 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
             DELETE FROM refresh_tokens     WHERE user_id = @Id;
             DELETE FROM device_push_tokens WHERE user_id = @Id;
             DELETE FROM notifications      WHERE user_id = @Id;
+            -- Başkalarına gitmiş, bu kişinin adını ya da mesaj önizlemesini taşıyan bildirimler
+            DELETE FROM notifications      WHERE actor_id = @Id;
             DELETE FROM user_blocks        WHERE blocker_id = @Id OR blocked_id = @Id;
             UPDATE event_ratings SET comment = NULL WHERE rater_id = @Id;
             -- Sohbet mesajlarının metni silinir ("Mesaj silindi" olarak görünür)
