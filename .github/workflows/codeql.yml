@@ -4,7 +4,7 @@ name: CodeQL
 # güvensiz veri akışı...) arar. Sonuçlar deponun Security → Code scanning sekmesinde ve PR'da görünür.
 on:
   push:
-    branches: [master, 'guvenlik/**']
+    branches: [master]
   pull_request:
   # Actions sekmesinden elle de çalıştırılabilir (PR'larda yalnız değişen satırlar raporlanır; bu, tüm kodu tarar)
   workflow_dispatch:

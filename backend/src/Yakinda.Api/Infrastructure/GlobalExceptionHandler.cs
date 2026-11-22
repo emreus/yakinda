@@ -58,7 +58,9 @@ internal sealed class GlobalExceptionHandler(
 
         if (problem is null)
         {
-            logger.LogError(exception, "Beklenmeyen hata: {Path}", httpContext.Request.Path);
+            // İstek yolu kullanıcıdan gelir: satır sonu içerirse loga sahte satır yazdırılamasın.
+            var path = (httpContext.Request.Path.Value ?? string.Empty).Replace("\r", "").Replace("\n", "");
+            logger.LogError(exception, "Beklenmeyen hata: {Path}", path);
             problem = Problem(
                 StatusCodes.Status500InternalServerError, "Sunucu hatası",
                 "Beklenmeyen bir hata oluştu, lütfen tekrar dene.", "server_error");
