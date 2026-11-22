@@ -226,9 +226,11 @@ public sealed class Event
 
     /// <summary>
     /// Yeni bir katılım isteğini değerlendirir ve kullanıcının alacağı durumu döner.
-    /// Açık etkinliklerde katılımcı sayısı hemen artar.
+    /// Açık etkinliklerde katılımcı sayısı hemen artar. someoneIsWaiting, etkinliğin bekleme listesinde
+    /// en az bir kişi olduğunu söyler: onay gerektiren etkinlikte yeni gelen o zaman doğrudan istek
+    /// gönderemez, sıranın sonuna girer.
     /// </summary>
-    public ParticipantStatus Admit(Guid userId, DateTime nowUtc)
+    public ParticipantStatus Admit(Guid userId, DateTime nowUtc, bool someoneIsWaiting = false)
     {
         EnsureParticipationCanChange(nowUtc);
 
@@ -239,9 +241,11 @@ public sealed class Event
         if (IsFull)
             return ParticipantStatus.Waitlisted;
 
-        // Bekleyen istekler kontenjandan düşmez; organizatör onayladıkça yer dolar.
+        // Bekleyen istekler kontenjandan düşmez; organizatör onayladıkça yer dolar. Sırada bekleyen varsa
+        // yeni gelen de sıraya girer: bekleme listesindekiler ancak yer ya da istek kotası boşaldıkça
+        // alınır; sonradan gelen doğrudan istek gönderebilseydi onların önüne geçerdi.
         if (JoinPolicy == JoinPolicy.ApprovalRequired)
-            return ParticipantStatus.Pending;
+            return someoneIsWaiting ? ParticipantStatus.Waitlisted : ParticipantStatus.Pending;
 
         AddApprovedParticipant();
         return ParticipantStatus.Approved;
