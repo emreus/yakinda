@@ -29,7 +29,8 @@ internal sealed class JoinEventCommandHandler(
     /// <summary>
     /// Etkinliğe katılır. Etkinliği satır kilidiyle okur; organizatörle arada engel varsa 403 döner.
     /// Kullanıcının eski bir katılım kaydı varsa yeniden katılıp katılamayacağını denetler, sonra ev.Admit
-    /// ile alacağı durumu belirler (onaylı, bekleyen ya da bekleme listesinde). Kaydı oluşturur ya da
+    /// ile alacağı durumu belirler (onaylı, bekleyen ya da bekleme listesinde); onay gerektiren etkinlikte
+    /// bekleme listesinde biri varsa yeni gelen de listeye girer. Kaydı oluşturur ya da
     /// günceller, etkinliği yazar. Bekleme listesine girmediyse organizatöre bildirim ekler; aynı kişi aynı
     /// etkinlik için son bir saatte bildirim ürettiyse yenisi eklenmez. Etkinliğin ve kullanıcının cache
     /// etiketlerini temizletir ve alınan durumu döner.
@@ -50,7 +51,10 @@ internal sealed class JoinEventCommandHandler(
         var participant = await participants.GetAsync(ev.Id, userId, cancellationToken);
         participant?.EnsureCanRejoin();
 
-        var status = ev.Admit(userId, now);
+        // Onay gerektiren etkinlikte sırada bekleyen varsa yeni gelen onların önüne geçemez (ev.Admit).
+        var someoneIsWaiting = ev.JoinPolicy == JoinPolicy.ApprovalRequired
+                               && await participants.CountAsync(ev.Id, ParticipantStatus.Waitlisted, cancellationToken) > 0;
+        var status = ev.Admit(userId, now, someoneIsWaiting);
 
         if (participant is null)
             participant = EventParticipant.Create(ev.Id, userId, status, now);

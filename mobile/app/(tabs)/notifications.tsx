@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui';
 import { queryKeys, useNotifications, useUnreadNotificationCount } from '@/hooks/queries';
 import { colors, font, radius, spacing } from '@/theme';
 import { formatRelativeTime } from '@/utils/format';
+import { uniqueBy } from '@/utils/list';
 
 const ICONS: Record<NotificationType, string> = {
   JoinRequested: '🙋',
@@ -34,7 +35,9 @@ export default function NotificationsScreen() {
   const queryClient = useQueryClient();
   const query = useNotifications();
   const unread = useUnreadNotificationCount();
-  const items = query.data?.pages.flatMap((page) => page.items) ?? [];
+  // Liste açıkken yeni bildirim gelirse sıra kayar ve aynı bildirim sonraki sayfada yeniden gelir;
+  // liste tekrarsız kurulur.
+  const items = uniqueBy(query.data?.pages.flatMap((page) => page.items) ?? [], (item) => item.id);
   const unreadCount = unread.data?.count ?? 0;
 
   const { refetch: refetchList } = query;
@@ -187,10 +190,14 @@ function Separator() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   list: { padding: spacing.lg, flexGrow: 1 },
+  // Dar ekranda ya da büyük yazı boyutunda iki metin yan yana sığmazsa alt alta geçer.
   header: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    columnGap: spacing.md,
+    rowGap: spacing.xs,
     marginBottom: spacing.md,
   },
   headerAction: { fontSize: 14, fontWeight: '600', color: colors.primary },

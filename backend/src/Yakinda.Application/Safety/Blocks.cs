@@ -11,20 +11,24 @@ namespace Yakinda.Application.Safety;
 /// <summary>
 /// Engelleme iki yönlü etki eder: engelleyen ve engellenen birbirinin etkinliklerini listede görmez,
 /// detayını ve profilini açamaz, birbirinin etkinliğine katılamaz, mesajlaşamaz.
-/// Mevcut katılımlar otomatik silinmez; organizatör isterse katılımcıyı ayrıca çıkarabilir.
+/// Birbirinin yaklaşan etkinliklerindeki katılımları da sona erer (yer boşalır, bekleme listesi ilerler):
+/// kişi artık göremediği bir etkinlikte katılımcı olarak kalamaz, kalsaydı ayrılamazdı da. Başlamış ve
+/// geçmiş etkinliklerdeki kayıtlara dokunulmaz; engel kaldırılırsa yeniden katılmak gerekir.
 /// </summary>
 public sealed record BlockUserCommand(Guid UserId) : ICommand<Unit>;
 
 internal sealed class BlockUserCommandHandler(
     IBlockRepository blocks,
     IUserRepository users,
+    AccountCleanup cleanup,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<BlockUserCommand, Unit>
 {
     /// <summary>
     /// Kullanıcıyı engeller. Kişi kendini engelleyemez (409); hedef kullanıcı yoksa 404 döner. Engel
-    /// kaydını ekler ve iki tarafın profil cache etiketlerini temizletir.
+    /// kaydını ekler, iki tarafı birbirinin yaklaşan etkinliklerinden ayırır (boşalan yere bekleme
+    /// listesinden kişi alınır) ve iki tarafın profil cache etiketlerini temizletir.
     /// </summary>
     public async Task<Unit> Handle(BlockUserCommand request, CancellationToken cancellationToken)
     {
@@ -35,7 +39,14 @@ internal sealed class BlockUserCommandHandler(
         _ = await users.GetByIdAsync(request.UserId, cancellationToken)
             ?? throw new NotFoundException("user.not_found", "Kullanıcı bulunamadı.");
 
-        await blocks.BlockAsync(me, request.UserId, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        await blocks.BlockAsync(me, request.UserId, now, cancellationToken);
+
+        // Engelden sonra iki taraf birbirinin etkinliğini göremez. Katılım yerinde kalsaydı kişi göremediği
+        // etkinlikte yer tutmaya devam eder, etkinliği açamadığı için ayrılamazdı da.
+        await cleanup.LeaveUpcomingEventsOfOrganizerAsync(me, organizerId: request.UserId, now, cancellationToken);
+        await cleanup.LeaveUpcomingEventsOfOrganizerAsync(request.UserId, organizerId: me, now, cancellationToken);
+
         cacheInvalidator.InvalidateAfterCommit(CacheTag.User(me), CacheTag.User(request.UserId));
         return Unit.Value;
     }

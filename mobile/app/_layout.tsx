@@ -4,7 +4,15 @@ import { StatusBar } from 'expo-status-bar';
 import { useState } from 'react';
 import { ApiError } from '@/api/client';
 import { AuthProvider } from '@/auth/AuthContext';
+import { SignedOutGuard } from '@/auth/SignedOutGuard';
 import { colors } from '@/theme';
+
+// Uygulama paylaşılan bir bağlantıyla (ör. etkinlik detayı) doğrudan açıldığında altına sekmeler yerleşir;
+// böylece geri tuşu ana sayfaya döner. Bu olmadan ekranın altında hiçbir şey olmaz: başlıkta geri oku
+// çıkmaz ve iOS'ta ana sayfaya dönmenin yolu kalmaz.
+export const unstable_settings = {
+  anchor: '(tabs)',
+};
 
 /**
  * Uygulamanın kök düzeni. Veri önbelleğini (QueryClient: veri 30 saniye taze sayılır, 4xx hatalarında
@@ -29,6 +37,7 @@ export default function RootLayout() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <StatusBar style="dark" />
+        <SignedOutGuard />
         <Stack
           screenOptions={{
             headerTintColor: colors.primary,

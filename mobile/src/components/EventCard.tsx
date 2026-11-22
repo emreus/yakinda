@@ -3,22 +3,18 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { mediaUrl } from '@/api/client';
 import type { EventListItem } from '@/api/types';
 import { colors, radius, spacing } from '@/theme';
-import { formatDistance, formatEventDate, formatSpots } from '@/utils/format';
+import { formatDistance, formatEventBadge, formatEventDate } from '@/utils/format';
 import { RatingBadge } from './StarRating';
 import { Badge } from './ui';
 
 /**
  * Liste kartı: solda kapak görseli (yoksa kategori emojisi), yanında başlık, tarih, mekan ve mesafe;
  * altta durum rozeti ile organizatörün adı ve puanı. Rozet iptal edilmiş etkinlikte "İptal edildi",
- * bitmiş etkinlikte "Bitti", diğerlerinde kontenjan durumunu yazar. Dokununca etkinlik detayına gider.
+ * kaldırılmışta "Kaldırıldı", bitmişte "Bitti", başlamışta "Başladı", diğerlerinde kontenjan durumunu
+ * yazar (formatEventBadge). Dokununca etkinlik detayına gider.
  */
 export function EventCard({ event }: { event: EventListItem }) {
-  const spots = formatSpots(event);
-  // Backend kuralıyla aynı: bitiş yoksa başlangıç + 3 saat
-  const effectiveEnd = event.endsAt
-    ? new Date(event.endsAt).getTime()
-    : new Date(event.startsAt).getTime() + 3 * 60 * 60 * 1000;
-  const isPast = effectiveEnd < Date.now();
+  const badge = formatEventBadge(event);
   const cover = mediaUrl(event.imageUrl);
 
   return (
@@ -47,13 +43,7 @@ export function EventCard({ event }: { event: EventListItem }) {
 
         <View style={styles.footer}>
           <View style={styles.badges}>
-            {event.status === 'Cancelled' ? (
-              <Badge label="İptal edildi" tone="danger" />
-            ) : isPast ? (
-              <Badge label="Bitti" tone="neutral" />
-            ) : (
-              <Badge label={spots.label} tone={spots.tone === 'open' ? 'success' : spots.tone === 'full' ? 'danger' : 'neutral'} />
-            )}
+            <Badge label={badge.label} tone={badge.tone} />
             {event.joinPolicy === 'ApprovalRequired' ? <Badge label="Onaylı" tone="primary" /> : null}
           </View>
 

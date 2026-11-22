@@ -131,6 +131,25 @@ public sealed class EventTests
         Assert.Equal(1, ev.ParticipantCount);
     }
 
+    /// <summary>
+    /// Onay gerektiren etkinlikte yer olsa bile sırada bekleyen varsa yeni gelen de bekleme listesine girer
+    /// (öne geçemez); bekleyen yoksa isteği Pending olur. Herkese açık etkinlikte bu bilgi sonucu
+    /// değiştirmez: yer varsa kişi hemen katılır.
+    /// </summary>
+    [Fact]
+    public void Admit_does_not_let_a_newcomer_cut_ahead_of_the_waitlist()
+    {
+        var approval = NewEvent(capacity: 2, policy: JoinPolicy.ApprovalRequired);
+        approval.AddApprovedParticipant(); // 1/2: yer var
+
+        Assert.Equal(ParticipantStatus.Waitlisted, approval.Admit(Guid.NewGuid(), Now, someoneIsWaiting: true));
+        Assert.Equal(ParticipantStatus.Pending, approval.Admit(Guid.NewGuid(), Now, someoneIsWaiting: false));
+        Assert.Equal(1, approval.ParticipantCount);
+
+        var open = NewEvent(capacity: 2);
+        Assert.Equal(ParticipantStatus.Approved, open.Admit(Guid.NewGuid(), Now, someoneIsWaiting: true));
+    }
+
     /// <summary>Kontenjan doluyken organizatör bir kişiyi daha onaylayamaz: event.full.</summary>
     [Fact]
     public void Approving_into_a_full_event_fails()

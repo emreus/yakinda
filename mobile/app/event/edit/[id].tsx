@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import { errorMessage } from '@/api/client';
@@ -8,6 +8,7 @@ import type { UpdateEventInput } from '@/api/types';
 import { EventForm, toFormErrors, type CoverChange, type EventFormErrors } from '@/components/EventForm';
 import { EmptyState, FullScreenLoader } from '@/components/ui';
 import { useEventDetail, useInvalidateEvent } from '@/hooks/queries';
+import { goBackOrHome } from '@/navigation';
 
 /** Organizatör, başlamamış etkinliğini düzenler. Saat ya da yer değişirse katılımcılara bildirim gider. */
 export default function EditEventScreen() {
@@ -26,7 +27,7 @@ export default function EditEventScreen() {
     },
     onSuccess: () => {
       invalidate(id);
-      router.back();
+      goBackOrHome();
     },
     onError: (error) => {
       setServerErrors(toFormErrors(error));

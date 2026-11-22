@@ -175,6 +175,43 @@ public sealed class EventFlowTests(ApiFixture api)
         Assert.Contains("Sırada", (await organizer.NotificationsAsync())[0]!["body"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// Onay gerektiren etkinlikte sırada bekleyen varken sonradan gelen kişi doğrudan istek gönderemez, o da
+    /// bekleme listesine girer. Tek kişilik etkinlikte onaylı katılımcı ayrılınca ilk bekleyenin isteği
+    /// organizatöre gider, ikinci bekleyen sırada kalır; bu sırada gelen kişi onun arkasına eklenir. İlk
+    /// istek reddedilince sıra ikinci bekleyene gelir, sonradan gelen beklemeye devam eder.
+    /// </summary>
+    [Fact]
+    public async Task Approval_event_newcomer_cannot_cut_ahead_of_the_waitlist()
+    {
+        var organizer = await api.RegisterAsync();
+        var approved = await api.RegisterAsync();
+        var first = await api.RegisterAsync();
+        var second = await api.RegisterAsync();
+        var newcomer = await api.RegisterAsync();
+        var eventId = await organizer.CreateEventAsync(capacity: 1, joinPolicy: "ApprovalRequired");
+        await approved.JoinAsync(eventId);
+        await organizer.Client.PostAsync($"/api/events/{eventId}/participants/{approved.Id}/approve", null);
+        await first.JoinAsync(eventId);
+        await second.JoinAsync(eventId);
+
+        // Onaylı kişi ayrılır: ilk bekleyenin isteği organizatöre gider, ikinci hâlâ sıradadır
+        await (await approved.Client.PostAsync($"/api/events/{eventId}/leave", null)).ExpectAsync(HttpStatusCode.NoContent);
+        Assert.Equal("Pending", (await Detail(first, eventId))["myParticipationStatus"]!.GetValue<string>());
+        Assert.Equal("Waitlisted", (await Detail(second, eventId))["myParticipationStatus"]!.GetValue<string>());
+
+        // Yer boş görünse de (0/1) sonradan gelen, sırada bekleyenin önüne geçemez
+        Assert.Equal("Waitlisted", (await (await newcomer.JoinAsync(eventId)).ReadJsonAsync(HttpStatusCode.OK))["status"]!.GetValue<string>());
+        Assert.Equal(1, (await Detail(second, eventId))["myWaitlistPosition"]!.GetValue<int>());
+        Assert.Equal(2, (await Detail(newcomer, eventId))["myWaitlistPosition"]!.GetValue<int>());
+
+        // İlk istek reddedilince sıra ikinci kişiye gelir
+        await (await organizer.Client.PostAsync($"/api/events/{eventId}/participants/{first.Id}/reject", null))
+            .ExpectAsync(HttpStatusCode.NoContent);
+        Assert.Equal("Pending", (await Detail(second, eventId))["myParticipationStatus"]!.GetValue<string>());
+        Assert.Equal("Waitlisted", (await Detail(newcomer, eventId))["myParticipationStatus"]!.GetValue<string>());
+    }
+
     // ------------------------------------------------------------------ düzenleme
 
     /// <summary>
@@ -341,6 +378,25 @@ public sealed class EventFlowTests(ApiFixture api)
 
         var late = await (await api.RegisterAsync()).JoinAsync(eventId);
         Assert.Equal("event.cancelled", await late.ProblemCodeAsync(HttpStatusCode.UnprocessableEntity));
+    }
+
+    /// <summary>
+    /// Dolu etkinlik iptal edilince bekleme listesindeki kişiye de EventCancelled bildirimi gider; yer
+    /// açılmasını beklerken etkinliğin iptal edildiğini öğrenir.
+    /// </summary>
+    [Fact]
+    public async Task Cancelling_also_notifies_the_waitlist()
+    {
+        var organizer = await api.RegisterAsync();
+        var approved = await api.RegisterAsync();
+        var waiting = await api.RegisterAsync();
+        var eventId = await organizer.CreateEventAsync(capacity: 1);
+        await approved.JoinAsync(eventId);
+        Assert.Equal("Waitlisted", (await (await waiting.JoinAsync(eventId)).ReadJsonAsync(HttpStatusCode.OK))["status"]!.GetValue<string>());
+
+        await (await organizer.Client.PostAsync($"/api/events/{eventId}/cancel", null)).ExpectAsync(HttpStatusCode.NoContent);
+
+        Assert.Contains("EventCancelled", (await waiting.NotificationsAsync()).Types());
     }
 
     // ------------------------------------------------------------------ oylama

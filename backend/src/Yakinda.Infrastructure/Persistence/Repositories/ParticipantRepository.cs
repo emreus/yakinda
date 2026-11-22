@@ -60,4 +60,20 @@ internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(
               AND e.status = 0
               AND e.starts_at > @Now
             """, new { UserId = userId, Now = nowUtc }, cancellationToken);
+
+    /// <summary>
+    /// Kullanıcının, verilen organizatörün düzenlediği aktif ve henüz başlamamış etkinliklerde bekleyen,
+    /// onaylı ya da bekleme listesinde olduğu kayıtların etkinlik kimliklerini döner.
+    /// </summary>
+    public Task<IReadOnlyList<Guid>> GetUpcomingActiveEventIdsAsync(Guid userId, Guid organizerId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        QueryAsync<Guid>("""
+            SELECT p.event_id
+            FROM event_participants p
+            JOIN events e ON e.id = p.event_id
+            WHERE p.user_id = @UserId
+              AND p.status IN (0, 1, 4)
+              AND e.organizer_id = @OrganizerId
+              AND e.status = 0
+              AND e.starts_at > @Now
+            """, new { UserId = userId, OrganizerId = organizerId, Now = nowUtc }, cancellationToken);
 }

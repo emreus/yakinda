@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { ProfileHeader } from '@/components/ProfileHeader';
 import { EmptyState, FullScreenLoader } from '@/components/ui';
 import { useInvalidateEvent, useUserProfile } from '@/hooks/queries';
+import { goBackOrHome } from '@/navigation';
 import { colors, spacing } from '@/theme';
 
 /**
@@ -25,7 +26,7 @@ export default function UserProfileScreen() {
     onSuccess: () => {
       invalidate();
       Alert.alert('Engellendi', 'Bu kişiyle artık birbirinizin etkinliklerini görmeyeceksiniz.');
-      router.back();
+      goBackOrHome();
     },
     onError: (error) => Alert.alert('İşlem yapılamadı', errorMessage(error)),
   });
@@ -39,7 +40,7 @@ export default function UserProfileScreen() {
         title="Kullanıcı bulunamadı"
         message={profile.error ? errorMessage(profile.error) : undefined}
         actionLabel="Geri dön"
-        onAction={() => router.back()}
+        onAction={goBackOrHome}
       />
     );
   }
@@ -64,10 +65,14 @@ export default function UserProfileScreen() {
             <Pressable
               hitSlop={8}
               onPress={() =>
-                Alert.alert('Engelle', `${name} adlı kullanıcıyı engellemek istiyor musun?`, [
-                  { text: 'Vazgeç', style: 'cancel' },
-                  { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
-                ])
+                Alert.alert(
+                  'Engelle',
+                  `${name} adlı kullanıcıyı engellemek istiyor musun? Birbirinizin yaklaşan etkinliklerindeki katılımlarınız da sona erer.`,
+                  [
+                    { text: 'Vazgeç', style: 'cancel' },
+                    { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
+                  ],
+                )
               }
             >
               <Text style={styles.safetyLink}>🚫 Engelle</Text>

@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { router, Stack } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { ApiError, errorMessage } from '@/api/client';
@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar';
 import { Button, EmptyState, FullScreenLoader, TextField } from '@/components/ui';
 import { queryKeys, useMyProfile } from '@/hooks/queries';
 import { pickImage } from '@/media/pickImage';
+import { goBackOrHome } from '@/navigation';
 import { colors, font, spacing } from '@/theme';
 
 const BIO_MAX = 300;
@@ -57,7 +58,7 @@ export default function EditProfileScreen() {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['event'] });
       queryClient.invalidateQueries({ queryKey: ['myEvents'] });
-      router.back();
+      goBackOrHome();
     },
     onError: (error) => {
       if (error instanceof ApiError && error.fieldErrors) {

@@ -45,6 +45,26 @@ export function formatTime(iso: string): string {
   return timeFormat.format(new Date(iso));
 }
 
+const HOUR_MS = 60 * 60 * 1000;
+
+/**
+ * Etkinliğin başlangıcı ve (varsa) bitişi. Bitiş aynı gündeyse ya da en çok 12 saat sonraysa yalnızca
+ * saati yazılır ("22 Kasım Cumartesi 19:00 – 21:00"); daha uzun etkinlikte bitişin günü de yazılır ki
+ * birkaç gün süren etkinlik aynı gün bitiyor gibi görünmesin.
+ */
+export function formatEventRange(startsAt: string, endsAt: string | null | undefined): string {
+  const start = new Date(startsAt);
+  if (!endsAt) return formatDateTimeLong(start);
+  const end = new Date(endsAt);
+  const short = startOfDay(start) === startOfDay(end) || end.getTime() - start.getTime() <= 12 * HOUR_MS;
+  return `${formatDateTimeLong(start)} – ${short ? timeFormat.format(end) : formatDateTimeLong(end)}`;
+}
+
+/** Etkinliğin bitmiş sayıldığı an: bitiş saati, girilmemişse başlangıç + 3 saat (backend'deki kuralla aynı). */
+export function effectiveEndsAt(event: Pick<EventListItem, 'startsAt' | 'endsAt'>): number {
+  return event.endsAt ? new Date(event.endsAt).getTime() : new Date(event.startsAt).getTime() + 3 * HOUR_MS;
+}
+
 /**
  * Mesafeyi yazıya çevirir: 1 km'den azsa 10 metreye yuvarlanmış metre ("850 m"), değilse tek ondalıklı
  * kilometre ("3,2 km"); değer yoksa boş metin döner.
@@ -72,4 +92,22 @@ export function formatSpots(event: Pick<EventListItem, 'capacity' | 'participant
   const left = event.spotsLeft ?? Math.max(0, event.capacity - event.participantCount);
   if (left <= 0) return { label: 'Kontenjan dolu', tone: 'full' };
   return { label: `${left} kişi aranıyor`, tone: 'open' };
+}
+
+/**
+ * Kartta ve detayda gösterilen durum rozeti. Öncelik sırası: iptal edildi, kaldırıldı, bitti, başladı;
+ * hiçbiri değilse kontenjan durumu (formatSpots). Başlamış etkinliğe katılım alınmadığı için "kişi
+ * aranıyor" yazılmaz.
+ */
+export function formatEventBadge(
+  event: Pick<EventListItem, 'status' | 'startsAt' | 'endsAt' | 'capacity' | 'participantCount' | 'spotsLeft'>,
+  now: number = Date.now(),
+): { label: string; tone: 'success' | 'danger' | 'neutral' } {
+  if (event.status === 'Cancelled') return { label: 'İptal edildi', tone: 'danger' };
+  if (event.status === 'Removed') return { label: 'Kaldırıldı', tone: 'danger' };
+  if (effectiveEndsAt(event) < now) return { label: 'Bitti', tone: 'neutral' };
+  if (new Date(event.startsAt).getTime() <= now) return { label: 'Başladı', tone: 'neutral' };
+
+  const spots = formatSpots(event);
+  return { label: spots.label, tone: spots.tone === 'open' ? 'success' : spots.tone === 'full' ? 'danger' : 'neutral' };
 }

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { errorMessage } from '@/api/client';
@@ -7,6 +7,7 @@ import { safetyApi } from '@/api/endpoints';
 import type { ReportReason, ReportTargetType } from '@/api/types';
 import { Button, TextField } from '@/components/ui';
 import { contactSupport } from '@/legal';
+import { goBackOrHome } from '@/navigation';
 import { colors, font, radius, spacing } from '@/theme';
 
 const REASONS: { value: ReportReason; label: string; hint: string }[] = [
@@ -39,7 +40,7 @@ export default function ReportScreen() {
     mutationFn: () => safetyApi.report(targetType, targetId, reason!, details.trim() || null),
     onSuccess: () => {
       Alert.alert('Teşekkürler', 'Şikayetini aldık; en geç 24 saat içinde inceleyeceğiz.', [
-        { text: 'Tamam', onPress: () => router.back() },
+        { text: 'Tamam', onPress: goBackOrHome },
       ]);
     },
     onError: (error) => Alert.alert('Gönderilemedi', errorMessage(error)),
@@ -48,7 +49,13 @@ export default function ReportScreen() {
   return (
     <>
       <Stack.Screen options={{ title: 'Şikayet et' }} />
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        // iOS'ta klavye açılınca açıklama kutusu ve gönder butonu klavyenin altında kalmasın.
+        automaticallyAdjustKeyboardInsets
+      >
         <Text style={font.body}>
           {label ? `"${label}" ` : 'Bu '}
           {TARGET_LABEL[targetType] ?? 'içeriği'} neden şikayet ediyorsun?

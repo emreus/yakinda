@@ -19,6 +19,7 @@ import type { ChatMessage } from '@/api/types';
 import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/ui';
 import { useEventDetail } from '@/hooks/queries';
+import { goBackOrHome } from '@/navigation';
 import { colors, font, radius, spacing } from '@/theme';
 import { formatRelativeTime } from '@/utils/format';
 
@@ -182,7 +183,7 @@ export default function EventChatScreen() {
     return (
       <>
         {title}
-        <EmptyState emoji="💬" title="Sohbet açılamadı" message={error} actionLabel="Geri dön" onAction={() => router.back()} />
+        <EmptyState emoji="💬" title="Sohbet açılamadı" message={error} actionLabel="Geri dön" onAction={goBackOrHome} />
       </>
     );
   }

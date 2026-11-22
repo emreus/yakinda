@@ -20,8 +20,8 @@ internal sealed class CancelEventCommandHandler(
     /// <summary>
     /// Etkinliği iptal eder. Etkinliği satır kilidiyle okur; yoksa 404, isteği yapan organizatör değilse
     /// 403 döner. ev.Cancel kuralı uygular (başlamış etkinlik iptal edilemez), etkinlik kaydedilir ve onaylı
-    /// katılımcılarla isteği bekleyenlere "iptal edildi" bildirimi eklenir. Etkinliğin ve organizatörün
-    /// cache etiketleri commit sonrası temizlenir.
+    /// katılımcılara, isteği bekleyenlere ve bekleme listesindekilere "iptal edildi" bildirimi eklenir.
+    /// Etkinliğin ve organizatörün cache etiketleri commit sonrası temizlenir.
     /// </summary>
     public async Task<Unit> Handle(CancelEventCommand request, CancellationToken cancellationToken)
     {
@@ -38,10 +38,11 @@ internal sealed class CancelEventCommandHandler(
         cacheInvalidator.InvalidateAfterCommit(CacheTag.Event(ev.Id), CacheTag.User(ev.OrganizerId));
         await events.UpdateAsync(ev, cancellationToken);
 
-        // Onaylı katılımcılara ve isteği bekleyenlere haber ver
+        // Onaylı katılımcılara, isteği bekleyenlere ve bekleme listesindekilere haber ver. Sırada bekleyen
+        // de yer açılmasını bekliyordur; hesap silme ve yönetici kaldırması da aynı üç gruba bildirir.
         await notifications.AddForParticipantsAsync(
             ev.Id,
-            [ParticipantStatus.Pending, ParticipantStatus.Approved],
+            [ParticipantStatus.Pending, ParticipantStatus.Approved, ParticipantStatus.Waitlisted],
             NotificationTexts.EventCancelled(ev.Title),
             actorId: userId,
             now,
