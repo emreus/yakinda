@@ -3,6 +3,7 @@ using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Events.Common;
 
 namespace Yakinda.Application.Events.Leave;
 
@@ -11,6 +12,7 @@ public sealed record LeaveEventCommand(Guid EventId) : ICommand<Unit>;
 internal sealed class LeaveEventCommandHandler(
     IEventRepository events,
     IParticipantRepository participants,
+    WaitlistPromoter waitlist,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<LeaveEventCommand, Unit>
@@ -33,10 +35,14 @@ internal sealed class LeaveEventCommandHandler(
 
         await participants.UpsertAsync(participant, cancellationToken);
 
+        // Boşalan yere bekleme listesinden biri alınır
+        var promoted = await waitlist.FillOpenSeatsAsync(ev, now, cancellationToken);
+
         ev.Touch(now);
         await events.UpdateAsync(ev, cancellationToken);
 
-        cacheInvalidator.InvalidateAfterCommit(CacheTag.Event(ev.Id), CacheTag.User(userId));
+        cacheInvalidator.InvalidateAfterCommit(
+            [CacheTag.Event(ev.Id), CacheTag.User(userId), .. promoted.Select(CacheTag.User)]);
 
         return Unit.Value;
     }

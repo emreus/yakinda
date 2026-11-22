@@ -101,15 +101,160 @@ public sealed class EventFlowTests(ApiFixture api)
     }
 
     [Fact]
-    public async Task Full_event_rejects_new_participants()
+    public async Task Full_open_event_waitlists_and_promotes_when_a_seat_frees()
+    {
+        var organizer = await api.RegisterAsync();
+        var first = await api.RegisterAsync();
+        var second = await api.RegisterAsync("Bekleyen 1");
+        var third = await api.RegisterAsync("Bekleyen 2");
+        var eventId = await organizer.CreateEventAsync(capacity: 1);
+        await (await first.JoinAsync(eventId)).ExpectAsync(HttpStatusCode.OK);
+
+        Assert.Equal("Waitlisted", (await (await second.JoinAsync(eventId)).ReadJsonAsync(HttpStatusCode.OK))["status"]!.GetValue<string>());
+        await third.JoinAsync(eventId);
+
+        var detail = await Detail(third, eventId);
+        Assert.Equal(2, detail["waitlistCount"]!.GetValue<int>());
+        Assert.Equal(2, detail["myWaitlistPosition"]!.GetValue<int>());
+
+        // İlk katılımcı ayrılınca sıradaki (second) otomatik katılır ve haber alır
+        await (await first.Client.PostAsync($"/api/events/{eventId}/leave", null)).ExpectAsync(HttpStatusCode.NoContent);
+
+        var promoted = await Detail(second, eventId);
+        Assert.Equal("Approved", promoted["myParticipationStatus"]!.GetValue<string>());
+        Assert.Equal(1, promoted["participantCount"]!.GetValue<int>());
+        Assert.Contains("WaitlistPromoted", (await second.NotificationsAsync()).Types());
+        Assert.Equal(1, (await Detail(third, eventId))["myWaitlistPosition"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public async Task Approval_event_promotes_waitlist_to_a_request_after_rejection()
+    {
+        var organizer = await api.RegisterAsync();
+        var approved = await api.RegisterAsync();
+        var waiting = await api.RegisterAsync("Sırada");
+        var eventId = await organizer.CreateEventAsync(capacity: 1, joinPolicy: "ApprovalRequired");
+        await approved.JoinAsync(eventId);
+        await organizer.Client.PostAsync($"/api/events/{eventId}/participants/{approved.Id}/approve", null);
+        Assert.Equal("Waitlisted", (await (await waiting.JoinAsync(eventId)).ReadJsonAsync(HttpStatusCode.OK))["status"]!.GetValue<string>());
+
+        // Organizatör onaylı katılımcıyı çıkarınca bekleyen kişi "istek" olur, organizatöre haber gider
+        await (await organizer.Client.PostAsync($"/api/events/{eventId}/participants/{approved.Id}/reject", null))
+            .ExpectAsync(HttpStatusCode.NoContent);
+
+        Assert.Equal("Pending", (await Detail(waiting, eventId))["myParticipationStatus"]!.GetValue<string>());
+        Assert.Contains("WaitlistPromoted", (await waiting.NotificationsAsync()).Types());
+        Assert.Contains("Sırada", (await organizer.NotificationsAsync())[0]!["body"]!.GetValue<string>());
+    }
+
+    // ------------------------------------------------------------------ düzenleme
+
+    [Fact]
+    public async Task Editing_time_notifies_participants_and_resets_the_reminder()
+    {
+        var organizer = await api.RegisterAsync();
+        var participant = await api.RegisterAsync();
+        var eventId = await organizer.CreateEventAsync(title: "Eski başlık");
+        await participant.JoinAsync(eventId);
+        await api.ExecuteSqlAsync("UPDATE events SET reminder_sent_at = now() WHERE id = @id", new { id = eventId });
+
+        var newStart = DateTimeOffset.UtcNow.AddDays(3);
+        await (await organizer.Client.PutAsJsonAsync($"/api/events/{eventId}", EditBody("Yeni başlık", newStart, capacity: null)))
+            .ExpectAsync(HttpStatusCode.NoContent);
+
+        var detail = await Detail(participant, eventId);
+        Assert.Equal("Yeni başlık", detail["title"]!.GetValue<string>());
+        Assert.Contains("EventUpdated", (await participant.NotificationsAsync()).Types());
+        Assert.False(await api.ScalarAsync<bool>("SELECT reminder_sent_at IS NOT NULL FROM events WHERE id = @id", new { id = eventId }));
+    }
+
+    [Fact]
+    public async Task Only_the_organizer_can_edit_and_capacity_cannot_drop_below_participants()
+    {
+        var organizer = await api.RegisterAsync();
+        var eventId = await organizer.CreateEventAsync(capacity: 3);
+        var one = await api.RegisterAsync();
+        var two = await api.RegisterAsync();
+        await one.JoinAsync(eventId);
+        await two.JoinAsync(eventId);
+        var start = DateTimeOffset.UtcNow.AddDays(1);
+
+        var stranger = await one.Client.PutAsJsonAsync($"/api/events/{eventId}", EditBody("Başkası", start, capacity: 3));
+        Assert.Equal(HttpStatusCode.Forbidden, stranger.StatusCode);
+
+        var tooSmall = await organizer.Client.PutAsJsonAsync($"/api/events/{eventId}", EditBody("Küçük", start, capacity: 1));
+        Assert.Equal("event.capacity_below_participants", await tooSmall.ProblemCodeAsync(HttpStatusCode.UnprocessableEntity));
+    }
+
+    [Fact]
+    public async Task Raising_capacity_lets_the_waitlist_in()
     {
         var organizer = await api.RegisterAsync();
         var eventId = await organizer.CreateEventAsync(capacity: 1);
-        await (await (await api.RegisterAsync()).JoinAsync(eventId)).ExpectAsync(HttpStatusCode.OK);
+        await (await api.RegisterAsync()).JoinAsync(eventId);
+        var waiting = await api.RegisterAsync();
+        await waiting.JoinAsync(eventId);
 
-        var late = await (await api.RegisterAsync()).JoinAsync(eventId);
+        await (await organizer.Client.PutAsJsonAsync($"/api/events/{eventId}",
+                EditBody("Test etkinliği", (await Detail(organizer, eventId))["startsAt"]!.GetValue<DateTimeOffset>(), capacity: 2)))
+            .ExpectAsync(HttpStatusCode.NoContent);
 
-        Assert.Equal("event.full", await late.ProblemCodeAsync(HttpStatusCode.UnprocessableEntity));
+        Assert.Equal("Approved", (await Detail(waiting, eventId))["myParticipationStatus"]!.GetValue<string>());
+    }
+
+    // ------------------------------------------------------------------ tekrar, arama, sıralama
+
+    [Fact]
+    public async Task Recurring_event_creates_one_event_per_week()
+    {
+        var organizer = await api.RegisterAsync();
+        var title = $"Salı okeyi {Guid.NewGuid():N}";
+
+        var response = await organizer.Client.PostAsJsonAsync("/api/events", new
+        {
+            categoryId = 1,
+            title,
+            startsAt = DateTimeOffset.UtcNow.AddDays(1),
+            latitude = 41.0082,
+            longitude = 28.9784,
+            joinPolicy = "Open",
+            repeatWeeks = 3
+        });
+        await response.ExpectAsync(HttpStatusCode.Created);
+
+        Assert.Equal(4, await api.ScalarAsync<long>("SELECT count(*) FROM events WHERE title = @title", new { title }));
+    }
+
+    [Fact]
+    public async Task Search_matches_title_case_insensitively_and_treats_wildcards_literally()
+    {
+        var organizer = await api.RegisterAsync();
+        var token = Guid.NewGuid().ToString("N")[..8];
+        var match = await organizer.CreateEventAsync($"Kutu Oyunu Gecesi {token}", latitude: -60.0, longitude: 20.0);
+        await organizer.CreateEventAsync("Sinema", latitude: -60.0, longitude: 20.0);
+
+        var found = await NearbyIds(organizer, -60.0, 20.0, $"&q=kutu oyunu gecesi {token}");
+        Assert.Equal(new[] { match }, found);
+
+        Assert.Empty(await NearbyIds(organizer, -60.0, 20.0, "&q=%25"));  // "%" joker değil, düz metin
+    }
+
+    [Fact]
+    public async Task Rating_sort_does_not_let_a_single_vote_win()
+    {
+        var newcomer = await api.RegisterAsync("Tek oylu");
+        var veteran = await api.RegisterAsync("Tecrübeli");
+        var newcomerEvent = await newcomer.CreateEventAsync(latitude: 60.0, longitude: -150.0);
+        var veteranEvent = await veteran.CreateEventAsync(latitude: 60.0, longitude: -150.0);
+        var others = await api.RegisterAsync("Diğer organizatörler");
+        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 5,    rating_count = 1    WHERE id = @id", new { id = newcomer.Id });
+        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 960,  rating_count = 200  WHERE id = @id", new { id = veteran.Id }); // 4,8
+        // Genel ortalama ~3,3 (sistemdeki diğer oylar). Tek oylu 5,0 → ~3,6; 200 oylu 4,8 → ~4,8
+        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 3000, rating_count = 1000 WHERE id = @id", new { id = others.Id });
+
+        var ids = await NearbyIds(newcomer, 60.0, -150.0, "&sort=rating");
+
+        Assert.Equal(new[] { veteranEvent, newcomerEvent }, ids);
     }
 
     [Fact]
@@ -209,7 +354,7 @@ public sealed class EventFlowTests(ApiFixture api)
         await scheduler.RunOnceAsync(CancellationToken.None);
 
         Assert.Equal(new[] { "EventReminder" }, (await participant.NotificationsAsync()).Types());
-        Assert.Single((await organizer.NotificationsAsync()).Types().Where(t => t == "EventReminder"));
+        Assert.Single((await organizer.NotificationsAsync()).Types(), t => t == "EventReminder");
 
         // 5 saat önce başladı (varsayılan süre 3 saat) → bitti, puanlama bildirimi sadece katılımcıya
         await api.ExecuteSqlAsync("UPDATE events SET starts_at = now() - interval '5 hours' WHERE id = @id", new { id = eventId });
@@ -229,6 +374,30 @@ public sealed class EventFlowTests(ApiFixture api)
     /// <summary>Oylama etkinlik başlayınca açılır; zamanı beklemek yerine başlangıcı geriye çeker.</summary>
     private Task StartEventAsync(Guid eventId) =>
         api.ExecuteSqlAsync("UPDATE events SET starts_at = now() - interval '1 hour' WHERE id = @id", new { id = eventId });
+
+    private static async Task<System.Text.Json.Nodes.JsonNode> Detail(TestUser user, Guid eventId) =>
+        await (await user.Client.GetAsync($"/api/events/{eventId}")).ReadJsonAsync(HttpStatusCode.OK);
+
+    private static async Task<List<Guid>> NearbyIds(TestUser user, double lat, double lng, string extra = "")
+    {
+        var url = FormattableString.Invariant($"/api/events/nearby?lat={lat}&lng={lng}&radiusKm=5{extra}");
+        var json = await (await user.Client.GetAsync(url)).ReadJsonAsync(HttpStatusCode.OK);
+        return json["items"]!.AsArray().Select(i => Guid.Parse(i!["id"]!.GetValue<string>())).ToList();
+    }
+
+    private static object EditBody(string title, DateTimeOffset startsAt, int? capacity) => new
+    {
+        categoryId = 1,
+        title,
+        description = "Düzenlendi",
+        startsAt,
+        endsAt = (DateTimeOffset?)null,
+        latitude = 41.0082,
+        longitude = 28.9784,
+        placeName = "Test Kafe",
+        address = (string?)null,
+        capacity
+    };
 
     private static async Task<System.Text.Json.Nodes.JsonNode> Rate(TestUser user, Guid eventId, int score) =>
         await (await user.Client.PutAsJsonAsync($"/api/events/{eventId}/rating", new { score, comment = "test" }))

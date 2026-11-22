@@ -1,4 +1,5 @@
 using MediatR;
+using Yakinda.Application.Events.Update;
 using Yakinda.Application.Events.Cancel;
 using Yakinda.Application.Events.Create;
 using Yakinda.Application.Events.GetDetail;
@@ -13,6 +14,18 @@ using Yakinda.Application.Events.Rate;
 namespace Yakinda.Api.Endpoints;
 
 public sealed record RateEventRequest(short Score, string? Comment);
+
+public sealed record UpdateEventRequest(
+    short CategoryId,
+    string Title,
+    string? Description,
+    DateTimeOffset StartsAt,
+    DateTimeOffset? EndsAt,
+    double Latitude,
+    double Longitude,
+    string? PlaceName,
+    string? Address,
+    int? Capacity);
 
 public static class EventEndpoints
 {
@@ -32,6 +45,7 @@ public static class EventEndpoints
             string? sort,
             int? page,
             int? pageSize,
+            string? q,
             ISender sender,
             CancellationToken ct) =>
         {
@@ -43,9 +57,15 @@ public static class EventEndpoints
                 from,
                 to,
                 onlyAvailable ?? false,
-                string.Equals(sort, "time", StringComparison.OrdinalIgnoreCase) ? NearbySort.StartTime : NearbySort.Distance,
+                sort?.ToLowerInvariant() switch
+                {
+                    "time" => NearbySort.StartTime,
+                    "rating" => NearbySort.OrganizerRating,
+                    _ => NearbySort.Distance
+                },
                 page ?? 1,
-                pageSize ?? 20);
+                pageSize ?? 20,
+                q);
 
             return Results.Ok(await sender.Send(query, ct));
         });
@@ -57,6 +77,15 @@ public static class EventEndpoints
         {
             var id = await sender.Send(command, ct);
             return Results.Created($"/api/events/{id}", new { id });
+        });
+
+        // PUT /api/events/{id}: organizatör düzenler (başlamadan önce)
+        group.MapPut("/{id:guid}", async (Guid id, UpdateEventRequest body, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new UpdateEventCommand(
+                id, body.CategoryId, body.Title, body.Description, body.StartsAt, body.EndsAt,
+                body.Latitude, body.Longitude, body.PlaceName, body.Address, body.Capacity), ct);
+            return Results.NoContent();
         });
 
         group.MapPost("/{id:guid}/cancel", async (Guid id, ISender sender, CancellationToken ct) =>

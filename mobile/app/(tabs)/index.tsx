@@ -1,5 +1,18 @@
 import { router } from 'expo-router';
-import { ActivityIndicator, FlatList, Linking, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  FlatList,
+  Linking,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { errorMessage } from '@/api/client';
 import { CategoryChips } from '@/components/CategoryChips';
 import { EventCard } from '@/components/EventCard';
@@ -7,7 +20,7 @@ import { Chip, EmptyState } from '@/components/ui';
 import { buildNearbyParams, useCategories, useNearbyEvents } from '@/hooks/queries';
 import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { RADIUS_OPTIONS, useNearbyFilters } from '@/state/NearbyFilters';
-import { colors, spacing } from '@/theme';
+import { colors, radius, spacing } from '@/theme';
 
 export default function NearbyScreen() {
   const location = useCurrentLocation();
@@ -43,6 +56,7 @@ export default function NearbyScreen() {
 
   const header = (
     <View style={styles.header}>
+      <SearchBox value={filters.search} onChange={(search) => updateFilters({ search })} />
       <CategoryChips
         categories={categories.data ?? []}
         selectedId={filters.categoryId}
@@ -67,6 +81,7 @@ export default function NearbyScreen() {
         <View style={styles.sortRow}>
           <Chip label="Yakınlık" selected={filters.sort === 'distance'} onPress={() => updateFilters({ sort: 'distance' })} />
           <Chip label="Zaman" selected={filters.sort === 'time'} onPress={() => updateFilters({ sort: 'time' })} />
+          <Chip label="Puan" selected={filters.sort === 'rating'} onPress={() => updateFilters({ sort: 'rating' })} />
         </View>
       </View>
     </View>
@@ -143,4 +158,57 @@ const styles = StyleSheet.create({
   optionText: { fontSize: 14, color: colors.text },
   spinner: { marginTop: 48 },
   footer: { marginVertical: spacing.lg },
+});
+
+/** Yazmayı bırakınca (400 ms) aramayı uygular; her harfte istek atılmaz. */
+function SearchBox({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [text, setText] = useState(value);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (text !== value) onChangeRef.current(text);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [text, value]);
+
+  return (
+    <View style={searchStyles.box}>
+      <Text style={searchStyles.icon}>🔍</Text>
+      <TextInput
+        style={searchStyles.input}
+        value={text}
+        onChangeText={setText}
+        placeholder="Etkinlik, mekan ara…"
+        placeholderTextColor={colors.muted}
+        returnKeyType="search"
+        autoCorrect={false}
+        clearButtonMode="while-editing"
+        accessibilityLabel="Etkinlik ara"
+      />
+      {text.length > 0 ? (
+        <Pressable onPress={() => setText('')} hitSlop={8} accessibilityLabel="Aramayı temizle">
+          <Text style={searchStyles.clear}>✕</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
+const searchStyles = StyleSheet.create({
+  box: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+  },
+  icon: { fontSize: 14 },
+  input: { flex: 1, paddingVertical: spacing.sm, fontSize: 15, color: colors.text },
+  clear: { fontSize: 14, color: colors.muted },
 });

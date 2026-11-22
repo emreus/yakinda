@@ -40,6 +40,7 @@ public static class DependencyInjection
         ValidatorOptions.Global.LanguageManager.Culture = new CultureInfo("tr");
 
         services.AddScoped<AuthTokenIssuer>();
+        services.AddScoped<Events.Common.WaitlistPromoter>();
 
         // Command başına biriken cache etiketleri
         services.AddScoped<CacheInvalidationQueue>();

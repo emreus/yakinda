@@ -22,5 +22,8 @@ public enum ParticipantStatus : short
     Pending = 0,
     Approved = 1,
     Rejected = 2,
-    Left = 3
+    Left = 3,
+
+    /// <summary>Kontenjan doluyken katılmak isteyen; yer açılınca sırayla alınır.</summary>
+    Waitlisted = 4
 }

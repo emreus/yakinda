@@ -35,13 +35,28 @@ internal sealed class EventRepository(DbSession session) : RepositoryBase(sessio
     public Task UpdateAsync(Event ev, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             UPDATE events
-               SET status            = @Status,
+               SET category_id       = @CategoryId,
+                   title             = @Title,
+                   description       = @Description,
+                   starts_at         = @StartsAt,
+                   ends_at           = @EndsAt,
+                   location          = ST_SetSRID(ST_MakePoint(@Longitude, @Latitude), 4326)::geography,
+                   place_name        = @PlaceName,
+                   address           = @Address,
+                   capacity          = @Capacity,
+                   status            = @Status,
                    participant_count = @ParticipantCount,
                    rating_sum        = @RatingSum,
                    rating_count      = @RatingCount,
                    updated_at        = @UpdatedAt
              WHERE id = @Id
             """, ev, cancellationToken);
+
+    public Task ResetScheduledNotificationsAsync(Guid eventId, CancellationToken cancellationToken) =>
+        ExecuteAsync(
+            "UPDATE events SET reminder_sent_at = NULL, rating_prompt_sent_at = NULL WHERE id = @Id",
+            new { Id = eventId },
+            cancellationToken);
 
     public async Task<bool> CategoryExistsAsync(short categoryId, CancellationToken cancellationToken) =>
         await ExecuteScalarAsync<bool>(

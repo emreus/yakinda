@@ -2,7 +2,7 @@
 
 export type JoinPolicy = 'Open' | 'ApprovalRequired';
 export type EventStatus = 'Active' | 'Cancelled';
-export type ParticipantStatus = 'Pending' | 'Approved' | 'Rejected' | 'Left';
+export type ParticipantStatus = 'Pending' | 'Approved' | 'Rejected' | 'Left' | 'Waitlisted';
 
 export interface AuthUser {
   id: string;
@@ -77,10 +77,15 @@ export interface EventDetail {
   myScore: number | null;
   myComment: string | null;
   pendingCount: number;
+  /** Bekleme listesindeki kişi sayısı */
+  waitlistCount: number;
+  /** Bekleme listesindeysem sıram (1'den başlar) */
+  myWaitlistPosition: number | null;
   isOrganizer: boolean;
   canJoin: boolean;
   canLeave: boolean;
   canCancel: boolean;
+  canEdit: boolean;
   canRate: boolean;
   ratingOpensAt: string;
   ratingClosesAt: string;
@@ -129,7 +134,9 @@ export type NotificationType =
   | 'RequestRejected'
   | 'EventCancelled'
   | 'EventReminder'
-  | 'RatingPrompt';
+  | 'RatingPrompt'
+  | 'EventUpdated'
+  | 'WaitlistPromoted';
 
 /** Uygulama içi bildirim. (Tarayıcıdaki global `Notification` tipiyle karışmasın diye bu ad.) */
 export interface AppNotification {
@@ -162,7 +169,12 @@ export interface CreateEventInput {
   address?: string | null;
   capacity?: number | null;
   joinPolicy: JoinPolicy;
+  /** 0: tek sefer. N: N hafta daha aynı gün ve saatte tekrarlanır */
+  repeatWeeks?: number;
 }
+
+/** Düzenlemede katılım şekli ve tekrar değiştirilemez */
+export type UpdateEventInput = Omit<CreateEventInput, 'joinPolicy' | 'repeatWeeks'>;
 
 /** RFC 7807 ProblemDetails + backend'in eklediği "code" ve "errors" alanları */
 export interface ApiProblem {

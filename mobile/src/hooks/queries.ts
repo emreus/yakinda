@@ -42,6 +42,7 @@ export function buildNearbyParams(
     categoryId: filters.categoryId,
     onlyAvailable: filters.onlyAvailable,
     sort: filters.sort,
+    q: filters.search.trim() || null,
     pageSize,
   };
 }

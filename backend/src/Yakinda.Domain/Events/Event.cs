@@ -60,23 +60,7 @@ public sealed class Event
         JoinPolicy joinPolicy,
         DateTime nowUtc)
     {
-        if (string.IsNullOrWhiteSpace(title))
-            throw new DomainException("event.title_required", "Etkinlik başlığı boş olamaz.");
-
-        if (startsAtUtc <= nowUtc)
-            throw new DomainException("event.start_in_past", "Etkinliğin başlangıç zamanı gelecekte olmalı.");
-
-        if (endsAtUtc is not null && endsAtUtc <= startsAtUtc)
-            throw new DomainException("event.invalid_end", "Bitiş zamanı başlangıçtan sonra olmalı.");
-
-        if (endsAtUtc is not null && endsAtUtc - startsAtUtc > EventRules.MaxDuration)
-            throw new DomainException("event.too_long", "Bir etkinlik en fazla 7 gün sürebilir.");
-
-        if (capacity is <= 0 or > EventRules.MaxCapacity)
-            throw new DomainException("event.invalid_capacity", "Kontenjan 1 ile 10.000 arasında olmalı.");
-
-        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
-            throw new DomainException("event.invalid_location", "Geçersiz konum.");
+        Validate(title, startsAtUtc, endsAtUtc, capacity, latitude, longitude, nowUtc);
 
         return new Event
         {
@@ -101,6 +85,92 @@ public sealed class Event
             UpdatedAt = nowUtc
         };
     }
+
+    private static void Validate(
+        string title,
+        DateTime startsAtUtc,
+        DateTime? endsAtUtc,
+        int? capacity,
+        double latitude,
+        double longitude,
+        DateTime nowUtc)
+    {
+        if (string.IsNullOrWhiteSpace(title))
+            throw new DomainException("event.title_required", "Etkinlik başlığı boş olamaz.");
+
+        if (startsAtUtc <= nowUtc)
+            throw new DomainException("event.start_in_past", "Etkinliğin başlangıç zamanı gelecekte olmalı.");
+
+        if (endsAtUtc is not null && endsAtUtc <= startsAtUtc)
+            throw new DomainException("event.invalid_end", "Bitiş zamanı başlangıçtan sonra olmalı.");
+
+        if (endsAtUtc is not null && endsAtUtc - startsAtUtc > EventRules.MaxDuration)
+            throw new DomainException("event.too_long", "Bir etkinlik en fazla 7 gün sürebilir.");
+
+        if (capacity is <= 0 or > EventRules.MaxCapacity)
+            throw new DomainException("event.invalid_capacity", "Kontenjan 1 ile 10.000 arasında olmalı.");
+
+        if (latitude is < -90 or > 90 || longitude is < -180 or > 180)
+            throw new DomainException("event.invalid_location", "Geçersiz konum.");
+    }
+
+    /// <summary>
+    /// Organizatörün etkinliği düzenlemesi. Sadece başlamamış ve iptal edilmemiş etkinlikler düzenlenebilir;
+    /// kontenjan mevcut katılımcı sayısının altına indirilemez. Katılım politikası değiştirilemez
+    /// (bekleyen isteklerin ne olacağı belirsiz kalırdı).
+    /// </summary>
+    /// <returns>Katılımcılara haber verilmesi gereken değişiklikler.</returns>
+    public EventChanges Update(
+        short categoryId,
+        string title,
+        string? description,
+        DateTime startsAtUtc,
+        DateTime? endsAtUtc,
+        double latitude,
+        double longitude,
+        string? placeName,
+        string? address,
+        int? capacity,
+        DateTime nowUtc)
+    {
+        EnsureIsActive();
+        if (HasStarted(nowUtc))
+            throw new DomainException("event.already_started", "Başlamış bir etkinlik düzenlenemez.");
+
+        Validate(title, startsAtUtc, endsAtUtc, capacity, latitude, longitude, nowUtc);
+
+        if (capacity is not null && capacity < ParticipantCount)
+            throw new DomainException(
+                "event.capacity_below_participants",
+                $"Kontenjan mevcut katılımcı sayısından ({ParticipantCount}) az olamaz.");
+
+        var newPlace = Normalize(placeName);
+        var newAddress = Normalize(address);
+
+        var changes = new EventChanges(
+            TimeChanged: StartsAt != startsAtUtc || EndsAt != endsAtUtc,
+            PlaceChanged: Math.Abs(Latitude - latitude) > 1e-7
+                          || Math.Abs(Longitude - longitude) > 1e-7
+                          || PlaceName != newPlace
+                          || Address != newAddress,
+            CapacityIncreased: Capacity is not null && (capacity is null || capacity > Capacity));
+
+        CategoryId = categoryId;
+        Title = title.Trim();
+        Description = Normalize(description);
+        StartsAt = startsAtUtc;
+        EndsAt = endsAtUtc;
+        Latitude = latitude;
+        Longitude = longitude;
+        PlaceName = newPlace;
+        Address = newAddress;
+        Capacity = capacity;
+        Touch(nowUtc);
+
+        return changes;
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     public void EnsureIsActive()
     {
@@ -127,13 +197,13 @@ public sealed class Event
         if (IsOrganizer(userId))
             throw new DomainException("event.organizer_cannot_join", "Kendi etkinliğine katılımcı olarak katılamazsın.");
 
+        // Kontenjan doluysa bekleme listesine; yer açılınca sırayla alınır.
+        if (IsFull)
+            return ParticipantStatus.Waitlisted;
+
+        // Bekleyen istekler kontenjandan düşmez; organizatör onayladıkça yer dolar.
         if (JoinPolicy == JoinPolicy.ApprovalRequired)
-        {
-            // Bekleyen istekler kontenjandan düşmez ama dolu etkinliğe istek atmanın anlamı yok.
-            if (IsFull)
-                throw new DomainException("event.full", "Kontenjan dolu.");
             return ParticipantStatus.Pending;
-        }
 
         AddApprovedParticipant();
         return ParticipantStatus.Approved;
@@ -206,3 +276,11 @@ public sealed class Event
 
 /// <summary>Bir puan işleminin toplam/adet üzerindeki etkisi.</summary>
 public readonly record struct RatingDelta(long SumDelta, int CountDelta);
+
+/// <param name="TimeChanged">Başlangıç ya da bitiş değişti (hatırlatma yeniden kurulmalı, katılımcılara haber verilmeli).</param>
+/// <param name="PlaceChanged">Konum, mekan adı ya da adres değişti.</param>
+/// <param name="CapacityIncreased">Kontenjan arttı ya da kaldırıldı (bekleme listesinden alınabilir).</param>
+public readonly record struct EventChanges(bool TimeChanged, bool PlaceChanged, bool CapacityIncreased)
+{
+    public bool ShouldNotifyParticipants => TimeChanged || PlaceChanged;
+}

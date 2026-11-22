@@ -47,13 +47,17 @@ internal sealed class JoinEventCommandHandler(
         ev.Touch(now);
         await events.UpdateAsync(ev, cancellationToken);
 
-        // Organizatöre bildirim: onaylı etkinlikte "istek geldi", açık etkinlikte "katıldı"
-        var actor = await users.GetByIdAsync(userId, cancellationToken);
-        var actorName = actor?.DisplayName ?? "Bir kullanıcı";
-        var content = status == ParticipantStatus.Pending
-            ? NotificationTexts.JoinRequested(actorName, ev.Title)
-            : NotificationTexts.ParticipantJoined(actorName, ev.Title);
-        await notifications.AddAsync(ev.OrganizerId, content, ev.Id, userId, now, cancellationToken);
+        // Organizatöre bildirim: onaylı etkinlikte "istek geldi", açık etkinlikte "katıldı".
+        // Bekleme listesine girmek organizatörü ilgilendirmez; sırası gelince haber verilir.
+        if (status != ParticipantStatus.Waitlisted)
+        {
+            var actor = await users.GetByIdAsync(userId, cancellationToken);
+            var actorName = actor?.DisplayName ?? "Bir kullanıcı";
+            var content = status == ParticipantStatus.Pending
+                ? NotificationTexts.JoinRequested(actorName, ev.Title)
+                : NotificationTexts.ParticipantJoined(actorName, ev.Title);
+            await notifications.AddAsync(ev.OrganizerId, content, ev.Id, userId, now, cancellationToken);
+        }
 
         // Katılımcı sayısı (etkinlik) ve "katıldığı etkinlik" sayısı (kullanıcı) değişebilir
         cacheInvalidator.InvalidateAfterCommit(CacheTag.Event(ev.Id), CacheTag.User(userId));

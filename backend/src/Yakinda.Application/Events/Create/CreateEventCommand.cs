@@ -20,14 +20,19 @@ public sealed record CreateEventCommand(
     string? PlaceName,
     string? Address,
     int? Capacity,
-    JoinPolicy JoinPolicy) : ICommand<Guid>;
+    JoinPolicy JoinPolicy,
+    // 0: tek seferlik. N: aynı gün ve saatte N hafta daha tekrarlanır ("her salı okey"); her biri ayrı etkinliktir.
+    int RepeatWeeks = 0) : ICommand<Guid>;
 
 internal sealed class CreateEventCommandValidator : AbstractValidator<CreateEventCommand>
 {
+    public const int MaxRepeatWeeks = 12;
+
     public CreateEventCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.CategoryId).GreaterThan((short)0).WithName("Kategori");
         RuleFor(x => x.Title).NotEmpty().MaximumLength(EventRules.TitleMaxLength).WithName("Başlık");
+        RuleFor(x => x.RepeatWeeks).InclusiveBetween(0, MaxRepeatWeeks).WithName("Tekrar");
         RuleFor(x => x.Description).MaximumLength(EventRules.DescriptionMaxLength).WithName("Açıklama");
         RuleFor(x => x.PlaceName).MaximumLength(EventRules.PlaceNameMaxLength).WithName("Mekan adı");
         RuleFor(x => x.Address).MaximumLength(EventRules.AddressMaxLength).WithName("Adres");
@@ -64,23 +69,34 @@ internal sealed class CreateEventCommandHandler(
         if (!await events.CategoryExistsAsync(request.CategoryId, cancellationToken))
             throw new ValidationException(new[] { new ValidationFailure(nameof(request.CategoryId), "Geçersiz kategori.") });
 
-        var ev = Event.Create(
-            organizerId,
-            request.CategoryId,
-            request.Title,
-            request.Description,
-            request.StartsAt.UtcDateTime,
-            request.EndsAt?.UtcDateTime,
-            request.Latitude,
-            request.Longitude,
-            request.PlaceName,
-            request.Address,
-            request.Capacity,
-            request.JoinPolicy,
-            timeProvider.GetUtcNow().UtcDateTime);
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        Guid firstId = default;
+
+        // Tekrarlayan etkinlikler: her hafta için ayrı bir etkinlik (katılım ve oylar her buluşmaya ayrı).
+        for (var week = 0; week <= request.RepeatWeeks; week++)
+        {
+            var offset = TimeSpan.FromDays(7 * week);
+            var ev = Event.Create(
+                organizerId,
+                request.CategoryId,
+                request.Title,
+                request.Description,
+                request.StartsAt.UtcDateTime + offset,
+                request.EndsAt?.UtcDateTime + offset,
+                request.Latitude,
+                request.Longitude,
+                request.PlaceName,
+                request.Address,
+                request.Capacity,
+                request.JoinPolicy,
+                now);
+
+            await events.AddAsync(ev, cancellationToken);
+            if (week == 0)
+                firstId = ev.Id;
+        }
 
         cacheInvalidator.InvalidateAfterCommit(CacheTag.User(organizerId));
-        await events.AddAsync(ev, cancellationToken);
-        return ev.Id;
+        return firstId;
     }
 }
