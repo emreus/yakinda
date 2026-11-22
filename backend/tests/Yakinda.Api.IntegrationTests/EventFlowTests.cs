@@ -246,8 +246,11 @@ public sealed class EventFlowTests(ApiFixture api)
         var veteran = await api.RegisterAsync("Tecrübeli");
         var newcomerEvent = await newcomer.CreateEventAsync(latitude: 60.0, longitude: -150.0);
         var veteranEvent = await veteran.CreateEventAsync(latitude: 60.0, longitude: -150.0);
-        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 5,   rating_count = 1   WHERE id = @id", new { id = newcomer.Id });
-        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 960, rating_count = 200 WHERE id = @id", new { id = veteran.Id }); // 4,8
+        var others = await api.RegisterAsync("Diğer organizatörler");
+        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 5,    rating_count = 1    WHERE id = @id", new { id = newcomer.Id });
+        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 960,  rating_count = 200  WHERE id = @id", new { id = veteran.Id }); // 4,8
+        // Genel ortalama ~3,3 (sistemdeki diğer oylar). Tek oylu 5,0 → ~3,6; 200 oylu 4,8 → ~4,8
+        await api.ExecuteSqlAsync("UPDATE users SET rating_sum = 3000, rating_count = 1000 WHERE id = @id", new { id = others.Id });
 
         var ids = await NearbyIds(newcomer, 60.0, -150.0, "&sort=rating");
 
@@ -351,7 +354,7 @@ public sealed class EventFlowTests(ApiFixture api)
         await scheduler.RunOnceAsync(CancellationToken.None);
 
         Assert.Equal(new[] { "EventReminder" }, (await participant.NotificationsAsync()).Types());
-        Assert.Single((await organizer.NotificationsAsync()).Types().Where(t => t == "EventReminder"));
+        Assert.Single((await organizer.NotificationsAsync()).Types(), t => t == "EventReminder");
 
         // 5 saat önce başladı (varsayılan süre 3 saat) → bitti, puanlama bildirimi sadece katılımcıya
         await api.ExecuteSqlAsync("UPDATE events SET starts_at = now() - interval '5 hours' WHERE id = @id", new { id = eventId });
