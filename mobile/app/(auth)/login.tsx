@@ -62,6 +62,10 @@ export default function LoginScreen() {
 
           <Button title="Giriş yap" onPress={submit} loading={loading} disabled={!email || !password} />
 
+          <Link href={{ pathname: '/forgot-password', params: { email: email.trim() } }} style={styles.link}>
+            <Text style={styles.linkStrong}>Şifremi unuttum</Text>
+          </Link>
+
           <Link href="/register" style={styles.link}>
             Hesabın yok mu? <Text style={styles.linkStrong}>Kayıt ol</Text>
           </Link>

@@ -18,6 +18,8 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   /** acceptTerms: kullanım koşulları ve gizlilik politikası kabul edildi (zorunlu) */
   signUp: (email: string, password: string, displayName: string, acceptTerms: boolean) => Promise<void>;
+  /** Şifre sıfırlama kodu doğruysa yeni şifreyle giriş yapar. */
+  resetPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -93,6 +95,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applySession],
   );
 
+  const resetPassword = useCallback(
+    async (email: string, code: string, newPassword: string) =>
+      applySession(await authApi.resetPassword(email, code, newPassword)),
+    [applySession],
+  );
+
   const signUp = useCallback(
     async (email: string, password: string, displayName: string, acceptTerms: boolean) =>
       applySession(await authApi.register(email, password, displayName, acceptTerms)),
@@ -110,8 +118,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession]);
 
   const value = useMemo<AuthContextValue>(
-    () => ({ status, user, signIn, signUp, signOut }),
-    [status, user, signIn, signUp, signOut],
+    () => ({ status, user, signIn, signUp, resetPassword, signOut }),
+    [status, user, signIn, signUp, resetPassword, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
