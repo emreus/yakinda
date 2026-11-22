@@ -7,6 +7,9 @@ public static class ClaimNames
     public const string Email = "email";
     public const string Name = "name";
     public const string TokenId = "jti";
+
+    /// <summary>Kullanıcının oturum sürümü (users.token_version); eski token'larda yoktur ve 0 sayılır.</summary>
+    public const string TokenVersion = "ver";
 }
 
 public sealed class JwtOptions

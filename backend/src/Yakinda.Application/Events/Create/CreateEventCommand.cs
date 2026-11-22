@@ -6,6 +6,7 @@ using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Domain.Common;
 using Yakinda.Domain.Events;
 
 namespace Yakinda.Application.Events.Create;
@@ -71,6 +72,16 @@ internal sealed class CreateEventCommandHandler(
             throw new ValidationException(new[] { new ValidationFailure(nameof(request.CategoryId), "Geçersiz kategori.") });
 
         var now = timeProvider.GetUtcNow().UtcDateTime;
+
+        var upcoming = await events.GetUpcomingActiveIdsByOrganizerAsync(organizerId, now, cancellationToken);
+        if (upcoming.Count + request.RepeatWeeks + 1 > EventRules.MaxUpcomingEventsPerOrganizer)
+        {
+            throw new DomainException(
+                "event.too_many_upcoming",
+                $"Aynı anda en fazla {EventRules.MaxUpcomingEventsPerOrganizer} yaklaşan etkinliğin olabilir. " +
+                "Yenisini açmak için bazılarının bitmesini bekle ya da iptal et.");
+        }
+
         Guid firstId = default;
 
         // Tekrarlayan etkinlikler: her hafta için ayrı bir etkinlik (katılım ve oylar her buluşmaya ayrı).

@@ -1,3 +1,4 @@
+import { isUuid } from '@/api/path';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
@@ -32,7 +33,8 @@ export function usePushNotifications(enabled: boolean) {
             .catch(() => undefined)
             .finally(() => queryClient.invalidateQueries({ queryKey: queryKeys.notifications }));
         }
-        if (eventId) router.push(type === 'ChatMessage' ? `/event/chat/${eventId}` : `/event/${eventId}`);
+        // Push verisi dışarıdan gelir; kimlik biçiminde değilse gezinme yapılmaz.
+        if (isUuid(eventId)) router.push(type === 'ChatMessage' ? `/event/chat/${eventId}` : `/event/${eventId}`);
       },
     })
       .then((remove) => {

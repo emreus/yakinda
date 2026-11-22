@@ -38,6 +38,11 @@ services:
     build: ../backend
     image: yakinda-api
     restart: unless-stopped
+    # Uygulama root değildir ve 8080'i dinler; hiçbir Linux yetkisine ihtiyacı yok.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       db:
         condition: service_healthy

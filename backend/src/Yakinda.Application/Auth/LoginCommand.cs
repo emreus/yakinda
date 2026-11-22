@@ -15,8 +15,9 @@ internal sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
 {
     public LoginCommandValidator()
     {
-        RuleFor(x => x.Email).NotEmpty().WithName("E-posta");
-        RuleFor(x => x.Password).NotEmpty().WithName("Şifre");
+        // Üst sınırlar: çok büyük gövdelerle şifre özetleme hattını meşgul etmeyi önler.
+        RuleFor(x => x.Email).NotEmpty().MaximumLength(256).WithName("E-posta");
+        RuleFor(x => x.Password).NotEmpty().MaximumLength(128).WithName("Şifre");
     }
 }
 
@@ -29,12 +30,22 @@ internal sealed class LoginCommandHandler(
     {
         var user = await users.GetByEmailAsync(User.NormalizeEmail(request.Email), cancellationToken);
 
-        if (user is null || user.DeletedAt is not null || !passwordHasher.Verify(request.Password, user.PasswordHash))
-            throw new UnauthorizedException("auth.invalid_credentials", "E-posta veya şifre hatalı.");
+        if (user is null || user.DeletedAt is not null)
+        {
+            // Hesap yokken de aynı süre harcanır; yanıt süresinden e-postanın kayıtlı olup olmadığı anlaşılmaz.
+            passwordHasher.VerifyAgainstNothing(request.Password);
+            throw InvalidCredentials();
+        }
+
+        if (!passwordHasher.Verify(request.Password, user.PasswordHash))
+            throw InvalidCredentials();
 
         if (user.IsBanned)
             throw AuthErrors.Banned();
 
         return await tokenIssuer.IssueAsync(user, cancellationToken);
     }
+
+    private static UnauthorizedException InvalidCredentials() =>
+        new("auth.invalid_credentials", "E-posta veya şifre hatalı.");
 }

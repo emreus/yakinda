@@ -24,6 +24,8 @@ internal sealed class JoinEventCommandHandler(
     ICacheInvalidator cacheInvalidator,
     TimeProvider timeProvider) : IRequestHandler<JoinEventCommand, JoinEventResult>
 {
+    private static readonly TimeSpan RepeatNotificationWindow = TimeSpan.FromHours(1);
+
     public async Task<JoinEventResult> Handle(JoinEventCommand request, CancellationToken cancellationToken)
     {
         var userId = currentUser.RequireUserId();
@@ -61,7 +63,13 @@ internal sealed class JoinEventCommandHandler(
             var content = status == ParticipantStatus.Pending
                 ? NotificationTexts.JoinRequested(actorName, ev.Title)
                 : NotificationTexts.ParticipantJoined(actorName, ev.Title);
-            await notifications.AddAsync(ev.OrganizerId, content, ev.Id, userId, now, cancellationToken);
+
+            // Katıl-ayrıl-katıl yaparak organizatöre art arda bildirim (ve push) gönderilemesin:
+            // aynı kişi, aynı etkinlik için saatte en fazla bir bildirim üretir.
+            var alreadyNotified = await notifications.ExistsSinceAsync(
+                ev.OrganizerId, content.Type, ev.Id, userId, now - RepeatNotificationWindow, cancellationToken);
+            if (!alreadyNotified)
+                await notifications.AddAsync(ev.OrganizerId, content, ev.Id, userId, now, cancellationToken);
         }
 
         // Katılımcı sayısı (etkinlik) ve "katıldığı etkinlik" sayısı (kullanıcı) değişebilir

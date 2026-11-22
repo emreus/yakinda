@@ -8,6 +8,14 @@ using Yakinda.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(kestrel =>
+{
+    // Sunucu yazılımı yanıt başlığında duyurulmaz.
+    kestrel.AddServerHeader = false;
+    // JSON istekleri küçüktür; görsel yükleme uçları kendi sınırını (5 MB) istek başına yükseltir.
+    kestrel.Limits.MaxRequestBodySize = 1024 * 1024;
+});
+
 // Katmanlar
 builder.Services.AddApplication(builder.Configuration["MediatR:LicenseKey"]);
 builder.Services.AddInfrastructure(builder.Configuration);
@@ -38,6 +46,9 @@ if (app.Configuration.GetValue("Database:MigrateOnStartup", false))
 
 app.UseExceptionHandler();
 
+// Tarayıcı güvenlik başlıkları (her yanıtta)
+app.UseSecurityHeaders();
+
 if (app.Environment.IsDevelopment())
 {
     // http://localhost:5080/openapi/v1.json
@@ -47,8 +58,9 @@ if (app.Environment.IsDevelopment())
 // Profil fotoğrafları ve etkinlik görselleri: /media/...
 app.UseMediaFiles();
 
-app.UseRateLimiter();
 app.UseAuthentication();
+// Kimlik doğrulamadan sonra: genel sınır kullanıcı başına sayılabilsin.
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();

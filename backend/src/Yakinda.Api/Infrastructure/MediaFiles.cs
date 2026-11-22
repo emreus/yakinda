@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using FluentValidation;
@@ -20,9 +21,19 @@ public static class MediaFiles
         var root = MediaOptions.ResolveRoot(options, app.Environment.ContentRootPath);
         Directory.CreateDirectory(root);
 
+        // Yalnız sunucunun yazdığı görsel türleri sunulur; klasöre başka türde bir dosya girse bile (ör. .html) yanıt 404 olur.
+        var imageTypes = new FileExtensionContentTypeProvider(new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".jpg"] = "image/jpeg",
+            [".png"] = "image/png",
+            [".webp"] = "image/webp"
+        });
+
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new PhysicalFileProvider(root),
+            ContentTypeProvider = imageTypes,
+            ServeUnknownFileTypes = false,
             RequestPath = MediaUrl.Prefix.TrimEnd('/'),
             OnPrepareResponse = context =>
             {

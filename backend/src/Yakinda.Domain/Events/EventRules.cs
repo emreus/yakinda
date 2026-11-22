@@ -11,6 +11,9 @@ public static class EventRules
     public const int PlaceNameMaxLength = 150;
     public const int AddressMaxLength = 300;
     public const int MaxCapacity = 10_000;
+
+    /// <summary>Bir hesabın aynı anda sahip olabileceği yaklaşan (aktif) etkinlik sayısı; haritanın tek hesapla doldurulmasını önler.</summary>
+    public const int MaxUpcomingEventsPerOrganizer = 50;
     public const int CommentMaxLength = 500;
 
     public const short MinScore = 1;

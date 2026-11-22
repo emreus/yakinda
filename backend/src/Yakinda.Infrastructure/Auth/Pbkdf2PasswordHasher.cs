@@ -27,6 +27,12 @@ internal sealed class Pbkdf2PasswordHasher : IPasswordHasher
             Convert.ToBase64String(key));
     }
 
+    /// <summary>Geçerli biçimde ama hiçbir şifreyle eşleşmeyecek bir özet; ilk kullanımda bir kez üretilir.</summary>
+    private static readonly Lazy<string> Nothing =
+        new(() => new Pbkdf2PasswordHasher().Hash(Convert.ToHexString(RandomNumberGenerator.GetBytes(32))));
+
+    public void VerifyAgainstNothing(string password) => Verify(password, Nothing.Value);
+
     public bool Verify(string password, string hash)
     {
         var parts = hash.Split('$');

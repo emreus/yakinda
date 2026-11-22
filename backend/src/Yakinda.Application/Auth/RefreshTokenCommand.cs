@@ -17,7 +17,7 @@ internal sealed class RefreshTokenCommandValidator : AbstractValidator<RefreshTo
 {
     public RefreshTokenCommandValidator()
     {
-        RuleFor(x => x.RefreshToken).NotEmpty();
+        RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(200);
     }
 }
 
@@ -47,5 +47,31 @@ internal sealed class RefreshTokenCommandHandler(
             throw AuthErrors.Banned();
 
         return await tokenIssuer.IssueAsync(user, cancellationToken);
+    }
+}
+
+/// <summary>
+/// Çıkış: bu cihazın refresh token'ı sunucuda da iptal edilir. Yalnız telefondan silmek yetmez; token
+/// başka bir yere kopyalandıysa 30 gün boyunca yeni oturum açmaya yarardı. Token bilinmiyorsa da yanıt aynıdır.
+/// </summary>
+public sealed record LogoutCommand(string RefreshToken) : ICommand<Unit>;
+
+internal sealed class LogoutCommandValidator : AbstractValidator<LogoutCommand>
+{
+    public LogoutCommandValidator() => RuleFor(x => x.RefreshToken).NotEmpty().MaximumLength(200);
+}
+
+internal sealed class LogoutCommandHandler(
+    IRefreshTokenRepository refreshTokens,
+    ITokenService tokenService,
+    TimeProvider timeProvider) : IRequestHandler<LogoutCommand, Unit>
+{
+    public async Task<Unit> Handle(LogoutCommand request, CancellationToken cancellationToken)
+    {
+        await refreshTokens.RevokeByHashAsync(
+            tokenService.HashRefreshToken(request.RefreshToken),
+            timeProvider.GetUtcNow().UtcDateTime,
+            cancellationToken);
+        return Unit.Value;
     }
 }

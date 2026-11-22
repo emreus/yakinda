@@ -1,4 +1,5 @@
 import { apiRequest } from './client';
+import { seg } from './path';
 import type {
   AppNotification,
   AuthResponse,
@@ -45,6 +46,10 @@ export const authApi = {
 
   refresh: (refreshToken: string) =>
     apiRequest<AuthResponse>('/api/auth/refresh', { method: 'POST', body: { refreshToken }, anonymous: true }),
+
+  /** Çıkışta refresh token'ı sunucuda da iptal eder (telefondan silmek tek başına yetmez). */
+  logout: (refreshToken: string) =>
+    apiRequest<void>('/api/auth/logout', { method: 'POST', body: { refreshToken }, anonymous: true }),
 };
 
 export const categoriesApi = {
@@ -70,40 +75,40 @@ export const eventsApi = {
   nearby: (params: NearbyParams) =>
     apiRequest<PagedResult<EventListItem>>('/api/events/nearby', { query: { ...params } }),
 
-  detail: (id: string) => apiRequest<EventDetail>(`/api/events/${id}`),
+  detail: (id: string) => apiRequest<EventDetail>(`/api/events/${seg(id)}`),
 
   create: (input: CreateEventInput) =>
     apiRequest<{ id: string }>('/api/events', { method: 'POST', body: input }),
 
   update: (id: string, input: UpdateEventInput) =>
-    apiRequest<void>(`/api/events/${id}`, { method: 'PUT', body: input }),
+    apiRequest<void>(`/api/events/${seg(id)}`, { method: 'PUT', body: input }),
 
-  cancel: (id: string) => apiRequest<void>(`/api/events/${id}/cancel`, { method: 'POST' }),
+  cancel: (id: string) => apiRequest<void>(`/api/events/${seg(id)}/cancel`, { method: 'POST' }),
 
-  join: (id: string) => apiRequest<{ status: ParticipantStatus }>(`/api/events/${id}/join`, { method: 'POST' }),
+  join: (id: string) => apiRequest<{ status: ParticipantStatus }>(`/api/events/${seg(id)}/join`, { method: 'POST' }),
 
-  leave: (id: string) => apiRequest<void>(`/api/events/${id}/leave`, { method: 'POST' }),
+  leave: (id: string) => apiRequest<void>(`/api/events/${seg(id)}/leave`, { method: 'POST' }),
 
-  participants: (id: string) => apiRequest<Participant[]>(`/api/events/${id}/participants`),
+  participants: (id: string) => apiRequest<Participant[]>(`/api/events/${seg(id)}/participants`),
 
   approve: (id: string, userId: string) =>
-    apiRequest<void>(`/api/events/${id}/participants/${userId}/approve`, { method: 'POST' }),
+    apiRequest<void>(`/api/events/${seg(id)}/participants/${seg(userId)}/approve`, { method: 'POST' }),
 
   reject: (id: string, userId: string) =>
-    apiRequest<void>(`/api/events/${id}/participants/${userId}/reject`, { method: 'POST' }),
+    apiRequest<void>(`/api/events/${seg(id)}/participants/${seg(userId)}/reject`, { method: 'POST' }),
 
   rate: (id: string, score: number, comment: string | null) =>
-    apiRequest<RateResult>(`/api/events/${id}/rating`, { method: 'PUT', body: { score, comment } }),
+    apiRequest<RateResult>(`/api/events/${seg(id)}/rating`, { method: 'PUT', body: { score, comment } }),
 
   ratings: (id: string, page = 1) =>
-    apiRequest<PagedResult<Rating>>(`/api/events/${id}/ratings`, { query: { page, pageSize: 20 } }),
+    apiRequest<PagedResult<Rating>>(`/api/events/${seg(id)}/ratings`, { query: { page, pageSize: 20 } }),
 };
 
 export type MyEventsRole = 'organizing' | 'attending';
 
 export const usersApi = {
   me: () => apiRequest<UserProfile>('/api/users/me'),
-  get: (id: string) => apiRequest<UserProfile>(`/api/users/${id}`),
+  get: (id: string) => apiRequest<UserProfile>(`/api/users/${seg(id)}`),
   myEvents: (role: MyEventsRole) =>
     apiRequest<EventListItem[]>('/api/users/me/events', { query: { role, includePast: true } }),
 };
@@ -112,7 +117,7 @@ export const notificationsApi = {
   list: (page = 1) =>
     apiRequest<PagedResult<AppNotification>>('/api/notifications', { query: { page, pageSize: 20 } }),
   unreadCount: () => apiRequest<{ count: number }>('/api/notifications/unread-count'),
-  markRead: (id: string) => apiRequest<void>(`/api/notifications/${id}/read`, { method: 'POST' }),
+  markRead: (id: string) => apiRequest<void>(`/api/notifications/${seg(id)}/read`, { method: 'POST' }),
   markAllRead: () => apiRequest<void>('/api/notifications/read-all', { method: 'POST' }),
 };
 
@@ -127,8 +132,8 @@ export const devicesApi = {
 export const safetyApi = {
   report: (targetType: ReportTargetType, targetId: string, reason: ReportReason, details: string | null) =>
     apiRequest<void>('/api/reports', { method: 'POST', body: { targetType, targetId, reason, details } }),
-  block: (userId: string) => apiRequest<void>(`/api/users/${userId}/block`, { method: 'POST' }),
-  unblock: (userId: string) => apiRequest<void>(`/api/users/${userId}/block`, { method: 'DELETE' }),
+  block: (userId: string) => apiRequest<void>(`/api/users/${seg(userId)}/block`, { method: 'POST' }),
+  unblock: (userId: string) => apiRequest<void>(`/api/users/${seg(userId)}/block`, { method: 'DELETE' }),
   blocks: () => apiRequest<BlockedUser[]>('/api/users/me/blocks'),
   /** Hesabı kalıcı olarak siler (şifre tekrar istenir). */
   deleteAccount: (password: string) => apiRequest<void>('/api/users/me/delete', { method: 'POST', body: { password } }),
@@ -137,12 +142,12 @@ export const safetyApi = {
 export const chatApi = {
   /** En yeni önce. before: daha eski mesajlar; parametresiz: son mesajlar. */
   list: (eventId: string, params: { before?: string; limit?: number } = {}) =>
-    apiRequest<ChatPage>(`/api/events/${eventId}/messages`, { query: { limit: 30, ...params } }),
+    apiRequest<ChatPage>(`/api/events/${seg(eventId)}/messages`, { query: { limit: 30, ...params } }),
   send: (eventId: string, body: string) =>
-    apiRequest<ChatMessage>(`/api/events/${eventId}/messages`, { method: 'POST', body: { body } }),
+    apiRequest<ChatMessage>(`/api/events/${seg(eventId)}/messages`, { method: 'POST', body: { body } }),
   remove: (eventId: string, messageId: string) =>
-    apiRequest<void>(`/api/events/${eventId}/messages/${messageId}`, { method: 'DELETE' }),
-  markRead: (eventId: string) => apiRequest<void>(`/api/events/${eventId}/messages/read`, { method: 'POST' }),
+    apiRequest<void>(`/api/events/${seg(eventId)}/messages/${seg(messageId)}`, { method: 'DELETE' }),
+  markRead: (eventId: string) => apiRequest<void>(`/api/events/${seg(eventId)}/messages/read`, { method: 'POST' }),
 };
 
 /** Yüklenecek görsel: cihazdaki dosyanın adresi (seçici/kırpma sonrası JPEG). */
@@ -162,8 +167,8 @@ export const mediaApi = {
     apiRequest<{ url: string }>('/api/users/me/avatar', { method: 'PUT', body: imageForm(image) }),
   deleteAvatar: () => apiRequest<void>('/api/users/me/avatar', { method: 'DELETE' }),
   setEventImage: (eventId: string, image: LocalImage) =>
-    apiRequest<{ url: string }>(`/api/events/${eventId}/image`, { method: 'PUT', body: imageForm(image) }),
-  deleteEventImage: (eventId: string) => apiRequest<void>(`/api/events/${eventId}/image`, { method: 'DELETE' }),
+    apiRequest<{ url: string }>(`/api/events/${seg(eventId)}/image`, { method: 'PUT', body: imageForm(image) }),
+  deleteEventImage: (eventId: string) => apiRequest<void>(`/api/events/${seg(eventId)}/image`, { method: 'DELETE' }),
 };
 
 export const profileApi = {

@@ -65,8 +65,9 @@ public static class LegalEndpoints
         <h2>Hangi verileri işliyoruz?</h2>
         <ul>
           <li><b>Hesap bilgileri:</b> e-posta adresi, görünen ad, şifre (yalnızca geri döndürülemez özet olarak saklanır).</li>
-          <li><b>Oluşturduğun içerik:</b> etkinlikler (başlık, açıklama, zaman, konum, mekan), katılımların,
-              verdiğin puanlar ve yorumlar, etkinlik sohbetlerindeki mesajların.</li>
+          <li><b>Oluşturduğun içerik:</b> etkinlikler (başlık, açıklama, zaman, konum, mekan, görsel), profil fotoğrafın
+              ve "hakkımda" yazın, katılımların, verdiğin puanlar ve yorumlar, etkinlik sohbetlerindeki mesajların.
+              Yüklediğin fotoğraflardaki konum (GPS) ve cihaz bilgileri kaydedilmeden önce silinir.</li>
           <li><b>Konum:</b> yakındaki etkinlikleri göstermek için cihazının konumu, sen izin verdiğinde ve yalnızca
               arama sırasında kullanılır; konum geçmişin saklanmaz. Etkinlik oluştururken seçtiğin yer etkinlikle birlikte saklanır.</li>
           <li><b>Bildirimler:</b> bildirim göndermek için cihazına ait bildirim anahtarı (push token).</li>
@@ -88,9 +89,10 @@ public static class LegalEndpoints
         Verilerini satmayız ve reklam amacıyla kullanmayız. Yasal bir zorunluluk olduğunda yetkili makamlarla paylaşabiliriz.</p>
 
         <h2>Ne kadar süre saklıyoruz?</h2>
-        <p>Hesabın açık olduğu sürece. Hesabını sildiğinde e-posta adresin, adın, şifren, oturumların, cihaz anahtarların,
-        bildirimlerin ve yorum metinlerin silinir. Diğer kullanıcıların puan ortalamaları bozulmasın diye geçmiş etkinlik
-        ve oy <i>sayıları</i> "Silinmiş kullanıcı" olarak, seni tanımlamayacak şekilde kalır.</p>
+        <p>Hesabın açık olduğu sürece. Hesabını sildiğinde e-posta adresin, adın, profil fotoğrafın, şifren, oturumların,
+        cihaz anahtarların, bildirimlerin, yorum metinlerin, sohbet mesajlarının metni ve düzenlediğin etkinliklerin
+        açıklaması, adresi ve görseli silinir. Diğer kullanıcıların puan ortalamaları ve etkinlik geçmişleri bozulmasın diye
+        geçmiş etkinliklerin başlığı, zamanı, haritadaki yeri ve oy <i>sayıları</i> "Silinmiş kullanıcı" adıyla kalır.</p>
 
         <h2>Hakların</h2>
         <p>6698 sayılı Kişisel Verilerin Korunması Kanunu'nun 11. maddesi kapsamında verilerinin işlenip işlenmediğini
@@ -155,13 +157,14 @@ public static class LegalEndpoints
 
         <h2>Neler silinir?</h2>
         <ul>
-          <li>E-posta adresin, görünen adın, şifren, oturumların ve cihaz bildirim anahtarların.</li>
-          <li>Bildirimlerin, engellemelerin ve yazdığın yorum metinleri.</li>
+          <li>E-posta adresin, görünen adın, profil fotoğrafın, şifren, oturumların ve cihaz bildirim anahtarların.</li>
+          <li>Bildirimlerin, engellemelerin, yazdığın yorum metinleri ve sohbet mesajlarının metni.</li>
+          <li>Düzenlediğin etkinliklerin açıklaması, adresi ve görseli.</li>
           <li>Yaklaşan etkinliklerdeki katılımın; düzenlediğin yaklaşan etkinlikler iptal edilir ve katılımcılara haber verilir.</li>
         </ul>
 
         <h2>Neler kalır?</h2>
-        <p>Diğer kullanıcıların puan ortalamaları ve etkinlik geçmişleri bozulmasın diye geçmiş etkinlikler ve verdiğin
-        oyların sayıları "Silinmiş kullanıcı" adıyla, seni tanımlamayacak şekilde kalır.</p>
+        <p>Diğer kullanıcıların puan ortalamaları ve etkinlik geçmişleri bozulmasın diye geçmiş etkinliklerin başlığı,
+        zamanı, haritadaki yeri ve verdiğin oyların sayıları "Silinmiş kullanıcı" adıyla kalır.</p>
         """;
 }

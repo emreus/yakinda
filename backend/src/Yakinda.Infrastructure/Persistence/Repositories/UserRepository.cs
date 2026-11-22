@@ -8,7 +8,7 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
 {
     private const string SelectColumns =
         "id, email, password_hash, display_name, bio, rating_sum, rating_count, created_at, " +
-        "terms_accepted_at, is_admin, banned_at, deleted_at";
+        "terms_accepted_at, is_admin, banned_at, deleted_at, token_version";
 
     public Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken) =>
         QuerySingleOrDefaultAsync<User>(
@@ -51,6 +51,7 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
                    avatar_key    = NULL,
                    password_hash = '',
                    is_admin      = false,
+                   token_version = token_version + 1,
                    deleted_at    = @Now
              WHERE id = @Id;
             DELETE FROM refresh_tokens     WHERE user_id = @Id;
@@ -58,18 +59,22 @@ internal sealed class UserRepository(DbSession session) : RepositoryBase(session
             DELETE FROM notifications      WHERE user_id = @Id;
             DELETE FROM user_blocks        WHERE blocker_id = @Id OR blocked_id = @Id;
             UPDATE event_ratings SET comment = NULL WHERE rater_id = @Id;
+            -- Sohbet mesajlarının metni silinir ("Mesaj silindi" olarak görünür)
+            UPDATE event_messages SET body = '', deleted_at = COALESCE(deleted_at, @Now) WHERE author_id = @Id;
+            -- Düzenlediği etkinliklerin serbest metinleri (ev adresi, açıklama) silinir; başlık, zaman ve sayılar kalır
+            UPDATE events SET description = NULL, address = NULL WHERE organizer_id = @Id;
             """, new { Id = userId, Now = nowUtc }, cancellationToken);
 
     public Task BanAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
         ExecuteAsync("""
-            UPDATE users SET banned_at = COALESCE(banned_at, @Now) WHERE id = @Id;
+            UPDATE users SET banned_at = COALESCE(banned_at, @Now), token_version = token_version + 1 WHERE id = @Id;
             DELETE FROM refresh_tokens     WHERE user_id = @Id;
             DELETE FROM device_push_tokens WHERE user_id = @Id;
             """, new { Id = userId, Now = nowUtc }, cancellationToken);
 
-    public Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken) =>
-        ExecuteAsync(
-            "UPDATE users SET password_hash = @Hash WHERE id = @Id",
+    public Task<int> UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken) =>
+        ExecuteScalarAsync<int>(
+            "UPDATE users SET password_hash = @Hash, token_version = token_version + 1 WHERE id = @Id RETURNING token_version",
             new { Id = userId, Hash = passwordHash },
             cancellationToken);
 
@@ -101,4 +106,12 @@ internal sealed class MediaRepository(DbSession session) : RepositoryBase(sessio
              WHERE e.id = old.id
             RETURNING old.image_key
             """, new { Id = eventId, Key = key }, cancellationToken);
+
+    public Task<IReadOnlyList<string>> ClearEventImagesByOrganizerAsync(Guid organizerId, CancellationToken cancellationToken) =>
+        QueryAsync<string>("""
+            UPDATE events e SET image_key = NULL
+              FROM (SELECT id, image_key FROM events WHERE organizer_id = @Id AND image_key IS NOT NULL FOR UPDATE) old
+             WHERE e.id = old.id
+            RETURNING old.image_key
+            """, new { Id = organizerId }, cancellationToken);
 }

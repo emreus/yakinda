@@ -209,9 +209,34 @@ Apple şikayetlere 24 saat içinde yanıt verilmesini bekliyor; açık şikayetl
 `extra.supportEmail` değerlerini kendi bilgilerinle değiştir. `/legal/*` metinleri bir başlangıç taslağıdır;
 KVKK aydınlatma metni dahil bir hukukçuya inceletmeni öneririm.
 
-**Hesap silinince** e-posta, ad, şifre, oturumlar, cihaz token'ları, bildirimler, engellemeler ve yorum metinleri silinir;
+**Hesap silinince** e-posta, ad, profil fotoğrafı, şifre, oturumlar, cihaz token'ları, bildirimler, engellemeler,
+yorum metinleri, sohbet mesajlarının metni ve düzenlenen etkinliklerin açıklaması, adresi ve görseli silinir;
 yaklaşan katılımlar boşalır, düzenlenen yaklaşan etkinlikler iptal edilir. Satır "Silinmiş kullanıcı" olarak kalır ki
 geçmiş etkinlikler ve diğer kullanıcıların puan ortalamaları bozulmasın.
+
+### Güvenlik önlemleri
+
+| Konu | Önlem |
+|---|---|
+| Şifreler | PBKDF2-HMAC-SHA512, 210.000 tur, hesap başına rastgele tuz. Hesap yokken de aynı süre harcanır (yanıt süresinden e-posta tahmin edilemez) |
+| Oturum | Erişim token'ı 30 dk (HS256; yayıncı, hedef, süre ve imza doğrulanır). Refresh token 30 gün, tek kullanımlık (her yenilemede değişir), veritabanında yalnız SHA-256 özeti durur; çıkışta sunucuda iptal edilir |
+| Anında oturum kapatma | Her istekte kullanıcının durumu ve oturum sürümü (`users.token_version`) kontrol edilir: yasaklama, hesap silme ve şifre sıfırlama, önceden alınmış token'ları o anda geçersiz kılar |
+| Şifre sıfırlama | 6 haneli kod, 15 dk geçerli, kod başına 5 deneme, dakikada 1 ve **günde en fazla 5 kod**. Kod e-postanın konusuna ve sunucu loglarına yazılmaz |
+| İstek sınırları | Giriş uçları: IP başına 20/dk. Giriş yapmış kullanıcı: 300 istek/dk ve 60 yazma/dk. Diğerleri: IP başına 300/dk. JSON gövdesi en fazla 1 MB, görsel 5 MB |
+| Kötüye kullanım | Hesap başına en fazla 50 yaklaşan etkinlik ve 10 cihaz. Aynı kişi aynı etkinlik için organizatöre saatte bir "katıldı" bildirimi üretir |
+| Yetki | Her `/api` ucu token ister (genel olanlar: `/api/auth/*`, `/api/categories`); bir test tüm uçları tek tek dener. Sahiplik (organizatör, yazar, yönetici) her komutta veritabanından doğrulanır |
+| Engelleme | Etkinlikler, profil, sohbet mesajları ve **katılımcı listeleri**: engellenen kişi, engelleyenin hangi etkinliğe gideceğini göremez |
+| Kaldırılan içerik | Yöneticinin kaldırdığı etkinliğin başlığı, açıklaması, mekanı, adresi ve görseli organizatörü dışında kimseye gösterilmez |
+| SQL | Tüm sorgular parametreli (Dapper); `ORDER BY` gibi parçalar yalnız sabitlerden kurulur; aramada `%` ve `_` düz metindir |
+| HTML sayfaları | Kullanıcı içeriği HTML olarak kodlanır; `Content-Security-Policy` (betik yok), `X-Frame-Options`, `nosniff`, `Referrer-Policy` |
+| Görseller | Biçim dosyanın baytlarından doğrulanır, meta veriler ve görüntünün bittiği yerden sonraki veriler atılır, adlar sunucuda üretilir, yalnız `.jpg/.png/.webp` sunulur |
+| Mobil | Refresh token Keychain/Keystore'da, erişim token'ı yalnız bellekte. Bağlantıdan (deep link, bildirim) gelen kimlikler doğrulanır ve API adresine kodlanarak eklenir |
+| Altyapı | API kapsayıcısı root değil, yetkisiz (`cap_drop: ALL`); veritabanı ve Redis dışarıya kapalı; HTTPS ve HSTS Caddy'de. Geliştirme `docker-compose.yml` portları yalnız `127.0.0.1`'e açar |
+
+**Güvenlik testleri** (`SecurityTests.cs`, CI'da her PR'da): sahte/oynanmış token'lar, başkasının etkinliğini yönetme denemeleri,
+SQL ve HTML enjeksiyonu, klasör dışına çıkma, istek yağmuru, yasaklanan/silinen hesabın token'ı, şifre sıfırlama kodu sınırı...
+Ayrıca CI: bilinen açığı olan NuGet/npm paketlerini listeler, CodeQL ile statik analiz yapar ve gerçek sunucuda (Docker)
+gövde boyutu sınırını ve güvenlik başlıklarını dener.
 
 ---
 
@@ -360,14 +385,15 @@ dotnet test
 | Proje | Ne test eder | Gereksinim |
 |---|---|---|
 | `tests/Yakinda.Domain.Tests` | Etkinlik/katılım kuralları: kontenjan, iptal, oylama penceresi, puan farkı, durum geçişleri | Yok (milisaniyeler) |
-| `tests/Yakinda.Api.IntegrationTests` | Gerçek HTTP + gerçek PostGIS: kayıt/giriş, yakındakiler, katılım + bildirim, onay akışı, iptal, oylama ortalamaları, zamanlayıcı, rate limit | Docker çalışıyor olmalı |
+| `tests/Yakinda.Api.IntegrationTests` | Gerçek HTTP + gerçek PostGIS: kayıt/giriş, yakındakiler, katılım + bildirim, onay akışı, iptal, oylama ortalamaları, zamanlayıcı, rate limit, sohbet, görseller ve **güvenlik senaryoları** | Docker çalışıyor olmalı |
+| `mobile/src/**/*.test.mjs` | API adresi kurma yardımcıları (bağlantıdan gelen kimliklerin güvenle eklenmesi): `node --test "src/**/*.test.mjs"` | Node 24+ |
 
 Entegrasyon testleri Testcontainers ile kendi PostGIS konteynerini açıp kapatır; geliştirme veritabanına dokunmaz.
 Apple Silicon Mac'te PostGIS imajı yalnızca amd64 olduğu için önce bir kez `docker compose up -d` (ya da
 `docker pull --platform linux/amd64 postgis/postgis:17-3.5`) çalıştırılmış olmalı. CI her PR'da ikisini de çalıştırır.
 
-**Rate limiting:** `/api/auth/*` uçları IP başına dakikada 20 istekle sınırlı (`RateLimiting` ayarları); aşılınca
-`429` + `"code": "rate_limited"` + `Retry-After` döner.
+**Rate limiting:** `/api/auth/*` uçları IP başına dakikada 20 istekle, giriş yapmış kullanıcılar dakikada 300 istek ve
+60 yazma isteğiyle sınırlı (`RateLimiting` ayarları); aşılınca `429` + `"code": "rate_limited"` + `Retry-After` döner.
 
 ---
 

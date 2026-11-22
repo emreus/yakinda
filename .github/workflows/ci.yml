@@ -5,6 +5,10 @@ on:
     branches: [master]
   pull_request:
 
+# İşler depoyu yalnız okur (varsayılan token'a yazma yetkisi verilmez).
+permissions:
+  contents: read
+
 jobs:
   backend:
     name: Backend (.NET 10 derleme + testler)
@@ -18,6 +22,14 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet restore Yakinda.slnx
+      # Bilinen güvenlik açığı olan paket (dolaylı bağımlılıklar dahil) varsa listeler; yüksek/kritik ise işi durdurur
+      - name: Güvenlik açığı olan NuGet paketleri
+        run: |
+          dotnet list Yakinda.slnx package --vulnerable --include-transitive 2>&1 | tee /tmp/nuget-audit.txt
+          if grep -qE "(High|Critical)" /tmp/nuget-audit.txt; then
+            echo "::error::Yüksek ya da kritik önemde güvenlik açığı olan NuGet paketi var (yukarıdaki listeye bak)."
+            exit 1
+          fi
       - run: dotnet build Yakinda.slnx --no-restore --configuration Release
       # Birim testleri + entegrasyon testleri (Testcontainers, runner'daki Docker'da PostGIS açar)
       - run: dotnet test Yakinda.slnx --no-build --configuration Release --logger "console;verbosity=normal"
@@ -42,6 +54,13 @@ jobs:
       # Expo bu dosyayı "expo start" sırasında üretir; CI'da elle oluşturulur (process.env tipleri için)
       - run: echo '/// <reference types="expo/types" />' > expo-env.d.ts
       - run: npx tsc --noEmit
+      # Saf TypeScript yardımcılarının testleri (Node, .ts dosyalarını doğrudan çalıştırır)
+      - name: Birim testleri
+        run: node --test "src/**/*.test.mjs"
+      # Uygulamaya giren (geliştirme araçları hariç) bağımlılıklardaki bilinen açıklar. Şimdilik bilgi amaçlı:
+      # Expo/React Native sürümleri SDK'ya bağlı olduğu için düzeltme çoğu zaman SDK güncellemesiyle gelir.
+      - name: Güvenlik açığı olan npm paketleri
+        run: npm audit --omit=dev --audit-level=high || echo "::warning::npm audit yüksek önemde bulgu bildirdi (yukarıdaki listeye bak)."
 
   docker:
     name: Docker (imaj + sunucu kurulumu açılış testi)
@@ -70,6 +89,37 @@ jobs:
             sleep 3
           done
           exit 1
+      # Gerçek sunucuda (Kestrel) geçerli olan sınırlar ve başlıklar; test sunucusu bunları uygulamaz
+      - name: Gövde boyutu sınırı, büyük görsel yükleme ve güvenlik başlıkları
+        run: |
+          api() { docker run --rm --network yakinda_default -v "$PWD/tmp-ci:/ci:ro" curlimages/curl -sS "$@"; }
+          mkdir -p tmp-ci
+          python3 - <<'PY'
+          import json, struct
+          # Yapısı geçerli ~2 MB JPEG (sunucu görüntüyü çözmez, yapıyı ve boyutu okur)
+          sof = b"\xff\xc0" + struct.pack(">HBHHB", 17, 8, 600, 800, 3) + bytes([1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1])
+          sos = b"\xff\xda" + struct.pack(">H", 12) + bytes([3, 1, 0, 2, 0x11, 3, 0x11, 0, 0x3F, 0])
+          jpeg = b"\xff\xd8" + sof + sos + bytes(2 * 1024 * 1024) + b"\xff\xd9"
+          open("tmp-ci/big.jpg", "wb").write(jpeg)
+          open("tmp-ci/big.json", "w").write(json.dumps({"email": "x@test.local", "password": "a" * (2 * 1024 * 1024)}))
+          PY
+          chmod -R a+rX tmp-ci
+
+          token=$(api -X POST http://api:8080/api/auth/register -H 'Content-Type: application/json' \
+            -d '{"email":"ci-smoke@test.local","password":"Sifre12345","displayName":"CI","acceptTerms":true}' \
+            | python3 -c 'import sys, json; print(json.load(sys.stdin)["accessToken"])')
+
+          code=$(api -o /dev/null -w '%{http_code}' -X PUT http://api:8080/api/users/me/avatar -H "Authorization: Bearer $token" -F 'file=@/ci/big.jpg')
+          echo "2 MB görsel yükleme: $code"; [ "$code" = 200 ]
+
+          code=$(api -o /dev/null -w '%{http_code}' -X POST http://api:8080/api/auth/login -H 'Content-Type: application/json' --data-binary @/ci/big.json)
+          echo "2 MB JSON gövdesi: $code"; [ "$code" = 413 ]
+
+          headers=$(api -D - -o /dev/null http://api:8080/legal/privacy)
+          echo "$headers"
+          echo "$headers" | grep -qi '^content-security-policy:'
+          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
+          if echo "$headers" | grep -qi '^server:'; then echo "Server başlığı sızıyor"; exit 1; fi
       - name: API logları
         if: always()
         run: $COMPOSE logs api | tail -60
