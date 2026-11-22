@@ -91,3 +91,21 @@ Content-Type: application/json
   "token": "ExponentPushToken[xxxxxxxxxxxxxxxxxxxxxx]",
   "platform": "android"
 }
+
+### Şikayet et (Event | User | Message; Spam | Inappropriate | Harassment | Dangerous | Fake | Other)
+POST {{host}}/api/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "targetType": "Event", "targetId": "00000000-0000-0000-0000-000000000000", "reason": "Inappropriate", "details": "..." }
+
+### [Yönetici] Açık şikayetler (önce: UPDATE users SET is_admin = true WHERE email = '...';)
+GET {{host}}/api/admin/reports
+Authorization: Bearer {{token}}
+
+### [Yönetici] Şikayeti sonuçlandır: Dismiss | RemoveContent | BanUser
+POST {{host}}/api/admin/reports/00000000-0000-0000-0000-000000000000/resolve
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "action": "RemoveContent", "note": "Uygunsuz başlık" }

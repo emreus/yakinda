@@ -181,6 +181,37 @@ Redis 1 saniyeden fazla gecikirse istek beklemez.
 
 ---
 
+## Güvenlik ve mağaza zorunlulukları
+
+App Store (1.2 kullanıcı içeriği, 5.1.1(v) hesap silme) ve Google Play (hesap silme) kuralları için:
+
+| Özellik | Nerede |
+|---|---|
+| Kayıtta kullanım koşulları onayı (18+, sıfır tolerans) | Kayıt ekranı; `acceptTerms` zorunlu |
+| İçerik filtresi | Etkinlik başlığı/açıklaması/mekan, görünen ad, yorum. Liste: `backend/src/Yakinda.Application/Moderation/blocked-words.txt` |
+| Şikayet | Etkinlik detayı ve kullanıcı profilinde "🚩 Şikayet et" → `POST /api/reports` |
+| Engelleme | "🚫 Engelle"; iki yönlü: birbirinin etkinliklerini görmez, katılamaz. Profil → Engellenen kullanıcılar |
+| Moderasyon | `GET /api/admin/reports`, `POST /api/admin/reports/{id}/resolve` (Dismiss / RemoveContent / BanUser) |
+| Hesap silme | Profil → Hesabımı sil (şifreyle); web: `/legal/delete-account` |
+| Gizlilik politikası, koşullar | `/legal/privacy`, `/legal/terms` (mağaza formlarına bu adresler girilir) |
+| İletişim | Profil → Destek (`app.json` → `extra.supportEmail`) |
+
+**Yönetici olmak için** (şimdilik yönetim ekranı yok, `Yakinda.Api.http` içindeki isteklerle):
+```sql
+UPDATE users SET is_admin = true WHERE email = 'senin@epostan.com';
+```
+Apple şikayetlere 24 saat içinde yanıt verilmesini bekliyor; açık şikayetleri düzenli kontrol et.
+
+**Yayınlamadan önce:** `appsettings.json` → `Legal` (işletmeci adı, iletişim e-postası) ve `mobile/app.json` →
+`extra.supportEmail` değerlerini kendi bilgilerinle değiştir. `/legal/*` metinleri bir başlangıç taslağıdır;
+KVKK aydınlatma metni dahil bir hukukçuya inceletmeni öneririm.
+
+**Hesap silinince** e-posta, ad, şifre, oturumlar, cihaz token'ları, bildirimler, engellemeler ve yorum metinleri silinir;
+yaklaşan katılımlar boşalır, düzenlenen yaklaşan etkinlikler iptal edilir. Satır "Silinmiş kullanıcı" olarak kalır ki
+geçmiş etkinlikler ve diğer kullanıcıların puan ortalamaları bozulmasın.
+
+---
+
 ## Testler
 
 ```bash
@@ -293,5 +324,5 @@ kütüphanesine geçebilirsiniz. Mimari aynı kalır.
 
 1. **Bildirim tercihleri**: kullanıcı hangi bildirimleri almak istediğini seçebilsin; eski bildirimleri temizleyen bir iş.
 2. Organizatör ile katılımcılar arası basit **mesajlaşma**.
-3. **Güven & güvenlik**: kullanıcı engelleme/şikayet, telefon doğrulama, rate limiting (`AddRateLimiter`).
+3. **Güven**: telefon doğrulama; uygulama içi yönetici ekranı (şikayet kuyruğu).
 6. Profil fotoğrafı / etkinlik görseli (S3/Blob + ön imzalı URL).

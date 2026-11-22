@@ -1,7 +1,7 @@
 // Backend DTO'larının TypeScript karşılıkları. Tarihler ISO-8601 (UTC) string olarak gelir.
 
 export type JoinPolicy = 'Open' | 'ApprovalRequired';
-export type EventStatus = 'Active' | 'Cancelled';
+export type EventStatus = 'Active' | 'Cancelled' | 'Removed';
 export type ParticipantStatus = 'Pending' | 'Approved' | 'Rejected' | 'Left' | 'Waitlisted';
 
 export interface AuthUser {
@@ -183,4 +183,13 @@ export interface ApiProblem {
   status?: number;
   code?: string;
   errors?: Record<string, string[]>;
+}
+
+export type ReportTargetType = 'Event' | 'User' | 'Message';
+export type ReportReason = 'Spam' | 'Inappropriate' | 'Harassment' | 'Dangerous' | 'Fake' | 'Other';
+
+export interface BlockedUser {
+  userId: string;
+  displayName: string;
+  blockedAt: string;
 }

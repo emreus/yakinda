@@ -1,10 +1,11 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from 'react-native';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError, errorMessage } from '@/api/client';
 import { useAuth } from '@/auth/AuthContext';
 import { Button, TextField } from '@/components/ui';
+import { openLegalPage } from '@/legal';
 import { colors, font, spacing } from '@/theme';
 
 type FieldErrors = Partial<Record<'email' | 'password' | 'displayName', string>>;
@@ -14,6 +15,7 @@ export default function RegisterScreen() {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,7 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      await signUp(email.trim(), password, displayName.trim());
+      await signUp(email.trim(), password, displayName.trim(), acceptTerms);
     } catch (e) {
       if (e instanceof ApiError && e.fieldErrors) {
         setFieldErrors({
@@ -83,13 +85,35 @@ export default function RegisterScreen() {
             error={fieldErrors.password}
           />
 
+          <Pressable
+            style={styles.termsRow}
+            onPress={() => setAcceptTerms((value) => !value)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: acceptTerms }}
+          >
+            <View style={[styles.checkbox, acceptTerms && styles.checkboxChecked]}>
+              {acceptTerms ? <Text style={styles.checkmark}>✓</Text> : null}
+            </View>
+            <Text style={styles.termsText}>
+              18 yaşından büyüğüm;{' '}
+              <Text style={styles.linkStrong} onPress={() => openLegalPage('terms')}>
+                kullanım koşullarını
+              </Text>{' '}
+              ve{' '}
+              <Text style={styles.linkStrong} onPress={() => openLegalPage('privacy')}>
+                gizlilik politikasını
+              </Text>{' '}
+              okudum, kabul ediyorum. Uygunsuz içeriğe ve tacize sıfır tolerans gösterildiğini biliyorum.
+            </Text>
+          </Pressable>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <Button
             title="Kayıt ol"
             onPress={submit}
             loading={loading}
-            disabled={!email || !password || displayName.trim().length < 2}
+            disabled={!email || !password || displayName.trim().length < 2 || !acceptTerms}
           />
 
           <Link href="/login" style={styles.link}>
@@ -108,4 +132,18 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, textAlign: 'center' },
   link: { textAlign: 'center', color: colors.muted, marginTop: spacing.sm },
   linkStrong: { color: colors.primary, fontWeight: '600' },
+  termsRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.md },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  checkmark: { color: colors.white, fontWeight: '700' },
+  termsText: { flex: 1, fontSize: 14, color: colors.text, lineHeight: 20 },
 });

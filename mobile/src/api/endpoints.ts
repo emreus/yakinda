@@ -2,6 +2,7 @@ import { apiRequest } from './client';
 import type {
   AppNotification,
   AuthResponse,
+  BlockedUser,
   Category,
   CreateEventInput,
   EventDetail,
@@ -10,6 +11,8 @@ import type {
   Participant,
   ParticipantStatus,
   RateResult,
+  ReportReason,
+  ReportTargetType,
   UpdateEventInput,
   Rating,
   UserProfile,
@@ -19,10 +22,10 @@ export const authApi = {
   login: (email: string, password: string) =>
     apiRequest<AuthResponse>('/api/auth/login', { method: 'POST', body: { email, password }, anonymous: true }),
 
-  register: (email: string, password: string, displayName: string) =>
+  register: (email: string, password: string, displayName: string, acceptTerms: boolean) =>
     apiRequest<AuthResponse>('/api/auth/register', {
       method: 'POST',
-      body: { email, password, displayName },
+      body: { email, password, displayName, acceptTerms },
       anonymous: true,
     }),
 
@@ -105,4 +108,14 @@ export const devicesApi = {
   register: (token: string, platform: PushPlatform) =>
     apiRequest<void>('/api/devices', { method: 'POST', body: { token, platform } }),
   unregister: (token: string) => apiRequest<void>('/api/devices', { method: 'DELETE', query: { token } }),
+};
+
+export const safetyApi = {
+  report: (targetType: ReportTargetType, targetId: string, reason: ReportReason, details: string | null) =>
+    apiRequest<void>('/api/reports', { method: 'POST', body: { targetType, targetId, reason, details } }),
+  block: (userId: string) => apiRequest<void>(`/api/users/${userId}/block`, { method: 'POST' }),
+  unblock: (userId: string) => apiRequest<void>(`/api/users/${userId}/block`, { method: 'DELETE' }),
+  blocks: () => apiRequest<BlockedUser[]>('/api/users/me/blocks'),
+  /** Hesabı kalıcı olarak siler (şifre tekrar istenir). */
+  deleteAccount: (password: string) => apiRequest<void>('/api/users/me/delete', { method: 'POST', body: { password } }),
 };

@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { errorMessage } from '@/api/client';
-import { eventsApi } from '@/api/endpoints';
+import { eventsApi, safetyApi } from '@/api/endpoints';
 import type { EventDetail, Participant } from '@/api/types';
 import { RatingBadge, StarRating } from '@/components/StarRating';
 import { Badge, Button, Card, EmptyState, FullScreenLoader, SectionTitle, TextField } from '@/components/ui';
@@ -50,6 +50,7 @@ export default function EventDetailScreen() {
         <ActionPanel event={event} />
         {event.isOrganizer ? <ParticipantsPanel event={event} /> : <AttendeesPreview event={event} />}
         <RatingPanel event={event} />
+        {!event.isOrganizer ? <SafetyLinks event={event} /> : null}
         <RatingsList event={event} />
       </ScrollView>
     </>
@@ -81,6 +82,7 @@ function Header({ event }: { event: EventDetail }) {
           <Text style={font.title}>{event.title}</Text>
           <View style={styles.badgeRow}>
             {event.status === 'Cancelled' ? <Badge label="İptal edildi" tone="danger" /> : null}
+            {event.status === 'Removed' ? <Badge label="Kaldırıldı" tone="danger" /> : null}
             <Badge label={spots.label} tone={spots.tone === 'open' ? 'success' : spots.tone === 'full' ? 'danger' : 'neutral'} />
             {event.joinPolicy === 'ApprovalRequired' ? <Badge label="Organizatör onaylı" tone="primary" /> : null}
           </View>
@@ -153,6 +155,7 @@ function InfoRow({ icon, text }: { icon: string; text: string }) {
  * ya da reddedilen kullanıcı için null döner (onların durumu ayrıca gösteriliyor).
  */
 function joinBlockedReason(event: EventDetail): string | null {
+  if (event.status === 'Removed') return 'Bu etkinlik topluluk kurallarına aykırı bulunduğu için kaldırıldı.';
   if (event.canJoin || event.isOrganizer || event.status === 'Cancelled') return null;
   if (event.myParticipationStatus === 'Approved' || event.myParticipationStatus === 'Pending') return null;
   if (event.myParticipationStatus === 'Waitlisted') return null;
@@ -249,6 +252,44 @@ function ActionPanel({ event }: { event: EventDetail }) {
           loading={cancel.isPending}
         />
       ) : null}
+    </View>
+  );
+}
+
+// ------------------------------------------------------------------ Şikayet / engelle
+
+/** App Store 1.2: kullanıcı içeriğini şikayet etme ve kötü niyetli kullanıcıyı engelleme. */
+function SafetyLinks({ event }: { event: EventDetail }) {
+  const invalidate = useInvalidateEvent();
+  const block = useMutation({
+    mutationFn: () => safetyApi.block(event.organizerId),
+    onSuccess: () => {
+      invalidate();
+      Alert.alert('Engellendi', `${event.organizerName} artık etkinliklerini sana gösteremez, sen de onunkileri görmezsin.`);
+      router.back();
+    },
+    onError: (error) => Alert.alert('İşlem yapılamadı', errorMessage(error)),
+  });
+
+  return (
+    <View style={styles.safetyRow}>
+      <Pressable
+        hitSlop={8}
+        onPress={() => router.push({ pathname: '/report', params: { targetType: 'Event', targetId: event.id, label: event.title } })}
+      >
+        <Text style={styles.safetyLink}>🚩 Etkinliği şikayet et</Text>
+      </Pressable>
+      <Pressable
+        hitSlop={8}
+        onPress={() =>
+          Alert.alert('Organizatörü engelle', `${event.organizerName} adlı kullanıcıyı engellemek istiyor musun?`, [
+            { text: 'Vazgeç', style: 'cancel' },
+            { text: 'Engelle', style: 'destructive', onPress: () => block.mutate() },
+          ])
+        }
+      >
+        <Text style={styles.safetyLink}>🚫 Organizatörü engelle</Text>
+      </Pressable>
     </View>
   );
 }
@@ -421,6 +462,8 @@ function RatingsList({ event }: { event: EventDetail }) {
 }
 
 const styles = StyleSheet.create({
+  safetyRow: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: spacing.md, paddingVertical: spacing.sm },
+  safetyLink: { fontSize: 13, color: colors.muted },
   flex: { flex: 1 },
   screen: { backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
