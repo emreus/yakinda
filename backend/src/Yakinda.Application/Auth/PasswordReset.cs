@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using FluentValidation;
 using MediatR;
+using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Email;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
