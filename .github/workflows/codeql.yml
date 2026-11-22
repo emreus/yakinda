@@ -4,8 +4,10 @@ name: CodeQL
 # güvensiz veri akışı...) arar. Sonuçlar deponun Security → Code scanning sekmesinde ve PR'da görünür.
 on:
   push:
-    branches: [master]
+    branches: [master, 'guvenlik/**']
   pull_request:
+  # Actions sekmesinden elle de çalıştırılabilir (PR'larda yalnız değişen satırlar raporlanır; bu, tüm kodu tarar)
+  workflow_dispatch:
   schedule:
     - cron: '17 3 * * 1' # her pazartesi: kod değişmese de yeni kurallarla yeniden tara
 
