@@ -7,7 +7,7 @@ on:
 
 jobs:
   backend:
-    name: Backend (.NET 10 derleme)
+    name: Backend (.NET 10 derleme + testler)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,6 +19,8 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet restore Yakinda.slnx
       - run: dotnet build Yakinda.slnx --no-restore --configuration Release
+      # Birim testleri + entegrasyon testleri (Testcontainers, runner'daki Docker'da PostGIS açar)
+      - run: dotnet test Yakinda.slnx --no-build --configuration Release --logger "console;verbosity=normal"
 
   mobile:
     name: Mobil (TypeScript tip kontrolü)

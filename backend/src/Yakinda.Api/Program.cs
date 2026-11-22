@@ -18,6 +18,7 @@ builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
+builder.Services.AddAppRateLimiting(builder.Configuration);
 
 // Enum'lar JSON'da "Approved", "ApprovalRequired" gibi string olarak gider/gelir.
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -38,6 +39,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -51,3 +53,6 @@ api.MapUserEndpoints();
 api.MapNotificationEndpoints();
 
 app.Run();
+
+/// <summary>Entegrasyon testlerindeki WebApplicationFactory&lt;Program&gt; için görünür.</summary>
+public partial class Program;

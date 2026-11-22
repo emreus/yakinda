@@ -177,6 +177,27 @@ Redis 1 saniyeden fazla gecikirse istek beklemez.
 
 ---
 
+## Testler
+
+```bash
+cd backend
+dotnet test
+```
+
+| Proje | Ne test eder | Gereksinim |
+|---|---|---|
+| `tests/Yakinda.Domain.Tests` | Etkinlik/katılım kuralları: kontenjan, iptal, oylama penceresi, puan farkı, durum geçişleri | Yok (milisaniyeler) |
+| `tests/Yakinda.Api.IntegrationTests` | Gerçek HTTP + gerçek PostGIS: kayıt/giriş, yakındakiler, katılım + bildirim, onay akışı, iptal, oylama ortalamaları, zamanlayıcı, rate limit | Docker çalışıyor olmalı |
+
+Entegrasyon testleri Testcontainers ile kendi PostGIS konteynerini açıp kapatır; geliştirme veritabanına dokunmaz.
+Apple Silicon Mac'te PostGIS imajı yalnızca amd64 olduğu için önce bir kez `docker compose up -d` (ya da
+`docker pull --platform linux/amd64 postgis/postgis:17-3.5`) çalıştırılmış olmalı. CI her PR'da ikisini de çalıştırır.
+
+**Rate limiting:** `/api/auth/*` uçları IP başına dakikada 20 istekle sınırlı (`RateLimiting` ayarları); aşılınca
+`429` + `"code": "rate_limited"` + `Retry-After` döner.
+
+---
+
 ## Bildirimler
 
 | Olay | Kime | Nasıl üretilir |
@@ -270,5 +291,4 @@ kütüphanesine geçebilirsiniz. Mimari aynı kalır.
 3. **Güven & güvenlik**: kullanıcı engelleme/şikayet, telefon doğrulama, rate limiting (`AddRateLimiter`).
 4. **Sıralamada Bayesian ortalama**: tek oyla 5,0 alan organizatörün 200 oyla 4,8 alanın önüne geçmemesi için
    `(C·m + Σpuan) / (C + n)` gibi ağırlıklı skor (gösterimde ham ortalama kalabilir).
-5. **Testler**: Domain kuralları için birim testleri, Testcontainers (PostGIS) ile entegrasyon testleri.
 6. Profil fotoğrafı / etkinlik görseli (S3/Blob + ön imzalı URL).

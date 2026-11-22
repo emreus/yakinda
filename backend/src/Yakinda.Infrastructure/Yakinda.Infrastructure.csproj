@@ -24,4 +24,8 @@
     <EmbeddedResource Include="Persistence\Migrations\*.sql" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Yakinda.Api.IntegrationTests" />
+  </ItemGroup>
+
 </Project>
