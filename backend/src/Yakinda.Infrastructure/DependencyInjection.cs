@@ -92,8 +92,11 @@ public static class DependencyInjection
             });
 
         services.AddSingleton<ExpoPushClient>();
-        services.AddHostedService<ScheduledNotificationService>();
         services.AddHostedService<PushDispatcher>();
+
+        // Testler zamanı kendileri yönettiği için kapatabilir (Notifications:SchedulerEnabled = false).
+        if (configuration.GetValue("Notifications:SchedulerEnabled", true))
+            services.AddHostedService<ScheduledNotificationService>();
     }
 
     private static void AddPersistence(IServiceCollection services, IConfiguration configuration)

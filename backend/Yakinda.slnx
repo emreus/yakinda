@@ -5,4 +5,8 @@
     <Project Path="src/Yakinda.Infrastructure/Yakinda.Infrastructure.csproj" />
     <Project Path="src/Yakinda.Api/Yakinda.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Yakinda.Domain.Tests/Yakinda.Domain.Tests.csproj" />
+    <Project Path="tests/Yakinda.Api.IntegrationTests/Yakinda.Api.IntegrationTests.csproj" />
+  </Folder>
 </Solution>
