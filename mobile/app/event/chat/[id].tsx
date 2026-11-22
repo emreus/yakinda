@@ -195,22 +195,26 @@ export default function EventChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <FlatList
-          style={styles.list}
-          contentContainerStyle={styles.listContent}
-          data={messages}
-          inverted
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <Bubble message={item} onLongPress={() => openActions(item)} />}
-          onEndReached={loadOlder}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={loadingOlder ? <ActivityIndicator color={colors.primary} /> : undefined}
-          ListEmptyComponent={
-            <View style={styles.empty}>
+        <View style={styles.listArea}>
+          <FlatList
+            style={styles.list}
+            contentContainerStyle={styles.listContent}
+            data={messages}
+            inverted
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <Bubble message={item} onLongPress={() => openActions(item)} />}
+            onEndReached={loadOlder}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={loadingOlder ? <ActivityIndicator color={colors.primary} /> : undefined}
+          />
+          {/* Boş durum yazısı listenin içinde değil, üstünde çizilir: inverted liste içeriğini ters çevirerek
+              çizdiği için içine konan yazı ters görünüyordu. Dokunmalar alttaki listeye geçer. */}
+          {messages.length === 0 ? (
+            <View style={styles.empty} pointerEvents="none">
               <Text style={styles.emptyText}>Henüz mesaj yok. Buluşma detaylarını konuşmak için ilk mesajı sen yaz.</Text>
             </View>
-          }
-        />
+          ) : null}
+        </View>
 
         {readOnly ? (
           <Text style={styles.readOnly}>Bu etkinlik iptal edildi; sohbet salt okunur.</Text>
@@ -265,9 +269,18 @@ function Bubble({ message, onLongPress }: { message: ChatMessage; onLongPress: (
 const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.background },
   spinner: { marginTop: spacing.xxl },
+  listArea: { flex: 1 },
   list: { flex: 1 },
   listContent: { padding: spacing.md, gap: spacing.sm, flexGrow: 1 },
-  empty: { flex: 1, justifyContent: 'center', padding: spacing.xl, transform: [{ scaleY: -1 }] },
+  empty: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: 'center',
+    padding: spacing.xl,
+  },
   emptyText: { ...font.small, textAlign: 'center' },
   bubbleRow: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'flex-end', gap: spacing.xs },
   bubbleRowMine: { justifyContent: 'flex-end' },
