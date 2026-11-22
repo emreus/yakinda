@@ -31,6 +31,8 @@ internal static class EventSql
         e.organizer_id,
         u.display_name AS organizer_name,
         {Average("u.rating_sum", "u.rating_count")} AS organizer_rating,
-        u.rating_count AS organizer_rating_count
+        u.rating_count AS organizer_rating_count,
+        {Media.MediaUrl.Sql("e.image_key")} AS image_url,
+        {Media.MediaUrl.Sql("u.avatar_key")} AS organizer_avatar_url
         """;
 }

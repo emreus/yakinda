@@ -10,6 +10,8 @@ using Yakinda.Application.Events.Join;
 using Yakinda.Application.Events.Leave;
 using Yakinda.Application.Events.Participants;
 using Yakinda.Application.Events.Rate;
+using Yakinda.Application.Media;
+using Yakinda.Api.Infrastructure;
 
 namespace Yakinda.Api.Endpoints;
 
@@ -32,6 +34,16 @@ public static class EventEndpoints
     public static RouteGroupBuilder MapEventEndpoints(this RouteGroupBuilder api)
     {
         var group = api.MapGroup("/events").WithTags("Events").RequireAuthorization();
+
+        // Kapak görseli (yalnız organizatör): multipart/form-data, "file" alanı
+        group.MapPut("/{id:guid}/image", async (Guid id, HttpRequest request, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(new SetEventImageCommand(id, await request.ReadImageUploadAsync(ct)), ct)));
+
+        group.MapDelete("/{id:guid}/image", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new DeleteEventImageCommand(id), ct);
+            return Results.NoContent();
+        });
 
         // GET /api/events/nearby?lat=41.01&lng=28.97&radiusKm=10&categoryId=1&onlyAvailable=true&sort=time&page=1
         group.MapGet("/nearby", async (

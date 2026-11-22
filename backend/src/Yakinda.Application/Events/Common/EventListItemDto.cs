@@ -31,6 +31,10 @@ public sealed class EventListItemDto
     public string OrganizerName { get; set; } = string.Empty;
     public double? OrganizerRating { get; set; }
     public int OrganizerRatingCount { get; set; }
+    public string? OrganizerAvatarUrl { get; set; }
+
+    /// <summary>Kapak görseli; API köküne göre: "/media/events/....jpg".</summary>
+    public string? ImageUrl { get; set; }
 
     /// <summary>Kalan yer. null = sınırsız. "Okeye 4. aranıyor" => 1</summary>
     public int? SpotsLeft => Capacity is null ? null : Math.Max(0, Capacity.Value - ParticipantCount);

@@ -17,6 +17,7 @@ public sealed class ParticipantDto
 {
     public Guid UserId { get; set; }
     public string DisplayName { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
     public ParticipantStatus Status { get; set; }
     public DateTime RequestedAt { get; set; }
 
@@ -31,6 +32,7 @@ internal sealed class GetEventParticipantsQueryHandler(IDbConnectionFactory db, 
     private static readonly string Sql = $"""
         SELECT p.user_id,
                u.display_name,
+               {Media.MediaUrl.Sql("u.avatar_key")} AS avatar_url,
                p.status,
                p.created_at AS requested_at,
                {EventSql.Average("u.rating_sum", "u.rating_count")} AS average_rating,

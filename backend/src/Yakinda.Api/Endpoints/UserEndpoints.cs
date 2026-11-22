@@ -5,8 +5,12 @@ using Yakinda.Application.Users.GetProfile;
 using Yakinda.Application.Users.DeleteAccount;
 using Yakinda.Application.Safety;
 using Yakinda.Application.Exceptions;
+using Yakinda.Application.Media;
+using Yakinda.Api.Infrastructure;
 
 namespace Yakinda.Api.Endpoints;
+
+public sealed record UpdateProfileRequest(string DisplayName, string? Bio);
 
 public static class UserEndpoints
 {
@@ -16,6 +20,23 @@ public static class UserEndpoints
 
         group.MapGet("/me", async (ICurrentUser currentUser, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetUserProfileQuery(currentUser.RequireUserId()), ct)));
+
+        // Profili düzenle (ad, hakkımda)
+        group.MapPut("/me", async (UpdateProfileRequest body, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new UpdateProfileCommand(body.DisplayName, body.Bio), ct);
+            return Results.NoContent();
+        });
+
+        // Profil fotoğrafı: multipart/form-data, "file" alanı (JPEG/PNG/WebP, en fazla 5 MB)
+        group.MapPut("/me/avatar", async (HttpRequest request, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(new SetMyAvatarCommand(await request.ReadImageUploadAsync(ct)), ct)));
+
+        group.MapDelete("/me/avatar", async (ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new DeleteMyAvatarCommand(), ct);
+            return Results.NoContent();
+        });
 
         // GET /api/users/me/events?role=organizing|attending&includePast=true
         group.MapGet("/me/events", async (string? role, bool? includePast, ISender sender, CancellationToken ct) =>

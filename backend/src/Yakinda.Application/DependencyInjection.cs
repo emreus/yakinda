@@ -25,12 +25,13 @@ public static class DependencyInjection
                 cfg.LicenseKey = mediatRLicenseKey;
 
             // Sıra önemli: ilk eklenen en dışta çalışır.
-            // Logging -> Validation -> QueryCaching -> CacheInvalidation -> Transaction -> Handler
-            // (CacheInvalidation, Transaction'ı sarmalar: etiketler commit'ten sonra temizlenir.)
+            // Logging -> Validation -> QueryCaching -> CacheInvalidation -> MediaChanges -> Transaction -> Handler
+            // (CacheInvalidation ve MediaChanges, Transaction'ı sarmalar: commit'ten sonra çalışırlar.)
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
             cfg.AddOpenBehavior(typeof(QueryCachingBehavior<,>));
             cfg.AddOpenBehavior(typeof(CacheInvalidationBehavior<,>));
+            cfg.AddOpenBehavior(typeof(Media.MediaChangesBehavior<,>));
             cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
         });
 
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<AuthTokenIssuer>();
         services.AddScoped<Events.Common.WaitlistPromoter>();
         services.AddScoped<Safety.AccountCleanup>();
+        services.AddScoped<Media.MediaChanges>();
 
         // Command başına biriken cache etiketleri
         services.AddScoped<CacheInvalidationQueue>();

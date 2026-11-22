@@ -2,6 +2,7 @@ using Dapper;
 using FluentValidation;
 using MediatR;
 using Yakinda.Application.Abstractions.Auth;
+using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
 using Yakinda.Application.Events.Common;
@@ -157,7 +158,8 @@ internal static class ReportTargetSql
 /// <summary>
 /// Şikayeti sonuçlandırır; aynı içerik için açık olan diğer şikayetler de kapanır.
 ///  * Dismiss: kural ihlali yok.
-///  * RemoveContent: etkinlik kaldırılır (katılımcılara bildirim) ya da mesaj silinir.
+///  * RemoveContent: etkinlik kaldırılır (katılımcılara bildirim, kapak görseli silinir), mesaj silinir ya da
+///    kullanıcı şikayetinde profil fotoğrafı ve "hakkımda" yazısı kaldırılır.
 ///  * BanUser: içeriğin sahibi yasaklanır: giriş yapamaz, yaklaşan etkinlikleri kaldırılır, katılımları boşalır.
 /// </summary>
 public sealed record ResolveReportCommand(Guid ReportId, ModerationAction Action, string? Note) : ICommand<Unit>;
@@ -168,6 +170,9 @@ internal sealed class ResolveReportCommandHandler(
     IUserRepository users,
     IReportTargetLookup targets,
     IModerationContentRemover contentRemover,
+    IMediaRepository media,
+    Media.MediaChanges mediaChanges,
+    ICacheInvalidator cacheInvalidator,
     AccountCleanup cleanup,
     ICurrentUser currentUser,
     TimeProvider timeProvider) : IRequestHandler<ResolveReportCommand, Unit>
@@ -196,8 +201,7 @@ internal sealed class ResolveReportCommandHandler(
                 await users.BanAsync(ownerId, now, cancellationToken);
                 await cleanup.CloseUpcomingOrganizedEventsAsync(ownerId, removedByModerator: true, now, cancellationToken);
                 await cleanup.LeaveUpcomingEventsAsync(ownerId, now, cancellationToken);
-                if (report.TargetType != ReportTargetType.User)
-                    await RemoveContentAsync(report, now, cancellationToken);
+                await RemoveContentAsync(report, now, cancellationToken);
                 break;
         }
 
@@ -221,12 +225,16 @@ internal sealed class ResolveReportCommandHandler(
                 var ev = await events.GetForUpdateAsync(report.TargetId, cancellationToken)
                     ?? throw new NotFoundException("report.target_not_found", "Etkinlik bulunamadı.");
                 await cleanup.CloseAsync(ev, removedByModerator: true, now, cancellationToken);
+                mediaChanges.DeleteAfterCommit(await media.SetEventImageAsync(ev.Id, null, cancellationToken));
                 break;
             case ReportTargetType.Message:
                 await contentRemover.RemoveMessageAsync(report.TargetId, now, cancellationToken);
                 break;
-            default:
-                throw new ConflictException("report.cannot_remove_user", "Kullanıcı şikayetinde içerik kaldırılamaz; yasaklamayı kullan.");
+            case ReportTargetType.User:
+                mediaChanges.DeleteAfterCommit(await media.SetUserAvatarAsync(report.TargetId, null, cancellationToken));
+                await users.ClearBioAsync(report.TargetId, cancellationToken);
+                cacheInvalidator.InvalidateAfterCommit(CacheTag.User(report.TargetId));
+                break;
         }
     }
 

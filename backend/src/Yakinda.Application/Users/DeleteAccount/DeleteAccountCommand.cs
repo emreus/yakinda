@@ -13,7 +13,7 @@ namespace Yakinda.Application.Users.DeleteAccount;
 /// Kullanıcı hesabını kalıcı olarak siler (App Store 5.1.1(v), Google Play hesap silme şartı).
 ///  1. Yaklaşan etkinliklerdeki yeri boşaltılır (bekleme listesi ilerler).
 ///  2. Düzenlediği yaklaşan etkinlikler iptal edilir, katılımcılara bildirim gider.
-///  3. Kişisel veriler silinir, satır anonimleşir ("Silinmiş kullanıcı"); geçmiş etkinlikler ve
+///  3. Kişisel veriler (profil fotoğrafı dahil) silinir, satır anonimleşir ("Silinmiş kullanıcı"); geçmiş etkinlikler ve
 ///     verdiği oyların sayıları kalır ki diğer kullanıcıların puan ortalamaları değişmesin.
 /// Yanlışlıkla ya da başkasının silmesini önlemek için şifre tekrar istenir.
 /// </summary>
@@ -27,6 +27,8 @@ internal sealed class DeleteAccountCommandValidator : AbstractValidator<DeleteAc
 internal sealed class DeleteAccountCommandHandler(
     IUserRepository users,
     IPasswordHasher passwordHasher,
+    IMediaRepository media,
+    Media.MediaChanges mediaChanges,
     AccountCleanup cleanup,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
@@ -46,6 +48,7 @@ internal sealed class DeleteAccountCommandHandler(
 
         await cleanup.LeaveUpcomingEventsAsync(userId, now, cancellationToken);
         await cleanup.CloseUpcomingOrganizedEventsAsync(userId, removedByModerator: false, now, cancellationToken);
+        mediaChanges.DeleteAfterCommit(await media.SetUserAvatarAsync(userId, null, cancellationToken));
         await users.AnonymizeAsync(userId, now, cancellationToken);
 
         cacheInvalidator.InvalidateAfterCommit(CacheTag.User(userId));

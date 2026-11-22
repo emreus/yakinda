@@ -67,6 +67,18 @@ public interface IUserRepository
     Task BanAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 
     Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken cancellationToken);
+
+    Task UpdateProfileAsync(Guid userId, string displayName, string? bio, CancellationToken cancellationToken);
+
+    Task ClearBioAsync(Guid userId, CancellationToken cancellationToken);
+}
+
+/// <summary>Görsel anahtarları. Her yöntem yerine yenisi yazılan eski anahtarı döner (dosyası silinsin diye).</summary>
+public interface IMediaRepository
+{
+    Task<string?> SetUserAvatarAsync(Guid userId, string? key, CancellationToken cancellationToken);
+
+    Task<string?> SetEventImageAsync(Guid eventId, string? key, CancellationToken cancellationToken);
 }
 
 public interface IChatRepository
