@@ -19,6 +19,20 @@ public sealed class User
 
     public DateTime CreatedAt { get; private set; }
 
+    /// <summary>Kayıtta kullanım koşulları ve gizlilik politikası kabul edildi.</summary>
+    public DateTime? TermsAcceptedAt { get; private set; }
+
+    /// <summary>Şikayetleri inceleyebilir (veritabanından elle verilir).</summary>
+    public bool IsAdmin { get; private set; }
+
+    /// <summary>Kurallara aykırılık nedeniyle yasaklandı; giriş yapamaz.</summary>
+    public DateTime? BannedAt { get; private set; }
+
+    /// <summary>Hesap silindi; kişisel veriler temizlendi.</summary>
+    public DateTime? DeletedAt { get; private set; }
+
+    public bool IsBanned => BannedAt is not null;
+
     /// <summary>
     /// Organizatör puanı: her bir oy eşit ağırlıktadır (etkinlik ortalamalarının ortalaması değil).
     /// Böylece 50 kişinin oyladığı parti, 1 kişinin oyladığı okey masasından daha fazla etki eder.
@@ -36,6 +50,7 @@ public sealed class User
         DisplayName = displayName.Trim(),
         RatingSum = 0,
         RatingCount = 0,
-        CreatedAt = nowUtc
+        CreatedAt = nowUtc,
+        TermsAcceptedAt = nowUtc
     };
 }

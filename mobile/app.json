@@ -30,6 +30,9 @@
           "locationWhenInUsePermission": "Yakınındaki etkinlikleri gösterebilmek ve etkinlik konumunu seçebilmen için konumuna ihtiyacımız var."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "supportEmail": "destek@ornek.com"
+    }
   }
 }

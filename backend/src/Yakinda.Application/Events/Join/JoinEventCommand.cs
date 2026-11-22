@@ -3,6 +3,7 @@ using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
+using Yakinda.Application.Exceptions;
 using Yakinda.Application.Notifications;
 using Yakinda.Domain.Events;
 
@@ -17,6 +18,7 @@ internal sealed class JoinEventCommandHandler(
     IEventRepository events,
     IParticipantRepository participants,
     IUserRepository users,
+    IBlockRepository blocks,
     INotificationRepository notifications,
     ICurrentUser currentUser,
     ICacheInvalidator cacheInvalidator,
@@ -31,6 +33,9 @@ internal sealed class JoinEventCommandHandler(
         // sonra kontenjanı dolu görür. (Okeye 4. aranıyor senaryosu.)
         var ev = await events.GetForUpdateAsync(request.EventId, cancellationToken)
             ?? throw EventErrors.NotFound();
+
+        if (await blocks.IsBlockedEitherWayAsync(userId, ev.OrganizerId, cancellationToken))
+            throw new ForbiddenException("event.blocked", "Bu etkinliğe katılamazsın.");
 
         var participant = await participants.GetAsync(ev.Id, userId, cancellationToken);
         participant?.EnsureCanRejoin();

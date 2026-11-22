@@ -44,6 +44,12 @@ public static class NotificationTexts
             "Etkinlik iptal edildi",
             $"\"{eventTitle}\" etkinliği organizatör tarafından iptal edildi.");
 
+    /// <summary>Yönetici kurallara aykırı bulduğu etkinliği kaldırdı.</summary>
+    public static NotificationContent EventRemoved(string eventTitle) =>
+        new(NotificationType.EventCancelled,
+            "Etkinlik kaldırıldı",
+            $"\"{eventTitle}\" etkinliği topluluk kurallarına aykırı bulunduğu için kaldırıldı.");
+
     public static NotificationContent EventReminder(string eventTitle) =>
         new(NotificationType.EventReminder,
             "Etkinlik yaklaşıyor",

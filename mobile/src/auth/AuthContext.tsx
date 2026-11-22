@@ -16,7 +16,8 @@ interface AuthContextValue {
   status: AuthStatus;
   user: AuthUser | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  /** acceptTerms: kullanım koşulları ve gizlilik politikası kabul edildi (zorunlu) */
+  signUp: (email: string, password: string, displayName: string, acceptTerms: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -93,8 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName: string) =>
-      applySession(await authApi.register(email, password, displayName)),
+    async (email: string, password: string, displayName: string, acceptTerms: boolean) =>
+      applySession(await authApi.register(email, password, displayName, acceptTerms)),
     [applySession],
   );
 

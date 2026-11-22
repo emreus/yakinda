@@ -41,6 +41,11 @@ internal sealed class RefreshTokenCommandHandler(
         var user = await users.GetByIdAsync(record.UserId, cancellationToken)
             ?? throw new UnauthorizedException("auth.user_not_found", "Kullanıcı bulunamadı.");
 
+        if (user.DeletedAt is not null)
+            throw new UnauthorizedException("auth.user_not_found", "Kullanıcı bulunamadı.");
+        if (user.IsBanned)
+            throw AuthErrors.Banned();
+
         return await tokenIssuer.IssueAsync(user, cancellationToken);
     }
 }

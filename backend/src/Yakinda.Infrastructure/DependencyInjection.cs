@@ -114,6 +114,11 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<DbSession>());
 
         services.AddScoped<IEventRepository, EventRepository>();
+        services.AddScoped<IBlockRepository, BlockRepository>();
+        services.AddScoped<IReportRepository, ReportRepository>();
+        services.AddScoped<Moderation.MessageModeration>();
+        services.AddScoped<Application.Safety.IReportTargetLookup>(sp => sp.GetRequiredService<Moderation.MessageModeration>());
+        services.AddScoped<Application.Safety.IModerationContentRemover>(sp => sp.GetRequiredService<Moderation.MessageModeration>());
         services.AddScoped<IParticipantRepository, ParticipantRepository>();
         services.AddScoped<IRatingRepository, RatingRepository>();
         services.AddScoped<IUserRepository, UserRepository>();

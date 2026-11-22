@@ -35,4 +35,15 @@ internal sealed class ParticipantRepository(DbSession session) : RepositoryBase(
             "SELECT count(*)::int FROM event_participants WHERE event_id = @EventId AND status = @Status",
             new { EventId = eventId, Status = (short)status },
             cancellationToken);
+
+    public Task<IReadOnlyList<Guid>> GetUpcomingActiveEventIdsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        QueryAsync<Guid>("""
+            SELECT p.event_id
+            FROM event_participants p
+            JOIN events e ON e.id = p.event_id
+            WHERE p.user_id = @UserId
+              AND p.status IN (0, 1, 4)
+              AND e.status = 0
+              AND e.starts_at > @Now
+            """, new { UserId = userId, Now = nowUtc }, cancellationToken);
 }

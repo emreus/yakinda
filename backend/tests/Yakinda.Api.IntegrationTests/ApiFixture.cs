@@ -72,7 +72,7 @@ public sealed class ApiFixture : IAsyncLifetime
         var email = $"{Guid.NewGuid():N}@test.local";
         const string password = "Sifre12345";
 
-        var response = await client.PostAsJsonAsync("/api/auth/register", new { email, password, displayName });
+        var response = await client.PostAsJsonAsync("/api/auth/register", new { email, password, displayName, acceptTerms = true });
         var auth = await response.ReadJsonAsync(HttpStatusCode.OK);
 
         client.DefaultRequestHeaders.Authorization =

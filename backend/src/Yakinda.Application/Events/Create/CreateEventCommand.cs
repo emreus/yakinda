@@ -1,4 +1,5 @@
 using FluentValidation;
+using Yakinda.Application.Moderation;
 using FluentValidation.Results;
 using MediatR;
 using Yakinda.Application.Abstractions.Auth;
@@ -31,10 +32,10 @@ internal sealed class CreateEventCommandValidator : AbstractValidator<CreateEven
     public CreateEventCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.CategoryId).GreaterThan((short)0).WithName("Kategori");
-        RuleFor(x => x.Title).NotEmpty().MaximumLength(EventRules.TitleMaxLength).WithName("Başlık");
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(EventRules.TitleMaxLength).NotObjectionable().WithName("Başlık");
         RuleFor(x => x.RepeatWeeks).InclusiveBetween(0, MaxRepeatWeeks).WithName("Tekrar");
-        RuleFor(x => x.Description).MaximumLength(EventRules.DescriptionMaxLength).WithName("Açıklama");
-        RuleFor(x => x.PlaceName).MaximumLength(EventRules.PlaceNameMaxLength).WithName("Mekan adı");
+        RuleFor(x => x.Description).MaximumLength(EventRules.DescriptionMaxLength).NotObjectionable().WithName("Açıklama");
+        RuleFor(x => x.PlaceName).MaximumLength(EventRules.PlaceNameMaxLength).NotObjectionable().WithName("Mekan adı");
         RuleFor(x => x.Address).MaximumLength(EventRules.AddressMaxLength).WithName("Adres");
 
         RuleFor(x => x.StartsAt)

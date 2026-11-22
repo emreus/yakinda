@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
+import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { errorMessage } from '@/api/client';
 import type { MyEventsRole } from '@/api/endpoints';
 import { useAuth } from '@/auth/AuthContext';
 import { EventCard } from '@/components/EventCard';
 import { ProfileHeader } from '@/components/ProfileHeader';
-import { Button, Chip, EmptyState } from '@/components/ui';
+import { Button, Card, Chip, EmptyState } from '@/components/ui';
+import { contactSupport, openLegalPage, SUPPORT_EMAIL } from '@/legal';
 import { useMyEvents, useMyProfile } from '@/hooks/queries';
 import { colors, spacing } from '@/theme';
 
@@ -65,12 +67,56 @@ export default function ProfileScreen() {
         ))}
       </View>
 
+      <Card style={styles.settings}>
+        <SettingsRow icon="🚫" label="Engellenen kullanıcılar" onPress={() => router.push('/settings/blocked')} />
+        <SettingsRow icon="🔒" label="Gizlilik politikası" onPress={() => openLegalPage('privacy')} />
+        <SettingsRow icon="📜" label="Kullanım koşulları" onPress={() => openLegalPage('terms')} />
+        <SettingsRow icon="✉️" label={`Destek: ${SUPPORT_EMAIL}`} onPress={() => contactSupport()} />
+        <SettingsRow icon="🗑️" label="Hesabımı sil" danger onPress={() => router.push('/settings/delete-account')} last />
+      </Card>
+
       <Button title="Çıkış yap" variant="ghost" onPress={confirmSignOut} style={styles.signOut} />
     </ScrollView>
   );
 }
 
+function SettingsRow({
+  icon,
+  label,
+  onPress,
+  danger,
+  last,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+  last?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.settingsRow, !last && styles.settingsDivider, pressed && styles.pressed]}
+      accessibilityRole="button"
+    >
+      <Text style={styles.settingsIcon}>{icon}</Text>
+      <Text style={[styles.settingsLabel, danger && styles.danger]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={styles.chevron}>›</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  settings: { paddingVertical: 0, paddingHorizontal: spacing.md },
+  settingsRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md },
+  settingsDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border },
+  settingsIcon: { fontSize: 18, width: 24, textAlign: 'center' },
+  settingsLabel: { flex: 1, fontSize: 15, color: colors.text },
+  danger: { color: colors.danger },
+  chevron: { fontSize: 20, color: colors.muted },
+  pressed: { opacity: 0.6 },
   screen: { backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
   tabs: { flexDirection: 'row', gap: spacing.sm },

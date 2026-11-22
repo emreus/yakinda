@@ -1,0 +1,48 @@
+# Uygunsuz içerik filtresi için başlangıç listesi. Her satır bir ifade.
+#   kelime   → sadece tam kelime olarak eşleşir (ör. "göt" eşleşir, "götür" eşleşmez)
+#   kelime*  → bu ifadeyle başlayan kelimeler de eşleşir (ör. "siktir*" → "siktirgit")
+# Türkçe harfler korunur: "sık" (sıkıntı, sıkıcı) ile "sik" farklıdır. Büyük/küçük harf,
+# tekrarlanan harfler (fuuuck) ve rakam/sembol hileleri (s1kt1r, @) otomatik normalleştirilir.
+# Liste bilerek kısa tutuldu; yanlış pozitif görürseniz buradan çıkarın, eksik görürseniz ekleyin.
+
+# Türkçe
+amk
+aq
+amına*
+amınakoy*
+amcık*
+orospu*
+orosbu*
+siktir*
+sikerim
+sikeyim
+sikiş*
+sikik
+siktiğ*
+yarrak*
+yarak
+taşak*
+göt
+götveren*
+ibne*
+pezevenk*
+kahpe*
+kaltak*
+gavat*
+puşt*
+yavşak*
+sürtük*
+
+# English
+fuck*
+motherfuck*
+shit
+bullshit
+bitch*
+cunt*
+asshole*
+whore*
+slut*
+nigger*
+nigga*
+faggot*

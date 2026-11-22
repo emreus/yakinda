@@ -54,6 +54,7 @@ internal sealed class ViewerState
     public string? MyComment { get; set; }
     public int PendingCount { get; set; }
     public int MyWaitlistPosition { get; set; }
+    public bool IsBlocked { get; set; }
 }
 
 /// <summary>API'nin döndüğü model; mobil uygulamanın beklediği alanlar değişmedi.</summary>
@@ -151,7 +152,7 @@ internal sealed class GetEventDetailQueryHandler(
         """;
 
     // Her zaman tam olarak bir satır döner; kayıt yoksa ilgili kolon NULL olur.
-    private const string ViewerSql = """
+    private static readonly string ViewerSql = $"""
         SELECT
             (SELECT p.status FROM event_participants p
               WHERE p.event_id = @EventId AND p.user_id = @UserId) AS my_participation_status,
@@ -169,7 +170,8 @@ internal sealed class GetEventDetailQueryHandler(
                JOIN event_participants me
                  ON me.event_id = w.event_id AND me.user_id = @UserId AND me.status = 4
               WHERE w.event_id = @EventId AND w.status = 4
-                AND (w.updated_at, w.created_at, w.user_id) <= (me.updated_at, me.created_at, me.user_id))::int AS my_waitlist_position
+                AND (w.updated_at, w.created_at, w.user_id) <= (me.updated_at, me.created_at, me.user_id))::int AS my_waitlist_position,
+            {Safety.BlockSql.EitherWay("@UserId", "@OrganizerId")} AS is_blocked
         """;
 
     public async Task<EventDetailDto> Handle(GetEventDetailQuery request, CancellationToken cancellationToken)
@@ -192,9 +194,13 @@ internal sealed class GetEventDetailQueryHandler(
         {
             viewer = await connection.QuerySingleAsync<ViewerState>(new CommandDefinition(
                 ViewerSql,
-                new { request.EventId, UserId = userId, IsOrganizer = isOrganizer },
+                new { request.EventId, UserId = userId, IsOrganizer = isOrganizer, snapshot.OrganizerId },
                 cancellationToken: cancellationToken));
         }
+
+        // Organizatörle aramızda engel varsa etkinlik yokmuş gibi davranılır.
+        if (viewer.IsBlocked)
+            throw EventErrors.NotFound();
 
         return Compose(snapshot, viewer, isOrganizer, now);
     }

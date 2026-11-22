@@ -1,4 +1,5 @@
 using FluentValidation;
+using Yakinda.Application.Moderation;
 using MediatR;
 using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Messaging;
@@ -8,7 +9,9 @@ using Yakinda.Domain.Users;
 
 namespace Yakinda.Application.Auth;
 
-public sealed record RegisterCommand(string Email, string Password, string DisplayName) : ICommand<AuthResponse>;
+/// <param name="AcceptTerms">Kullanım koşulları ve gizlilik politikası kabul edildi mi (zorunlu).</param>
+public sealed record RegisterCommand(string Email, string Password, string DisplayName, bool AcceptTerms = false)
+    : ICommand<AuthResponse>;
 
 internal sealed class RegisterCommandValidator : AbstractValidator<RegisterCommand>
 {
@@ -16,7 +19,11 @@ internal sealed class RegisterCommandValidator : AbstractValidator<RegisterComma
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256).WithName("E-posta");
         RuleFor(x => x.Password).NotEmpty().MinimumLength(8).MaximumLength(128).WithName("Şifre");
-        RuleFor(x => x.DisplayName).NotEmpty().MinimumLength(2).MaximumLength(50).WithName("Görünen ad");
+        RuleFor(x => x.DisplayName).NotEmpty().MinimumLength(2).MaximumLength(50).NotObjectionable().WithName("Görünen ad");
+        RuleFor(x => x.AcceptTerms)
+            .Equal(true)
+            .WithMessage("Devam etmek için kullanım koşullarını ve gizlilik politikasını kabul etmelisin.")
+            .WithName("Koşullar");
     }
 }
 

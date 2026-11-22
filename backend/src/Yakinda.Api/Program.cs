@@ -51,6 +51,10 @@ api.MapCategoryEndpoints();
 api.MapEventEndpoints();
 api.MapUserEndpoints();
 api.MapNotificationEndpoints();
+api.MapSafetyEndpoints();
+
+// Mağaza sayfaları için gizlilik politikası, kullanım koşulları ve hesap silme sayfaları
+app.MapLegalPages();
 
 app.Run();
 

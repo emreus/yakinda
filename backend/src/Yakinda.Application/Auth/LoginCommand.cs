@@ -29,8 +29,11 @@ internal sealed class LoginCommandHandler(
     {
         var user = await users.GetByEmailAsync(User.NormalizeEmail(request.Email), cancellationToken);
 
-        if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
+        if (user is null || user.DeletedAt is not null || !passwordHasher.Verify(request.Password, user.PasswordHash))
             throw new UnauthorizedException("auth.invalid_credentials", "E-posta veya şifre hatalı.");
+
+        if (user.IsBanned)
+            throw AuthErrors.Banned();
 
         return await tokenIssuer.IssueAsync(user, cancellationToken);
     }

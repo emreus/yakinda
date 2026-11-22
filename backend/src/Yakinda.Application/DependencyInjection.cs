@@ -41,6 +41,7 @@ public static class DependencyInjection
 
         services.AddScoped<AuthTokenIssuer>();
         services.AddScoped<Events.Common.WaitlistPromoter>();
+        services.AddScoped<Safety.AccountCleanup>();
 
         // Command başına biriken cache etiketleri
         services.AddScoped<CacheInvalidationQueue>();
