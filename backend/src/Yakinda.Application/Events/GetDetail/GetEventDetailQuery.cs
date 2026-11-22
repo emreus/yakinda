@@ -107,6 +107,9 @@ public sealed class EventDetailDto
     public bool CanLeave { get; set; }
     public bool CanCancel { get; set; }
     public bool CanEdit { get; set; }
+
+    /// <summary>Etkinlik sohbetini açabilir mi (organizatör ya da onaylı katılımcı).</summary>
+    public bool CanChat { get; set; }
     public bool CanRate { get; set; }
     public DateTime RatingOpensAt { get; set; }
     public DateTime RatingClosesAt { get; set; }
@@ -264,6 +267,7 @@ internal sealed class GetEventDetailQueryHandler(
             CanLeave = isActive && notStarted && hasActiveParticipation,
             CanCancel = isActive && notStarted && isOrganizer,
             CanEdit = isActive && notStarted && isOrganizer,
+            CanChat = s.Status != EventStatus.Removed && (isOrganizer || myStatus == ParticipantStatus.Approved),
             CanRate = isActive && !isOrganizer
                       && myStatus == ParticipantStatus.Approved
                       && EventRules.IsRatingWindowOpen(s.StartsAt, s.EndsAt, now)

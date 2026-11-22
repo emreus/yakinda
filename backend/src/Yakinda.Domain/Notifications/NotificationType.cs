@@ -28,5 +28,8 @@ public enum NotificationType : short
     EventUpdated = 8,
 
     /// <summary>Bekleme listesindekine: yer açıldı (katıldı ya da isteği organizatöre iletildi).</summary>
-    WaitlistPromoted = 9
+    WaitlistPromoted = 9,
+
+    /// <summary>Etkinlik sohbetinde yeni mesaj (okunana kadar etkinlik başına tek bildirim).</summary>
+    ChatMessage = 10
 }

@@ -68,7 +68,7 @@ internal sealed class CreateReportCommandHandler(
     }
 }
 
-/// <summary>Mesaj gibi ayrı tablolardaki şikayet hedeflerinin sahibini bulur (sohbet eklenince doldurulur).</summary>
+/// <summary>Mesaj gibi ayrı tablolardaki şikayet hedeflerinin sahibini bulur.</summary>
 public interface IReportTargetLookup
 {
     Task<Guid?> GetMessageAuthorAsync(Guid messageId, CancellationToken cancellationToken);
@@ -147,11 +147,11 @@ internal sealed class GetOpenReportsQueryHandler(IDbConnectionFactory db, IUserR
     }
 }
 
-/// <summary>Sohbet tablosu gelene kadar mesaj hedefleri için yer tutucu ifadeler.</summary>
+/// <summary>Şikayet kuyruğunda mesaj hedeflerinin özeti ve sahibi.</summary>
 internal static class ReportTargetSql
 {
-    public const string MessageSummary = "NULL::text";
-    public const string MessageAuthor = "NULL::uuid";
+    public const string MessageSummary = "(SELECT m.body FROM event_messages m WHERE m.id = r.target_id)";
+    public const string MessageAuthor = "(SELECT m.author_id FROM event_messages m WHERE m.id = r.target_id)";
 }
 
 /// <summary>
@@ -240,7 +240,7 @@ internal sealed class ResolveReportCommandHandler(
         } ?? throw new NotFoundException("report.target_not_found", "İçeriğin sahibi bulunamadı.");
 }
 
-/// <summary>Mesaj gibi ayrı tablolardaki içeriği kaldırır (sohbet eklenince doldurulur).</summary>
+/// <summary>Mesaj gibi ayrı tablolardaki içeriği kaldırır.</summary>
 public interface IModerationContentRemover
 {
     Task RemoveMessageAsync(Guid messageId, DateTime nowUtc, CancellationToken cancellationToken);

@@ -19,6 +19,12 @@ internal sealed class EventRepository(DbSession session) : RepositoryBase(sessio
             new { Id = id },
             cancellationToken);
 
+    public Task<Event?> GetAsync(Guid id, CancellationToken cancellationToken) =>
+        QuerySingleOrDefaultAsync<Event>(
+            $"SELECT {SelectColumns} FROM events WHERE id = @Id",
+            new { Id = id },
+            cancellationToken);
+
     public Task AddAsync(Event ev, CancellationToken cancellationToken) =>
         ExecuteAsync("""
             INSERT INTO events (
