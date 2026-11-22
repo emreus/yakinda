@@ -28,8 +28,13 @@ interface FiltersContextValue {
 
 const FiltersContext = createContext<FiltersContextValue | null>(null);
 
+/**
+ * Liste ve harita sekmelerinin paylaştığı filtreleri (yarıçap, kategori, sıralama, arama) tutar ve
+ * altındaki bileşenlere verir.
+ */
 export function NearbyFiltersProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<NearbyFilters>(defaultFilters);
+  // Filtrelerin yalnızca verilen alanlarını değiştirir; diğerleri olduğu gibi kalır.
   const updateFilters = useCallback(
     (patch: Partial<NearbyFilters>) => setFilters((current) => ({ ...current, ...patch })),
     [],
@@ -38,6 +43,7 @@ export function NearbyFiltersProvider({ children }: { children: ReactNode }) {
   return <FiltersContext.Provider value={value}>{children}</FiltersContext.Provider>;
 }
 
+/** Filtrelere ve updateFilters fonksiyonuna erişir; sağlayıcının dışında çağrılırsa hata fırlatır. */
 export function useNearbyFilters(): FiltersContextValue {
   const context = useContext(FiltersContext);
   if (!context) throw new Error('useNearbyFilters, NearbyFiltersProvider içinde kullanılmalı.');

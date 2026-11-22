@@ -9,12 +9,17 @@ import { EmptyState, FullScreenLoader } from '@/components/ui';
 import { useInvalidateEvent, useUserProfile } from '@/hooks/queries';
 import { colors, spacing } from '@/theme';
 
+/**
+ * Başka bir kullanıcının profil ekranı: profil kartı ile şikayet et ve engelle bağlantıları. Kendi
+ * profilime bakıyorsam bu bağlantılar gösterilmez.
+ */
 export default function UserProfileScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const profile = useUserProfile(id);
   const invalidate = useInvalidateEvent();
 
+  // Kullanıcıyı engeller; başarıda listeleri yeniletir, bilgi verir ve önceki ekrana döner.
   const block = useMutation({
     mutationFn: () => safetyApi.block(id),
     onSuccess: () => {

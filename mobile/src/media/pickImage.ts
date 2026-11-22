@@ -45,6 +45,10 @@ export async function pickImage(shape: ImageShape): Promise<LocalImage | null> {
   return shrink(asset, MAX_SIDE[shape]);
 }
 
+/**
+ * Kullanıcıya "Galeriden seç / Fotoğraf çek / Vazgeç" seçeneklerini sorar; seçimi Promise olarak döner
+ * (vazgeçilirse null).
+ */
 function chooseSource(): Promise<'library' | 'camera' | null> {
   return new Promise((resolve) => {
     Alert.alert(
@@ -60,6 +64,10 @@ function chooseSource(): Promise<'library' | 'camera' | null> {
   });
 }
 
+/**
+ * Görseli en uzun kenarı maxSide olacak şekilde küçültür (zaten küçükse boyutuna dokunmaz) ve yüzde 80
+ * kaliteyle JPEG olarak yeniden kaydeder. Yeniden kodlama, konum gibi meta verileri de atar.
+ */
 async function shrink(asset: ImagePicker.ImagePickerAsset, maxSide: number): Promise<LocalImage> {
   const context = ImageManipulator.manipulate(asset.uri);
   if (Math.max(asset.width, asset.height) > maxSide) {

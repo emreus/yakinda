@@ -25,6 +25,11 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Oturum durumunu (yükleniyor, giriş yapılmış, çıkış yapılmış) ve kullanıcıyı tutar; giriş, kayıt, şifre
+ * sıfırlama ve çıkış fonksiyonlarını bütün uygulamaya verir. Açılışta kayıtlı refresh token ile sessizce
+ * giriş dener ve HTTP katmanına token köprüsünü kurar.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<AuthStatus>('loading');
@@ -32,6 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const accessTokenRef = useRef<string | null>(null);
   const refreshInFlight = useRef<Promise<boolean> | null>(null);
 
+  // Yeni oturumu uygular: erişim token'ını bellekte, refresh token'ı cihazın güvenli deposunda saklar,
+  // kullanıcıyı ve "giriş yapılmış" durumunu ayarlar.
   const applySession = useCallback(async (session: AuthResponse) => {
     accessTokenRef.current = session.accessToken;
     await SecureStore.setItemAsync(REFRESH_TOKEN_KEY, session.refreshToken);
@@ -39,6 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStatus('signedIn');
   }, []);
 
+  // Oturumu kapatır: token'ları siler, kullanıcıyı boşaltır ve sorgu önbelleğini temizler (bir sonraki
+  // kullanıcı öncekinin verisini görmesin).
   const clearSession = useCallback(async () => {
     accessTokenRef.current = null;
     await SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY);
@@ -51,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshAccessToken = useCallback((): Promise<boolean> => {
     if (refreshInFlight.current) return refreshInFlight.current;
 
+    // Yenileme isteği. Aynı anda gelen bütün çağrılar bu tek Promise'i bekler.
     const task = (async () => {
       try {
         const storedToken = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
@@ -90,17 +100,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Giriş: API'den dönen oturumu uygular. Hata olursa fırlatır; ekran hata metnini gösterir.
   const signIn = useCallback(
     async (email: string, password: string) => applySession(await authApi.login(email, password)),
     [applySession],
   );
 
+  // Kodla şifre sıfırlama: başarılı olursa sunucu oturum döner ve kullanıcı giriş yapmış olur.
   const resetPassword = useCallback(
     async (email: string, code: string, newPassword: string) =>
       applySession(await authApi.resetPassword(email, code, newPassword)),
     [applySession],
   );
 
+  // Kayıt: hesabı açar ve dönen oturumu uygular.
   const signUp = useCallback(
     async (email: string, password: string, displayName: string, acceptTerms: boolean) =>
       applySession(await authApi.register(email, password, displayName, acceptTerms)),
@@ -134,6 +147,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+/** Oturum bilgisine ve giriş/çıkış fonksiyonlarına erişir; AuthProvider dışında çağrılırsa hata fırlatır. */
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth, AuthProvider içinde kullanılmalı.');

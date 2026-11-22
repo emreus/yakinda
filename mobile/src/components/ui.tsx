@@ -25,6 +25,10 @@ interface ButtonProps {
   style?: StyleProp<ViewStyle>;
 }
 
+/**
+ * Uygulamanın ortak butonu. Dört türü vardır (primary, secondary, danger, ghost); loading iken dönen
+ * gösterge çıkar ve dokunma kapatılır.
+ */
 export function Button({ title, onPress, variant = 'primary', loading, disabled, style }: ButtonProps) {
   const isDisabled = disabled || loading;
   const solid = variant === 'primary' || variant === 'danger';
@@ -67,6 +71,10 @@ interface TextFieldProps extends TextInputProps {
   hint?: string;
 }
 
+/**
+ * Etiketli metin kutusu. Hata verilirse kutu kırmızı çerçeveyle ve altında hata metniyle, yoksa
+ * ipucu metniyle gösterilir.
+ */
 export function TextField({ label, error, hint, style, ...inputProps }: TextFieldProps) {
   return (
     <View style={styles.field}>
@@ -89,6 +97,7 @@ interface ChipProps {
   onPress?: () => void;
 }
 
+/** Seçilebilir hap biçimli buton (filtreler, şablonlar, kategoriler). */
 export function Chip({ label, selected, onPress }: ChipProps) {
   return (
     <Pressable
@@ -102,10 +111,12 @@ export function Chip({ label, selected, onPress }: ChipProps) {
 
 // ---------------------------------------------------------------- Card / Section / Badge
 
+/** İçeriği beyaz, köşeleri yuvarlak ve hafif gölgeli bir kutuya alır. */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
+/** Bölüm başlığı; sağına isteğe bağlı bir öğe (ör. "Tümünü gör" bağlantısı) konabilir. */
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <View style={styles.sectionHeader}>
@@ -125,6 +136,7 @@ const badgeTones: Record<BadgeTone, { bg: string; fg: string }> = {
   neutral: { bg: colors.background, fg: colors.muted },
 };
 
+/** Küçük renkli etiket; tona göre renk değişir (ör. yeşil "1 kişi aranıyor", kırmızı "Kontenjan dolu"). */
 export function Badge({ label, tone = 'neutral' }: { label: string; tone?: BadgeTone }) {
   const t = badgeTones[tone];
   return (
@@ -144,6 +156,7 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
+/** Boş liste ya da hata durumu: emoji, başlık, açıklama ve isteğe bağlı bir eylem butonu. */
 export function EmptyState({ emoji, title, message, actionLabel, onAction }: EmptyStateProps) {
   return (
     <View style={styles.empty}>
@@ -155,6 +168,7 @@ export function EmptyState({ emoji, title, message, actionLabel, onAction }: Emp
   );
 }
 
+/** Ekranın ortasında dönen yükleniyor göstergesi. */
 export function FullScreenLoader() {
   return (
     <View style={styles.loader}>

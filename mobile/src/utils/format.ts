@@ -11,6 +11,7 @@ const fullFormat = new Intl.DateTimeFormat(LOCALE, {
   minute: '2-digit',
 });
 
+/** Tarihin, o günün gece yarısına denk gelen zaman damgasını döner (gün karşılaştırmaları için). */
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
@@ -34,10 +35,12 @@ export function formatRelativeTime(iso: string): string {
   return formatEventDate(iso);
 }
 
+/** Uzun tarih ve saat: gün adı, gün, ay ve saat (ör. "Cumartesi 22 Kasım 19:00"). */
 export function formatDateTimeLong(value: string | Date): string {
   return fullFormat.format(typeof value === 'string' ? new Date(value) : value);
 }
 
+/** Yalnızca saat ve dakika (ör. "19:00"). */
 export function formatTime(iso: string): string {
   return timeFormat.format(new Date(iso));
 }

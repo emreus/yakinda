@@ -22,6 +22,11 @@ import { useCurrentLocation } from '@/hooks/useCurrentLocation';
 import { RADIUS_OPTIONS, useNearbyFilters } from '@/state/NearbyFilters';
 import { colors, radius, spacing } from '@/theme';
 
+/**
+ * Yakınımdaki etkinlikler listesi. Konumu alır, filtrelerle birlikte API parametrelerine çevirir ve
+ * sonsuz kaydırmalı listeyi gösterir. Üstte arama kutusu, kategori, yarıçap, "sadece yeri olanlar" ve
+ * sıralama seçenekleri bulunur. Konum izni yoksa ya da konum alınamazsa açıklayıcı bir durum gösterir.
+ */
 export default function NearbyScreen() {
   const location = useCurrentLocation();
   const { filters, updateFilters } = useNearbyFilters();
@@ -137,6 +142,7 @@ export default function NearbyScreen() {
   );
 }
 
+/** Liste kartları arasındaki boşluk. */
 function Separator() {
   return <View style={{ height: spacing.md }} />;
 }

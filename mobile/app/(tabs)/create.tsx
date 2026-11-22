@@ -7,12 +7,18 @@ import { eventsApi, mediaApi } from '@/api/endpoints';
 import { EventForm, toFormErrors, type EventFormErrors, type EventFormValues } from '@/components/EventForm';
 import { useInvalidateEvent } from '@/hooks/queries';
 
+/**
+ * Etkinlik oluşturma sekmesi: ortak formu oluşturma modunda gösterir. Başarılı oluşturmadan sonra form
+ * sıfırlanır (anahtarı değiştirilerek yeniden kurulur) ve yeni etkinliğin detayına gidilir.
+ */
 export default function CreateEventScreen() {
   const invalidate = useInvalidateEvent();
   // Başarılı gönderimden sonra formu sıfırlamak için yeniden mount edilir.
   const [formKey, setFormKey] = useState(0);
   const [serverErrors, setServerErrors] = useState<EventFormErrors>({});
 
+  // Oluşturma: önce etkinliği oluşturur, sonra seçildiyse kapak görselini yükler. Görsel yüklenemezse
+  // etkinlik yine yayında kalır ve kullanıcıya haber verilir. Sunucu alan hatası dönerse forma aktarılır.
   const mutation = useMutation({
     mutationFn: async ({ cover, ...input }: EventFormValues) => {
       const { id } = await eventsApi.create(input);

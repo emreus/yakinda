@@ -19,6 +19,8 @@ type LocationState =
 export function useCurrentLocation() {
   const [state, setState] = useState<LocationState>({ status: 'loading' });
 
+  // Konumu yükler: izin ister (reddedilirse "denied"), önce son bilinen konumu hemen gösterir, sonra güncel
+  // konumu alır. Hata olursa eldeki konum korunur; hiç konum yoksa "error" durumuna geçer.
   const load = useCallback(async () => {
     setState((s) => ({ status: 'loading', coords: s.coords }));
 
@@ -46,6 +48,7 @@ export function useCurrentLocation() {
   return { ...state, reload: load };
 }
 
+/** Konum nesnesinden yalnızca enlem ve boylamı alır. */
 function pick(coords: { latitude: number; longitude: number }): Coords {
   return { latitude: coords.latitude, longitude: coords.longitude };
 }

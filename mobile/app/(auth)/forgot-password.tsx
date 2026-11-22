@@ -23,6 +23,8 @@ export default function ForgotPasswordScreen() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Birinci adım: sıfırlama kodu ister. Sunucu hesap olsa da olmasa da aynı yanıtı verdiği için bilgi
+  // metni de buna göre yazılır; sonra kod adımına geçilir.
   const sendCode = async () => {
     setError(null);
     setLoading(true);
@@ -37,6 +39,8 @@ export default function ForgotPasswordScreen() {
     }
   };
 
+  // İkinci adım: kod ve yeni şifreyle sıfırlar (şifre 8 karakterden kısaysa istek atılmaz). Başarıda
+  // kullanıcı giriş yapmış olur. Kodun süresi dolduysa ya da deneme hakkı bittiyse ilk adıma dönülür.
   const submitReset = async () => {
     setError(null);
     if (password.length < 8) {

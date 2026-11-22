@@ -54,6 +54,9 @@ export default function EventChatScreen() {
   const isOrganizer = event.data?.isOrganizer ?? false;
   const readOnly = event.data ? event.data.status !== 'Active' : false;
 
+  // Son mesajları sunucudan alıp eldekilerle birleştirir (yeni gelenler eklenir, silinenler güncellenir).
+  // Kimlik geçersizse istek atmadan hata gösterir. Başkasından yeni mesaj geldiyse sohbet bildirimini
+  // okundu yapar. Ekran açıkken 4 saniyede bir çağrılır.
   const refresh = useCallback(async () => {
     if (!validId) {
       setError('Sohbet bulunamadı.');
@@ -89,6 +92,8 @@ export default function EventChatScreen() {
     }, [refresh]),
   );
 
+  // Yukarı kaydırılınca eldeki en eski mesajdan öncekileri yükler ve listeye ekler; daha eski mesaj
+  // kalmadıysa ya da yükleme sürüyorsa hiçbir şey yapmaz.
   const loadOlder = async () => {
     const oldest = messages[messages.length - 1];
     if (!hasMore || loadingOlder || !oldest) return;
@@ -105,6 +110,8 @@ export default function EventChatScreen() {
     }
   };
 
+  // Yazılan mesajı gönderir (boşsa ya da gönderim sürüyorsa göndermez); dönen mesajı listeye ekler ve
+  // kutuyu temizler. Hata olursa uyarı gösterir, metin kutuda kalır.
   const send = async () => {
     const body = text.trim();
     if (!body || sending) return;
@@ -122,6 +129,8 @@ export default function EventChatScreen() {
     }
   };
 
+  // Mesaja uzun basılınca açılan menü: kendi mesajın ya da organizatörsen "Sil", başkasının mesajıysa
+  // "Şikayet et". Silinmiş mesajda menü açılmaz.
   const openActions = (message: ChatMessage) => {
     if (message.isDeleted) return;
     const canDelete = message.isMine || isOrganizer;
@@ -233,6 +242,10 @@ export default function EventChatScreen() {
   );
 }
 
+/**
+ * Tek mesaj balonu. Kendi mesajın sağda ve fotoğrafsız, başkasınınki solda fotoğraf ve adla gösterilir;
+ * silinmiş mesaj "Mesaj silindi" olarak görünür.
+ */
 function Bubble({ message, onLongPress }: { message: ChatMessage; onLongPress: () => void }) {
   const mine = message.isMine;
   return (

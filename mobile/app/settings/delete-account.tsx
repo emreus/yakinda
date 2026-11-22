@@ -14,6 +14,8 @@ export default function DeleteAccountScreen() {
   const { signOut } = useAuth();
   const [password, setPassword] = useState('');
 
+  // Hesabı siler (şifreyle). Başarıda oturumu kapatır ve bilgi mesajı gösterir; şifre yanlışsa sunucunun
+  // mesajı gösterilir.
   const mutation = useMutation({
     mutationFn: () => safetyApi.deleteAccount(password),
     onSuccess: async () => {
@@ -23,6 +25,7 @@ export default function DeleteAccountScreen() {
     onError: (error) => Alert.alert('Hesap silinemedi', errorMessage(error)),
   });
 
+  // Geri alınamaz işlem için son bir onay penceresi açar; onaylanırsa silme isteğini gönderir.
   const confirm = () =>
     Alert.alert('Hesabını sil', 'Bu işlem geri alınamaz. Emin misin?', [
       { text: 'Vazgeç', style: 'cancel' },

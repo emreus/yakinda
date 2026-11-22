@@ -7,6 +7,11 @@ import { formatDistance, formatEventDate, formatSpots } from '@/utils/format';
 import { RatingBadge } from './StarRating';
 import { Badge } from './ui';
 
+/**
+ * Liste kartı: varsa kapak görseli, kategori, başlık, tarih, mekan, mesafe, kontenjan etiketi ve
+ * organizatörün fotoğrafı, adı ve puanı. Dokununca etkinlik detayına gider; iptal edilmiş ya da bitmiş
+ * etkinlik rozetle işaretlenir.
+ */
 export function EventCard({ event }: { event: EventListItem }) {
   const spots = formatSpots(event);
   // Backend kuralıyla aynı: bitiş yoksa başlangıç + 3 saat

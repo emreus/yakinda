@@ -9,6 +9,10 @@ interface StarRatingProps {
   size?: number;
 }
 
+/**
+ * Beş yıldız gösterir. onChange verilirse yıldızlara dokunularak puan seçilir; verilmezse yalnızca
+ * gösterim içindir.
+ */
 export function StarRating({ value, onChange, size = 28 }: StarRatingProps) {
   return (
     <View style={styles.row} accessibilityRole={onChange ? 'adjustable' : 'text'} accessibilityValue={{ min: 0, max: 5, now: value }}>

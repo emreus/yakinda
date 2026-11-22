@@ -11,17 +11,23 @@ import { contactSupport, openLegalPage, SUPPORT_EMAIL } from '@/legal';
 import { useMyEvents, useMyProfile } from '@/hooks/queries';
 import { colors, spacing } from '@/theme';
 
+/**
+ * Profil sekmesi: kendi profil kartım, "Düzenlediklerim / Katıldıklarım" listesi ve ayarlar (profili
+ * düzenle, engellenen kullanıcılar, yasal sayfalar, destek, hesabımı sil, çıkış). Aşağı çekince yenilenir.
+ */
 export default function ProfileScreen() {
   const { signOut } = useAuth();
   const profile = useMyProfile();
   const [role, setRole] = useState<MyEventsRole>('organizing');
   const myEvents = useMyEvents(role);
 
+  // Profili ve etkinlik listesini sunucudan yeniden ister.
   const refresh = () => {
     profile.refetch();
     myEvents.refetch();
   };
 
+  // Çıkış için onay penceresi açar; onaylanırsa oturumu kapatır.
   const confirmSignOut = () =>
     Alert.alert('Çıkış yap', 'Hesabından çıkmak istediğine emin misin?', [
       { text: 'Vazgeç', style: 'cancel' },
@@ -81,6 +87,10 @@ export default function ProfileScreen() {
   );
 }
 
+/**
+ * Ayarlar listesindeki tek satır: simge, etiket ve sağda ok. danger ile kırmızı yazılır (hesap silme,
+ * çıkış); last ile alt çizgi kaldırılır.
+ */
 function SettingsRow({
   icon,
   label,

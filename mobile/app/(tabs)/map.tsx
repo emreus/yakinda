@@ -23,6 +23,11 @@ function approxDistanceKm(a: Coords, b: Coords): number {
   return Math.sqrt(dLat * dLat + dLng * dLng);
 }
 
+/**
+ * Harita sekmesi: yakındaki etkinlikleri pin olarak gösterir (listeyle aynı filtreler, 50 etkinliğe
+ * kadar). Pinin balonuna dokununca etkinlik detayı açılır. Harita başka bir yere kaydırılırsa "Bu bölgede
+ * ara" butonu çıkar ve arama merkezi haritanın ortasına taşınır.
+ */
 export default function MapScreen() {
   const location = useCurrentLocation();
   const { filters } = useNearbyFilters();

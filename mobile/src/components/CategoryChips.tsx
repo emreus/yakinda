@@ -13,6 +13,10 @@ interface CategoryChipsProps {
   inset?: number;
 }
 
+/**
+ * Yatay kayan kategori seçimi. allowAll true ise başta "Tümü" seçeneği bulunur (filtrelerde);
+ * formda kapatılır. Seçim değişince onSelect çağrılır.
+ */
 export function CategoryChips({ categories, selectedId, onSelect, allowAll = true, inset = spacing.lg }: CategoryChipsProps) {
   return (
     <ScrollView

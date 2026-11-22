@@ -7,12 +7,22 @@ import { roundCoords, type Coords } from './useCurrentLocation';
 export const queryKeys = {
   categories: ['categories'] as const,
   nearbyAll: ['events', 'nearby'] as const,
+  /**
+   * Yakındakiler listesinin anahtarı; konum ya da filtre değişince anahtar da değişir ve liste yeniden istenir.
+   */
   nearby: (params: NearbyParams | null) => ['events', 'nearby', params] as const,
+  /** Tek etkinliğin detayının anahtarı. */
   event: (id: string) => ['event', id] as const,
+  /**
+   * Etkinliğin katılımcı listesinin anahtarı. Etkinlik anahtarıyla başladığı için etkinlik yenilenince o da yenilenir.
+   */
   participants: (id: string) => ['event', id, 'participants'] as const,
+  /** Etkinliğin yorum listesinin anahtarı. */
   ratings: (id: string) => ['event', id, 'ratings'] as const,
   me: ['me'] as const,
+  /** Başka bir kullanıcının profilinin anahtarı. */
   user: (id: string) => ['user', id] as const,
+  /** "Düzenlediklerim" ya da "Katıldıklarım" listesinin anahtarı. */
   myEvents: (role: MyEventsRole) => ['myEvents', role] as const,
   /** Tüm bildirim sorgularının ortak öneki (liste + okunmamış sayısı) */
   notifications: ['notifications'] as const,
@@ -20,6 +30,9 @@ export const queryKeys = {
   unreadNotifications: ['notifications', 'unread'] as const,
 };
 
+/**
+ * Kategorileri okur. Liste neredeyse hiç değişmediği için hiç bayatlamaz sayılır (uygulama açıkken bir kez istenir).
+ */
 export function useCategories() {
   return useQuery({
     queryKey: queryKeys.categories,
@@ -28,6 +41,10 @@ export function useCategories() {
   });
 }
 
+/**
+ * Konum ve filtrelerden API parametrelerini üretir. Konum henüz yoksa null döner (sorgu çalışmaz).
+ * Koordinat yaklaşık 100 metreye yuvarlanır; arama metni kırpılır, boşsa gönderilmez.
+ */
 export function buildNearbyParams(
   coords: Coords | undefined,
   filters: NearbyFilters,
@@ -58,26 +75,32 @@ export function useNearbyEvents(params: NearbyParams | null) {
   });
 }
 
+/** Etkinlik detayını önbellekli okur. */
 export function useEventDetail(id: string) {
   return useQuery({ queryKey: queryKeys.event(id), queryFn: () => eventsApi.detail(id) });
 }
 
+/** Etkinliğin katılımcılarını okur; enabled false ise istek atılmaz. */
 export function useParticipants(id: string, enabled = true) {
   return useQuery({ queryKey: queryKeys.participants(id), queryFn: () => eventsApi.participants(id), enabled });
 }
 
+/** Etkinliğe gelen puan ve yorumları okur. */
 export function useRatings(id: string) {
   return useQuery({ queryKey: queryKeys.ratings(id), queryFn: () => eventsApi.ratings(id) });
 }
 
+/** Giriş yapmış kullanıcının kendi profilini okur. */
 export function useMyProfile() {
   return useQuery({ queryKey: queryKeys.me, queryFn: () => usersApi.me() });
 }
 
+/** Başka bir kullanıcının profilini okur. */
 export function useUserProfile(id: string) {
   return useQuery({ queryKey: queryKeys.user(id), queryFn: () => usersApi.get(id) });
 }
 
+/** Düzenlediğim ya da katıldığım etkinlikleri okur. */
 export function useMyEvents(role: MyEventsRole) {
   return useQuery({ queryKey: queryKeys.myEvents(role), queryFn: () => usersApi.myEvents(role) });
 }

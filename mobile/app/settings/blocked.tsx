@@ -16,6 +16,8 @@ export default function BlockedUsersScreen() {
   const invalidateEvents = useInvalidateEvent();
   const blocks = useQuery({ queryKey: BLOCKS_KEY, queryFn: () => safetyApi.blocks() });
 
+  // Engeli kaldırır; başarıda engel listesini ve etkinlik listelerini yeniletir (o kişinin etkinlikleri
+  // yeniden görünür).
   const unblock = useMutation({
     mutationFn: (userId: string) => safetyApi.unblock(userId),
     onSuccess: () => {

@@ -7,6 +7,7 @@ import { useAuth } from '@/auth/AuthContext';
 import { Button, TextField } from '@/components/ui';
 import { colors, font, spacing } from '@/theme';
 
+/** Giriş ekranı: e-posta ve şifre alanları, hata metni, "Şifremi unuttum" ve kayıt bağlantıları. */
 export default function LoginScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
@@ -14,6 +15,7 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Giriş yapar; hata olursa sunucunun mesajını gösterir. Başarıda yönlendirmeyi (auth) düzeni yapar.
   const submit = async () => {
     setError(null);
     setLoading(true);

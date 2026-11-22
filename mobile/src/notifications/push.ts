@@ -18,11 +18,16 @@ type NotificationsModule = typeof import('expo-notifications');
 let modulePromise: Promise<NotificationsModule> | null = null;
 let registeredToken: string | null = null;
 
+/**
+ * expo-notifications modülünü ilk ihtiyaçta, bir kez yükler. Modül Expo Go'da yüklenince hata verdiği
+ * için dosyanın başında değil burada içe aktarılır.
+ */
 function loadNotifications(): Promise<NotificationsModule> {
   modulePromise ??= import('expo-notifications');
   return modulePromise;
 }
 
+/** Push bu ortamda çalışır mı? Web'de ve Expo Go'da false döner. */
 export function isPushAvailable(): boolean {
   return Platform.OS !== 'web' && !isRunningInExpoGo();
 }
@@ -87,6 +92,10 @@ interface PushHandlers {
   onOpen: (opened: OpenedNotification) => void;
 }
 
+/**
+ * Dokunulan bildirimin taşıdığı verilerden bildirim kimliğini, etkinlik kimliğini ve türü okur; metin
+ * olmayan değerleri null sayar.
+ */
 function readOpened(response: NotificationResponse): OpenedNotification {
   const data = response.notification.request.content.data ?? {};
   return {

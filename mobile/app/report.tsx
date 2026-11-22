@@ -34,6 +34,7 @@ export default function ReportScreen() {
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [details, setDetails] = useState('');
 
+  // Şikayeti gönderir (boş açıklama null olarak gider); başarıda teşekkür mesajı gösterip önceki ekrana döner.
   const mutation = useMutation({
     mutationFn: () => safetyApi.report(targetType, targetId, reason!, details.trim() || null),
     onSuccess: () => {
