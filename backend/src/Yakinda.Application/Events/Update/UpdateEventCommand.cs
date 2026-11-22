@@ -1,4 +1,5 @@
 using FluentValidation;
+using Yakinda.Application.Moderation;
 using FluentValidation.Results;
 using MediatR;
 using Yakinda.Application.Abstractions.Auth;
@@ -34,8 +35,8 @@ internal sealed class UpdateEventCommandValidator : AbstractValidator<UpdateEven
     public UpdateEventCommandValidator(TimeProvider timeProvider)
     {
         RuleFor(x => x.CategoryId).GreaterThan((short)0).WithName("Kategori");
-        RuleFor(x => x.Title).NotEmpty().MaximumLength(EventRules.TitleMaxLength).WithName("Başlık");
-        RuleFor(x => x.Description).MaximumLength(EventRules.DescriptionMaxLength).WithName("Açıklama");
+        RuleFor(x => x.Title).NotEmpty().MaximumLength(EventRules.TitleMaxLength).NotObjectionable().WithName("Başlık");
+        RuleFor(x => x.Description).MaximumLength(EventRules.DescriptionMaxLength).NotObjectionable().WithName("Açıklama");
         RuleFor(x => x.StartsAt)
             .Must(startsAt => startsAt > timeProvider.GetUtcNow())
             .WithMessage("Başlangıç zamanı gelecekte olmalı.");
@@ -46,7 +47,7 @@ internal sealed class UpdateEventCommandValidator : AbstractValidator<UpdateEven
             .WithMessage("Bir etkinlik en fazla 7 gün sürebilir.");
         RuleFor(x => x.Latitude).InclusiveBetween(-90d, 90d);
         RuleFor(x => x.Longitude).InclusiveBetween(-180d, 180d);
-        RuleFor(x => x.PlaceName).MaximumLength(EventRules.PlaceNameMaxLength).WithName("Mekan");
+        RuleFor(x => x.PlaceName).MaximumLength(EventRules.PlaceNameMaxLength).NotObjectionable().WithName("Mekan");
         RuleFor(x => x.Address).MaximumLength(EventRules.AddressMaxLength).WithName("Adres");
         RuleFor(x => x.Capacity)
             .InclusiveBetween(1, EventRules.MaxCapacity)

@@ -35,7 +35,7 @@ public sealed class AuthTests(ApiFixture api)
         var user = await api.RegisterAsync();
 
         var response = await api.Factory.CreateClient().PostAsJsonAsync("/api/auth/register",
-            new { email = user.Email.ToUpperInvariant(), password = "BaskaSifre123", displayName = "İkinci" });
+            new { email = user.Email.ToUpperInvariant(), password = "BaskaSifre123", displayName = "İkinci", acceptTerms = true });
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
@@ -57,7 +57,7 @@ public sealed class AuthTests(ApiFixture api)
         var client = api.Factory.CreateClient();
         var email = $"{Guid.NewGuid():N}@test.local";
         var register = await client.PostAsJsonAsync("/api/auth/register",
-            new { email, password = "Sifre12345", displayName = "Yenileme" });
+            new { email, password = "Sifre12345", displayName = "Yenileme", acceptTerms = true });
         var first = (await register.ReadJsonAsync(HttpStatusCode.OK))["refreshToken"]!.GetValue<string>();
 
         var refreshed = await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = first });
@@ -66,6 +66,16 @@ public sealed class AuthTests(ApiFixture api)
 
         var reused = await client.PostAsJsonAsync("/api/auth/refresh", new { refreshToken = first });
         Assert.Equal(HttpStatusCode.Unauthorized, reused.StatusCode);
+    }
+
+    [Fact]
+    public async Task Registration_requires_accepting_the_terms()
+    {
+        var response = await api.Factory.CreateClient().PostAsJsonAsync("/api/auth/register",
+            new { email = $"{Guid.NewGuid():N}@test.local", password = "Sifre12345", displayName = "Koşulsuz" });
+
+        var problem = await response.ReadJsonAsync(HttpStatusCode.BadRequest);
+        Assert.NotNull(problem["errors"]!["acceptTerms"]);
     }
 
     [Fact]

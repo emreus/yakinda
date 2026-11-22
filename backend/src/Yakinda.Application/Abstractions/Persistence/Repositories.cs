@@ -1,5 +1,6 @@
 using Yakinda.Application.Notifications;
 using Yakinda.Domain.Events;
+using Yakinda.Domain.Moderation;
 using Yakinda.Domain.Users;
 
 namespace Yakinda.Application.Abstractions.Persistence;
@@ -17,6 +18,9 @@ public interface IEventRepository
 
     /// <summary>Saat değişince hatırlatma ve puanlama bildirimlerinin yeni saate göre tekrar gitmesi için.</summary>
     Task ResetScheduledNotificationsAsync(Guid eventId, CancellationToken cancellationToken);
+
+    /// <summary>Kullanıcının düzenlediği, başlamamış ve aktif etkinlikler (hesap silme / yasaklama için).</summary>
+    Task<IReadOnlyList<Guid>> GetUpcomingActiveIdsByOrganizerAsync(Guid organizerId, DateTime nowUtc, CancellationToken cancellationToken);
 }
 
 public interface IParticipantRepository
@@ -28,6 +32,9 @@ public interface IParticipantRepository
     Task<EventParticipant?> GetFirstWaitlistedAsync(Guid eventId, CancellationToken cancellationToken);
 
     Task<int> CountAsync(Guid eventId, ParticipantStatus status, CancellationToken cancellationToken);
+
+    /// <summary>Kullanıcının aktif katılımı olan (onaylı, bekleyen, bekleme listesi), başlamamış etkinlikler.</summary>
+    Task<IReadOnlyList<Guid>> GetUpcomingActiveEventIdsAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
 }
 
 public interface IRatingRepository
@@ -45,6 +52,55 @@ public interface IUserRepository
 
     /// <summary>Organizatörün puan toplamını atomik olarak günceller (rating_sum = rating_sum + @delta).</summary>
     Task ApplyRatingDeltaAsync(Guid userId, RatingDelta delta, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Hesap silme: kişisel veriler (e-posta, ad, biyografi, şifre, oturumlar, cihazlar, bildirimler,
+    /// engellemeler, yorum metinleri) silinir; satır anonim olarak kalır ki geçmiş etkinlikler ve
+    /// organizatör ortalamaları bozulmasın.
+    /// </summary>
+    Task AnonymizeAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+
+    /// <summary>Yasaklar; oturumlarını ve cihaz token'larını siler.</summary>
+    Task BanAsync(Guid userId, DateTime nowUtc, CancellationToken cancellationToken);
+}
+
+public interface IBlockRepository
+{
+    Task BlockAsync(Guid blockerId, Guid blockedId, DateTime nowUtc, CancellationToken cancellationToken);
+    Task UnblockAsync(Guid blockerId, Guid blockedId, CancellationToken cancellationToken);
+
+    /// <summary>İkisinden biri diğerini engellemiş mi?</summary>
+    Task<bool> IsBlockedEitherWayAsync(Guid userA, Guid userB, CancellationToken cancellationToken);
+}
+
+public interface IReportRepository
+{
+    /// <summary>Aynı kişinin aynı içerik için açık şikayeti yoksa ekler. Eklendiyse true.</summary>
+    Task<bool> AddIfNotOpenAsync(ReportRecord report, CancellationToken cancellationToken);
+
+    Task<ReportRecord?> GetAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>Aynı içerik için açık olan bütün şikayetleri kapatır.</summary>
+    Task<int> ResolveOpenForTargetAsync(
+        ReportTargetType targetType,
+        Guid targetId,
+        ReportStatus status,
+        Guid adminId,
+        string? note,
+        DateTime nowUtc,
+        CancellationToken cancellationToken);
+}
+
+public sealed class ReportRecord
+{
+    public Guid Id { get; set; }
+    public Guid ReporterId { get; set; }
+    public ReportTargetType TargetType { get; set; }
+    public Guid TargetId { get; set; }
+    public ReportReason Reason { get; set; }
+    public string? Details { get; set; }
+    public ReportStatus Status { get; set; }
+    public DateTime CreatedAt { get; set; }
 }
 
 public interface IRefreshTokenRepository

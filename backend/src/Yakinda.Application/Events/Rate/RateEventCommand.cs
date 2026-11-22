@@ -1,4 +1,5 @@
 using FluentValidation;
+using Yakinda.Application.Moderation;
 using MediatR;
 using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Caching;
@@ -25,7 +26,7 @@ internal sealed class RateEventCommandValidator : AbstractValidator<RateEventCom
     public RateEventCommandValidator()
     {
         RuleFor(x => x.Score).InclusiveBetween(EventRules.MinScore, EventRules.MaxScore).WithName("Puan");
-        RuleFor(x => x.Comment).MaximumLength(EventRules.CommentMaxLength).WithName("Yorum");
+        RuleFor(x => x.Comment).MaximumLength(EventRules.CommentMaxLength).NotObjectionable().WithName("Yorum");
     }
 }
 

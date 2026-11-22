@@ -176,6 +176,21 @@ public sealed class Event
     {
         if (Status == EventStatus.Cancelled)
             throw new DomainException("event.cancelled", "Bu etkinlik iptal edilmiş.");
+        if (Status == EventStatus.Removed)
+            throw new DomainException("event.removed", "Bu etkinlik kaldırıldı.");
+    }
+
+    /// <summary>Yönetici, kurallara aykırı etkinliği kaldırır (başlamış olsa bile).</summary>
+    /// <returns>Etkinlik daha önce aktif miydi (katılımcılara haber verilsin mi)?</returns>
+    public bool RemoveByModerator(DateTime nowUtc)
+    {
+        if (Status == EventStatus.Removed)
+            return false;
+
+        var wasActive = Status == EventStatus.Active;
+        Status = EventStatus.Removed;
+        Touch(nowUtc);
+        return wasActive;
     }
 
     /// <summary>Katılım değişiklikleri (katıl/ayrıl/onayla/reddet) sadece etkinlik başlamadan yapılabilir.</summary>

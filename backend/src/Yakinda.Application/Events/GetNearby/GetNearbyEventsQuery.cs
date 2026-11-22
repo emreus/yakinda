@@ -1,6 +1,7 @@
 using Dapper;
 using FluentValidation;
 using MediatR;
+using Yakinda.Application.Abstractions.Auth;
 using Yakinda.Application.Abstractions.Messaging;
 using Yakinda.Application.Abstractions.Persistence;
 using Yakinda.Application.Common;
@@ -48,7 +49,7 @@ internal sealed class GetNearbyEventsQueryValidator : AbstractValidator<GetNearb
     }
 }
 
-internal sealed class GetNearbyEventsQueryHandler(IDbConnectionFactory db, TimeProvider timeProvider)
+internal sealed class GetNearbyEventsQueryHandler(IDbConnectionFactory db, ICurrentUser currentUser, TimeProvider timeProvider)
     : IRequestHandler<GetNearbyEventsQuery, PagedResult<EventListItemDto>>
 {
     public async Task<PagedResult<EventListItemDto>> Handle(GetNearbyEventsQuery query, CancellationToken cancellationToken)
@@ -93,6 +94,7 @@ internal sealed class GetNearbyEventsQueryHandler(IDbConnectionFactory db, TimeP
                    OR e.title ILIKE @SearchPattern
                    OR e.description ILIKE @SearchPattern
                    OR e.place_name ILIKE @SearchPattern)
+              AND NOT {Safety.BlockSql.EitherWay("@ViewerId", "e.organizer_id")}
             ORDER BY {orderBy}, e.id
             LIMIT @Limit OFFSET @Offset
             """;
@@ -107,6 +109,7 @@ internal sealed class GetNearbyEventsQueryHandler(IDbConnectionFactory db, TimeP
             From = query.From?.UtcDateTime,
             To = query.To?.UtcDateTime,
             query.OnlyAvailable,
+            ViewerId = currentUser.RequireUserId(),
             Search = search,
             SearchPattern = search is null ? null : $"%{EscapeLike(search)}%",
             Limit = query.PageSize + 1, // bir fazlasını çekip "HasMore" hesaplanır

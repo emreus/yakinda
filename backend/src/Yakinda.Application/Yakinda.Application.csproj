@@ -12,4 +12,9 @@
     <PackageReference Include="Dapper" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Uygunsuz içerik filtresinin kelime listesi (ContentFilter) -->
+    <EmbeddedResource Include="Moderation\blocked-words.txt" />
+  </ItemGroup>
+
 </Project>

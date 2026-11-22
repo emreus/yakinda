@@ -23,6 +23,12 @@ internal abstract class RepositoryBase(DbSession session)
         return await connection.ExecuteScalarAsync<T>(Command(sql, param, cancellationToken));
     }
 
+    protected async Task<IReadOnlyList<T>> QueryAsync<T>(string sql, object? param, CancellationToken cancellationToken)
+    {
+        var connection = await session.GetConnectionAsync(cancellationToken);
+        return (await connection.QueryAsync<T>(Command(sql, param, cancellationToken))).AsList();
+    }
+
     private CommandDefinition Command(string sql, object? param, CancellationToken cancellationToken) =>
         new(sql, param, session.Transaction, cancellationToken: cancellationToken);
 }

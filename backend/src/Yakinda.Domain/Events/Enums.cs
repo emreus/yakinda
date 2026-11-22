@@ -5,7 +5,10 @@ namespace Yakinda.Domain.Events;
 public enum EventStatus : short
 {
     Active = 0,
-    Cancelled = 1
+    Cancelled = 1,
+
+    /// <summary>Şikayet sonrası yönetici tarafından kaldırıldı; listelerde görünmez.</summary>
+    Removed = 2
 }
 
 public enum JoinPolicy : short

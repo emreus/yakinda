@@ -63,4 +63,10 @@ internal sealed class EventRepository(DbSession session) : RepositoryBase(sessio
             "SELECT EXISTS (SELECT 1 FROM categories WHERE id = @Id)",
             new { Id = categoryId },
             cancellationToken);
+
+    public Task<IReadOnlyList<Guid>> GetUpcomingActiveIdsByOrganizerAsync(Guid organizerId, DateTime nowUtc, CancellationToken cancellationToken) =>
+        QueryAsync<Guid>(
+            "SELECT id FROM events WHERE organizer_id = @OrganizerId AND status = 0 AND starts_at > @Now",
+            new { OrganizerId = organizerId, Now = nowUtc },
+            cancellationToken);
 }
