@@ -36,7 +36,7 @@ export default function EditProfileScreen() {
   };
 
   // Profil fotoğrafını değiştirir ya da kaldırır. Değiştirmede fotoğraf seçtirilir (kare kırpılmış) ve
-  // seçilir seçilmez yüklenir; seçim iptal edilirse hiçbir şey olmaz.
+  // seçilir seçilmez yüklenir; seçim iptal edilirse yükleme yapılmaz.
   const avatar = useMutation({
     mutationFn: async (action: 'change' | 'remove') => {
       if (action === 'remove') return mediaApi.deleteAvatar();

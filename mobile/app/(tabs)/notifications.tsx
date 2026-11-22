@@ -179,7 +179,7 @@ function NotificationRow({ notification, onPress }: { notification: AppNotificat
   );
 }
 
-/** Satırlar arasındaki ince çizgi. */
+/** Satırlar arasındaki boşluk. */
 function Separator() {
   return <View style={styles.separator} />;
 }

@@ -4,7 +4,10 @@ namespace Yakinda.Domain.Events;
 
 public sealed class EventParticipant
 {
-    // Dapper için
+    /// <summary>
+    /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// Uygulama kodu katılım kaydını Create ile oluşturur.
+    /// </summary>
     private EventParticipant() { }
 
     public Guid EventId { get; private set; }
@@ -27,7 +30,11 @@ public sealed class EventParticipant
         UpdatedAt = nowUtc
     };
 
-    /// <summary>Daha önce kaydı olan kullanıcı tekrar katılmak isterse.</summary>
+    /// <summary>
+    /// Daha önce kaydı olan kullanıcı yeniden katılmak istediğinde çağrılır. Kayıt hâlâ geçerliyse
+    /// (bekleyen, onaylı, reddedilmiş ya da bekleme listesinde) duruma özel bir DomainException fırlatır;
+    /// yalnızca ayrılmış (Left) kullanıcı için hata vermeden döner.
+    /// </summary>
     public void EnsureCanRejoin()
     {
         switch (Status)

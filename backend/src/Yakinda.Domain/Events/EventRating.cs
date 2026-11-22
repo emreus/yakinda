@@ -4,7 +4,10 @@ namespace Yakinda.Domain.Events;
 
 public sealed class EventRating
 {
-    // Dapper için
+    /// <summary>
+    /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// Uygulama kodu puan kaydını Create ile oluşturur.
+    /// </summary>
     private EventRating() { }
 
     public Guid EventId { get; private set; }

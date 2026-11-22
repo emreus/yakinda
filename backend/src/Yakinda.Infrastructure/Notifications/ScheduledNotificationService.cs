@@ -48,7 +48,11 @@ internal sealed class ScheduledNotificationService(
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    /// <summary>Bir tur çalıştırır. Entegrasyon testleri doğrudan çağırır.</summary>
+    /// <summary>
+    /// Bir tur çalıştırır: tek transaction içinde, başlamasına en fazla 1 saat kalan etkinlikler için
+    /// hatırlatma ve biten etkinlikler için puanlama bildirimlerini üretir. Arka plan döngüsü dakikada
+    /// bir çağırır; entegrasyon testleri de doğrudan çağırır.
+    /// </summary>
     internal async Task RunOnceAsync(CancellationToken cancellationToken)
     {
         var now = timeProvider.GetUtcNow().UtcDateTime;

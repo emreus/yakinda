@@ -26,7 +26,8 @@ function approxDistanceKm(a: Coords, b: Coords): number {
 /**
  * Harita sekmesi: yakındaki etkinlikleri pin olarak gösterir (listeyle aynı filtreler, 50 etkinliğe
  * kadar). Pinin balonuna dokununca etkinlik detayı açılır. Harita başka bir yere kaydırılırsa "Bu bölgede
- * ara" butonu çıkar ve arama merkezi haritanın ortasına taşınır.
+ * ara" butonu çıkar; basılınca arama merkezi haritanın ortasına taşınır. Konum butonu aramayı yeniden
+ * kullanıcının kendi konumuna döndürür.
  */
 export default function MapScreen() {
   const location = useCurrentLocation();

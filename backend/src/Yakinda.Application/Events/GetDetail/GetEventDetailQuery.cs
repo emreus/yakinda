@@ -233,7 +233,11 @@ internal sealed class GetEventDetailQueryHandler(
                ?? throw EventErrors.NotFound();
     }
 
-    /// <summary>Paylaşılan kısım + kullanıcıya özel kısım → yetkileri de hesaplanmış DTO.</summary>
+    /// <summary>
+    /// Yanıtı kurar: herkes için aynı olan (cache'lenen) kısmı isteği yapana özel durumla birleştirir ve
+    /// yetki bayraklarını hesaplar (katılabilir, ayrılabilir, iptal edebilir, düzenleyebilir, sohbete
+    /// girebilir, puan verebilir).
+    /// </summary>
     private static EventDetailDto Compose(EventSnapshot s, ViewerState viewer, bool isOrganizer, DateTime now)
     {
         var isActive = s.Status == EventStatus.Active;

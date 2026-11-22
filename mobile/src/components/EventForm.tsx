@@ -102,8 +102,8 @@ function addHours(date: Date, hours: number): Date {
 }
 
 /**
- * Koordinattan bulunan adresi tek satıra çevirir: sokak ya da yer adı, ilçe, il; boş ve tekrarlanan
- * parçalar atılır.
+ * Koordinattan bulunan adresi tek satıra çevirir: yer adı (yoksa sokak), semt ve şehir (yoksa alt
+ * bölge) virgülle birleştirilir; boş ve tekrarlanan parçalar atılır.
  */
 function formatAddress(address: Location.LocationGeocodedAddress | undefined): string {
   if (!address) return '';
@@ -144,7 +144,8 @@ export function EventForm({ mode, initial, minCapacity = 1, submitLabel, submitt
   const coverUri =
     cover.kind === 'set' ? cover.image.uri : cover.kind === 'remove' ? null : mediaUrl(initial?.imageUrl ?? null);
 
-  // Kapak görseli seçtirir (16:9 kırpılmış); seçim yapılırsa formda "yeni görsel" olarak işaretler.
+  // Kapak görseli seçtirir (16:9 kırpılmış); seçim yapılırsa formda "yeni görsel" olarak işaretler,
+  // görsel açılamazsa uyarı gösterir.
   const chooseCover = async () => {
     try {
       const image = await pickImage('wide');

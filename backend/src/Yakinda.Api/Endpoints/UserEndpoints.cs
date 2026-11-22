@@ -23,14 +23,15 @@ public static class UserEndpoints
         group.MapGet("/me", async (ICurrentUser currentUser, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetUserProfileQuery(currentUser.RequireUserId()), ct)));
 
-        // Profili düzenle (ad, hakkımda)
+        // PUT /api/users/me: görünen adı ve tanıtım yazısını günceller.
         group.MapPut("/me", async (UpdateProfileRequest body, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new UpdateProfileCommand(body.DisplayName, body.Bio), ct);
             return Results.NoContent();
         });
 
-        // Profil fotoğrafı: multipart/form-data, "file" alanı (JPEG/PNG/WebP, en fazla 5 MB)
+        // PUT /api/users/me/avatar: profil fotoğrafını yükler ve adresini döner. İstek multipart/form-data
+        // biçimindedir, dosya "file" alanında gelir (JPEG/PNG/WebP, en fazla 5 MB).
         group.MapPut("/me/avatar", async (HttpRequest request, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new SetMyAvatarCommand(await request.ReadImageUploadAsync(ct)), ct)));
 
@@ -41,7 +42,8 @@ public static class UserEndpoints
             return Results.NoContent();
         });
 
-        // GET /api/users/me/events?role=organizing|attending&includePast=true
+        // GET /api/users/me/events?role=organizing|attending&includePast=true: kullanıcının düzenlediği
+        // (role verilmezse) ya da katıldığı etkinlikler. includePast verilmezse geçmiş etkinlikler de gelir.
         group.MapGet("/me/events", async (string? role, bool? includePast, ISender sender, CancellationToken ct) =>
         {
             var parsedRole = string.Equals(role, "attending", StringComparison.OrdinalIgnoreCase)
@@ -62,7 +64,8 @@ public static class UserEndpoints
             return Results.Ok(await sender.Send(new GetUserProfileQuery(id), ct));
         });
 
-        // Engelleme
+        // POST /api/users/{id}/block: kullanıcıyı engeller. Engel iki yönlüdür: iki taraf da birbirinin
+        // etkinliklerini göremez.
         group.MapPost("/{id:guid}/block", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new BlockUserCommand(id), ct);
@@ -80,7 +83,8 @@ public static class UserEndpoints
         group.MapGet("/me/blocks", async (ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetMyBlocksQuery(), ct)));
 
-        // Hesap silme: POST /api/users/me/delete  { "password": "..." }
+        // POST /api/users/me/delete  { "password": "..." }: hesabı kalıcı olarak siler. Şifre yeniden istenir;
+        // yanlışsa 401 döner.
         group.MapPost("/me/delete", async (DeleteAccountRequest body, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new DeleteAccountCommand(body.Password), ct);

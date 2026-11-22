@@ -2,7 +2,9 @@ namespace Yakinda.Domain.Users;
 
 public sealed class User
 {
-    // Dapper için
+    /// <summary>
+    /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// </summary>
     private User() { }
 
     public Guid Id { get; private set; }
@@ -39,7 +41,10 @@ public sealed class User
 
     public bool IsBanned => BannedAt is not null;
 
-    /// <summary>Veritabanında oturum sürümü artırıldıktan sonra (yeni token doğru sürümle üretilsin diye).</summary>
+    /// <summary>
+    /// Nesnedeki oturum sürümünü, veritabanında artırılmış yeni değere eşitler. Şifre sıfırlamada çağrılır;
+    /// böylece hemen ardından üretilen token yeni sürümü taşır ve geçerli olur.
+    /// </summary>
     public void SessionsRevoked(int newTokenVersion) => TokenVersion = newTokenVersion;
 
     /// <summary>

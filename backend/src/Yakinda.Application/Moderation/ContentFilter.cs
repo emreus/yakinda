@@ -49,7 +49,11 @@ public static class ContentFilter
         return false;
     }
 
-    /// <summary>Küçük harf, rakam/sembol hileleri ve tekrarlanan harfler.</summary>
+    /// <summary>
+    /// Metni karşılaştırmaya hazırlar: küçük harfe çevirir, harf yerine yazılan rakam ve simgeleri harfe
+    /// döndürür (0 ise o, 1 ve ! ise i, 3 ise e, 4 ve @ ise a, 5 ve $ ise s, 7 ise t) ve art arda
+    /// tekrarlanan harfleri teke indirir.
+    /// </summary>
     internal static string Normalize(string text, CultureInfo culture)
     {
         var lower = text.ToLower(culture);

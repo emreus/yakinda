@@ -10,11 +10,13 @@ public static class ChatEndpoints
     {
         var group = api.MapGroup("/events/{eventId:guid}/messages").WithTags("Chat").RequireAuthorization();
 
-        // GET /api/events/{id}/messages?before=<mesajId>  (eski mesajlar)  ya da  ?after=<mesajId>  (yeni mesajlar)
+        // GET /api/events/{id}/messages: sohbet mesajlarını en yeni önce döner (limit verilmezse 30 mesaj).
+        // ?before=<mesajId> o mesajdan eskileri, ?after=<mesajId> o mesajdan sonra yazılanları getirir.
         group.MapGet("/", async (Guid eventId, Guid? before, Guid? after, int? limit, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetChatMessagesQuery(eventId, before, after, limit ?? 30), ct)));
 
-        // POST /api/events/{id}/messages  { "body": "Taşları ben getiriyorum" }
+        // POST /api/events/{id}/messages  { "body": "Taşları ben getiriyorum" }: sohbete mesaj yazar ve
+        // kaydedilen mesajı döner. Yalnızca organizatör ve onaylı katılımcılar yazabilir.
         group.MapPost("/", async (Guid eventId, SendMessageRequest body, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new SendChatMessageCommand(eventId, body.Body), ct)));
 

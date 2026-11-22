@@ -88,8 +88,8 @@ export default function ProfileScreen() {
 }
 
 /**
- * Ayarlar listesindeki tek satır: simge, etiket ve sağda ok. danger ile kırmızı yazılır (hesap silme,
- * çıkış); last ile alt çizgi kaldırılır.
+ * Ayarlar listesindeki tek satır: simge, etiket ve sağda ok. danger ile etiket kırmızı yazılır (hesap
+ * silme); last ile alt çizgi kaldırılır.
  */
 function SettingsRow({
   icon,

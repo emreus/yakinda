@@ -40,7 +40,8 @@ public static class EventEndpoints
     {
         var group = api.MapGroup("/events").WithTags("Events").RequireAuthorization();
 
-        // Kapak görseli (yalnız organizatör): multipart/form-data, "file" alanı
+        // PUT /api/events/{id}/image: kapak görselini yükler (yalnızca organizatör). İstek multipart/form-data
+        // biçimindedir, dosya "file" alanında gelir; yanıtta görselin adresi döner.
         group.MapPut("/{id:guid}/image", async (Guid id, HttpRequest request, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new SetEventImageCommand(id, await request.ReadImageUploadAsync(ct)), ct)));
 
@@ -52,6 +53,10 @@ public static class EventEndpoints
         });
 
         // GET /api/events/nearby?lat=41.01&lng=28.97&radiusKm=10&categoryId=1&onlyAvailable=true&sort=time&page=1
+        // Verilen noktanın çevresindeki etkinlikleri sayfalı döner. lat ve lng zorunludur; yarıçap verilmezse
+        // 10 km, sayfa boyutu verilmezse 20 kullanılır. sort: time (başlangıç saati) ya da rating (organizatör
+        // puanı), verilmezse yakınlık. q ile başlık, açıklama ve mekan adında metin araması yapılır; from ve
+        // to ile başlangıç saati aralığı verilebilir.
         group.MapGet("/nearby", async (
             double lat,
             double lng,
@@ -115,7 +120,8 @@ public static class EventEndpoints
             return Results.NoContent();
         });
 
-        // Katılım
+        // POST /api/events/{id}/join: etkinliğe katılır ve alınan durumu döner: Approved (hemen katıldı),
+        // Pending (organizatör onayı bekliyor) ya da Waitlisted (kontenjan dolu, bekleme listesinde).
         group.MapPost("/{id:guid}/join", async (Guid id, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new JoinEventCommand(id), ct)));
 
@@ -145,7 +151,8 @@ public static class EventEndpoints
             return Results.NoContent();
         });
 
-        // Oylama (1-5). PUT: aynı kullanıcı tekrar gönderirse puanı güncellenir.
+        // PUT /api/events/{id}/rating: etkinliğe 1-5 arası puan ve isteğe bağlı yorum verir. PUT olduğu için
+        // aynı kullanıcı tekrar gönderirse yeni kayıt açılmaz, önceki puanı güncellenir.
         group.MapPut("/{id:guid}/rating", async (Guid id, RateEventRequest body, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new RateEventCommand(id, body.Score, body.Comment), ct)));
 

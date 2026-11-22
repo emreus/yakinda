@@ -107,7 +107,10 @@ internal sealed class IsBlockedQueryHandler(IDbConnectionFactory db, ICurrentUse
 /// <summary>Okuma sorgularında kullanılan engel koşulu.</summary>
 internal static class BlockSql
 {
-    /// <summary>a ile b arasında herhangi bir yönde engel varsa true dönen ifade.</summary>
+    /// <summary>
+    /// İki kullanıcı arasında herhangi bir yönde engel varsa true olan SQL koşulunu üretir; a ve b,
+    /// kullanıcı kimliğini veren kolon ya da parametre adlarıdır.
+    /// </summary>
     public static string EitherWay(string a, string b) => $"""
         EXISTS (SELECT 1 FROM user_blocks ub
                 WHERE (ub.blocker_id = {a} AND ub.blocked_id = {b})

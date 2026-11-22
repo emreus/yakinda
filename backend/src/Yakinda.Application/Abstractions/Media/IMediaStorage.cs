@@ -13,7 +13,7 @@ public interface IMediaStorage
     /// </summary>
     Task<string> SaveAsync(string folder, ImageFile image, CancellationToken cancellationToken);
 
-    /// <summary>Dosya yoksa sessizce geçer.</summary>
+    /// <summary>Anahtarı verilen görsel dosyasını siler; dosya yoksa sessizce geçer.</summary>
     Task DeleteAsync(string key, CancellationToken cancellationToken);
 }
 

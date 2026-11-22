@@ -8,9 +8,9 @@ import { RatingBadge } from './StarRating';
 import { Badge } from './ui';
 
 /**
- * Liste kartı: varsa kapak görseli, kategori, başlık, tarih, mekan, mesafe, kontenjan etiketi ve
- * organizatörün fotoğrafı, adı ve puanı. Dokununca etkinlik detayına gider; iptal edilmiş ya da bitmiş
- * etkinlik rozetle işaretlenir.
+ * Liste kartı: solda kapak görseli (yoksa kategori emojisi), yanında başlık, tarih, mekan ve mesafe;
+ * altta durum rozeti ile organizatörün adı ve puanı. Rozet iptal edilmiş etkinlikte "İptal edildi",
+ * bitmiş etkinlikte "Bitti", diğerlerinde kontenjan durumunu yazar. Dokununca etkinlik detayına gider.
  */
 export function EventCard({ event }: { event: EventListItem }) {
   const spots = formatSpots(event);

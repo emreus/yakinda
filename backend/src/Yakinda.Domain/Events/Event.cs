@@ -10,7 +10,10 @@ namespace Yakinda.Domain.Events;
 /// </summary>
 public sealed class Event
 {
-    // Dapper için
+    /// <summary>
+    /// Parametresiz kurucu yalnızca Dapper içindir: veritabanı satırından nesne kurarken bunu kullanır.
+    /// Uygulama kodu etkinliği Create ile oluşturur.
+    /// </summary>
     private Event() { }
 
     public Guid Id { get; private set; }

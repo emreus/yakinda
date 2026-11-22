@@ -338,16 +338,15 @@ function SafetyLinks({ event }: { event: EventDetail }) {
 // ------------------------------------------------------------------ Katılımcılar
 
 /**
- * Organizatörün katılımcı paneli: bekleyen istekler (Onayla / Reddet) ve onaylı katılımcılar (Çıkar).
- * Butonlar yalnızca etkinlik aktifken ve başlamadan önce görünür.
+ * Organizatörün katılımcı paneli: önce bekleyen istekler (Onayla / Reddet butonlarıyla), sonra onaylı
+ * katılımcılar. Butonlar yalnızca etkinlik aktifken ve başlamadan önce görünür.
  */
 function ParticipantsPanel({ event }: { event: EventDetail }) {
   const participants = useParticipants(event.id);
   const invalidate = useInvalidateEvent();
   const queryClient = useQueryClient();
 
-  // İsteği onaylar ya da reddeder (ret, onaylı katılımcıyı çıkarmak için de kullanılır); başarıda etkinliği
-  // ve katılımcı listesini yeniletir.
+  // Bekleyen isteği onaylar ya da reddeder; başarıda etkinliği ve katılımcı listesini yeniletir.
   const review = useMutation({
     mutationFn: ({ userId, approve }: { userId: string; approve: boolean }) =>
       approve ? eventsApi.approve(event.id, userId) : eventsApi.reject(event.id, userId),

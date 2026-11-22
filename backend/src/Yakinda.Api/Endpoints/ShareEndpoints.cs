@@ -35,7 +35,9 @@ public static class ShareEndpoints
             .AllowAnonymous()
             .ExcludeFromDescription();
 
-        // iOS Universal Links
+        // GET /.well-known/apple-app-site-association: iOS Universal Links doğrulama dosyası. iOS, /e/* ile
+        // başlayan bağlantıların bu uygulamaya ait olduğunu buradan doğrular. App:AppleAppId ayarlı değilse
+        // 404 döner.
         app.MapGet("/.well-known/apple-app-site-association", (IConfiguration config) =>
             {
                 var appId = config["App:AppleAppId"]; // TEAMID.com.emreus.yakinda
@@ -48,7 +50,8 @@ public static class ShareEndpoints
             .AllowAnonymous()
             .ExcludeFromDescription();
 
-        // Android App Links
+        // GET /.well-known/assetlinks.json: Android App Links doğrulama dosyası (paket adı ve imza parmak
+        // izleri). App:AndroidPackage ya da parmak izleri ayarlı değilse 404 döner.
         app.MapGet("/.well-known/assetlinks.json", (IConfiguration config) =>
             {
                 var package = config["App:AndroidPackage"];

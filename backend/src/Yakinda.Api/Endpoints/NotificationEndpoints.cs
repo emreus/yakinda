@@ -13,11 +13,11 @@ public static class NotificationEndpoints
     {
         var notifications = api.MapGroup("/notifications").WithTags("Notifications").RequireAuthorization();
 
-        // GET /api/notifications?page=1&pageSize=20
+        // GET /api/notifications?page=1&pageSize=20: kullanıcının bildirimleri, en yeni önce, sayfalı.
         notifications.MapGet("/", async (int? page, int? pageSize, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetNotificationsQuery(page ?? 1, pageSize ?? 20), ct)));
 
-        // GET /api/notifications/unread-count  →  { "count": 3 }
+        // GET /api/notifications/unread-count: okunmamış bildirim sayısı, ör. { "count": 3 }.
         notifications.MapGet("/unread-count", async (ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetUnreadNotificationCountQuery(), ct)));
 
@@ -37,14 +37,16 @@ public static class NotificationEndpoints
 
         var devices = api.MapGroup("/devices").WithTags("Devices").RequireAuthorization();
 
-        // POST /api/devices  { "token": "ExponentPushToken[...]", "platform": "android" }
+        // POST /api/devices  { "token": "ExponentPushToken[...]", "platform": "android" }: bu cihazın push
+        // token'ını kullanıcıya kaydeder; push bildirimleri bu token'a gönderilir.
         devices.MapPost("/", async (RegisterDeviceTokenCommand command, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(command, ct);
             return Results.NoContent();
         });
 
-        // DELETE /api/devices?token=ExponentPushToken[...]   (çıkış yaparken)
+        // DELETE /api/devices?token=ExponentPushToken[...]: cihazın push token'ını siler; uygulama çıkış
+        // yaparken çağırır.
         devices.MapDelete("/", async (string token, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new UnregisterDeviceTokenCommand(token), ct);

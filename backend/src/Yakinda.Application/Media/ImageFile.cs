@@ -48,7 +48,11 @@ public sealed class ImageFile
         _ => "webp"
     };
 
-    /// <summary>Geçerli bir JPEG, PNG ya da WebP değilse (ya da sınırları aşıyorsa) null.</summary>
+    /// <summary>
+    /// Yüklenen baytları doğrular ve temizler: biçimi imzadan tanır, biçime göre meta verileri ayıklar ve
+    /// boyutları okur. Geçerli bir JPEG, PNG ya da WebP değilse ya da sınırları (dosya boyutu, kenar
+    /// uzunluğu, toplam piksel) aşıyorsa null döner; bozuk dosya da hata fırlatmadan null ile sonuçlanır.
+    /// </summary>
     public static ImageFile? TryRead(byte[]? data)
     {
         if (data is null || data.Length < 16 || data.Length > MaxBytes)
@@ -200,7 +204,9 @@ public sealed class ImageFile
         }
 
         /// <summary>
-        /// Sıkıştırılmış veride 0xFF'i ya 0x00 (dolgu) ya da RSTn izler; başka bir kod yeni bir bölümün başıdır.
+        /// Tarama (sıkıştırılmış görüntü) verisinin bittiği yeri, yani sonraki bölüm işaretinin konumunu bulur;
+        /// bulamazsa -1 döner. Veri içinde 0xFF'i ya 0x00 (dolgu) ya da RSTn izler; başka bir kod yeni bir
+        /// bölümün başıdır.
         /// </summary>
         private static int FindScanEnd(byte[] src, int start)
         {
@@ -268,8 +274,8 @@ public sealed class ImageFile
         }
 
         /// <summary>
-        /// İçinde yalnızca yön bilgisi bulunan en küçük EXIF bölümünü (34 bayt) üretir; silinen EXIF'in
-        /// yerine bu yazılır ki dik çekilen fotoğraf yan dönmesin.
+        /// İçinde yalnızca yön bilgisi bulunan en küçük EXIF bölümünü (işaret baytlarıyla birlikte 36 bayt)
+        /// üretir; silinen EXIF'in yerine bu yazılır ki dik çekilen fotoğraf yan dönmesin.
         /// </summary>
         private static byte[] OrientationOnlyExif(ushort orientation)
         {

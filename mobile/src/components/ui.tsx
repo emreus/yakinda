@@ -111,12 +111,12 @@ export function Chip({ label, selected, onPress }: ChipProps) {
 
 // ---------------------------------------------------------------- Card / Section / Badge
 
-/** İçeriği beyaz, köşeleri yuvarlak ve hafif gölgeli bir kutuya alır. */
+/** İçeriği kart renginde, köşeleri yuvarlak ve ince çerçeveli bir kutuya alır. */
 export function Card({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-/** Bölüm başlığı; sağına isteğe bağlı bir öğe (ör. "Tümünü gör" bağlantısı) konabilir. */
+/** Bölüm başlığı; sağına isteğe bağlı bir öğe (ör. bekleyen istek sayısını gösteren rozet) konabilir. */
 export function SectionTitle({ children, right }: { children: ReactNode; right?: ReactNode }) {
   return (
     <View style={styles.sectionHeader}>

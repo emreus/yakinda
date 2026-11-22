@@ -56,7 +56,11 @@ internal static class ChatAccess
         WHERE e.id = @EventId
         """;
 
-    /// <summary>Üye değilse 403; etkinlik yoksa ya da kaldırıldıysa 404.</summary>
+    /// <summary>
+    /// Kullanıcının etkinlik sohbetine erişebildiğini doğrular ve etkinlik bilgisini döner. Etkinlik yoksa
+    /// ya da kaldırıldıysa 404; kullanıcı organizatör ya da onaylı katılımcı değilse 403 (chat.not_member)
+    /// fırlatır.
+    /// </summary>
     public static async Task<ChatAccessRow> RequireMemberAsync(
         System.Data.Common.DbConnection connection,
         Guid eventId,

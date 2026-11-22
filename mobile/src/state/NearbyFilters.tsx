@@ -29,8 +29,8 @@ interface FiltersContextValue {
 const FiltersContext = createContext<FiltersContextValue | null>(null);
 
 /**
- * Liste ve harita sekmelerinin paylaştığı filtreleri (yarıçap, kategori, sıralama, arama) tutar ve
- * altındaki bileşenlere verir.
+ * Liste ve harita sekmelerinin paylaştığı filtreleri (yarıçap, kategori, yalnızca yeri olanlar, sıralama,
+ * arama) tutar ve altındaki bileşenlere verir.
  */
 export function NearbyFiltersProvider({ children }: { children: ReactNode }) {
   const [filters, setFilters] = useState<NearbyFilters>(defaultFilters);

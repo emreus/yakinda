@@ -13,6 +13,7 @@ public static class SafetyEndpoints
     public static RouteGroupBuilder MapSafetyEndpoints(this RouteGroupBuilder api)
     {
         // POST /api/reports  { "targetType": "Event", "targetId": "...", "reason": "Inappropriate", "details": "..." }
+        // Bir etkinliği, kullanıcıyı ya da mesajı şikayet eder; şikayet yöneticinin inceleme kuyruğuna düşer.
         api.MapPost("/reports", async (CreateReportCommand command, ISender sender, CancellationToken ct) =>
             {
                 await sender.Send(command, ct);
@@ -29,6 +30,7 @@ public static class SafetyEndpoints
             Results.Ok(await sender.Send(new GetOpenReportsQuery(), ct)));
 
         // POST /api/admin/reports/{id}/resolve  { "action": "Dismiss" | "RemoveContent" | "BanUser", "note": "..." }
+        // Yönetici şikayeti sonuçlandırır: reddeder, içeriği kaldırır ya da kullanıcıyı yasaklar.
         admin.MapPost("/reports/{id:guid}/resolve", async (Guid id, ResolveReportRequest body, ISender sender, CancellationToken ct) =>
         {
             await sender.Send(new ResolveReportCommand(id, body.Action, body.Note), ct);

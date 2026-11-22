@@ -405,9 +405,10 @@ public sealed class EventFlowTests(ApiFixture api)
     // ------------------------------------------------------------------ zamanlanmış bildirimler
 
     /// <summary>
-    /// Zamanlayıcı elle çalıştırılır. Başlangıca 30 dakika kala organizatöre ve katılımcıya birer hatırlatma
-    /// gönderir, ikinci turda tekrarlamaz. Etkinlik bittikten sonra (başlangıç 5 saat geriye çekilir)
-    /// yalnızca katılımcıya puanlama bildirimi gönderir.
+    /// Zamanlayıcı elle çalıştırılır. Başlangıcı 30 dakika sonraya çekilen etkinlik hatırlatma süresinin
+    /// (son 1 saat) içine girer: organizatöre ve katılımcıya birer hatırlatma gider, ikinci turda
+    /// tekrarlanmaz. Etkinlik bittikten sonra (başlangıç 5 saat geriye çekilir) yalnızca katılımcıya
+    /// puanlama bildirimi gider.
     /// </summary>
     [Fact]
     public async Task Scheduler_sends_reminder_once_and_rating_prompt_after_the_event()
