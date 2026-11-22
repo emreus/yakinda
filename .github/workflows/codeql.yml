@@ -33,3 +33,22 @@ jobs:
       - uses: github/codeql-action/analyze@v4
         with:
           category: /language:${{ matrix.language }}
+          output: sarif-results
+      # Bulgular Security sekmesine yüklenir; burada da kısa bir özeti loglanır (sekmeye erişimi olmayanlar için)
+      - name: Bulgu özeti
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import glob, json
+          total = 0
+          for path in sorted(glob.glob("sarif-results/*.sarif")):
+              for run in json.load(open(path, encoding="utf-8")).get("runs", []):
+                  for result in run.get("results", []):
+                      location = (result.get("locations") or [{}])[0].get("physicalLocation", {})
+                      uri = location.get("artifactLocation", {}).get("uri", "?")
+                      line = location.get("region", {}).get("startLine", "?")
+                      text = result.get("message", {}).get("text", "").replace("\n", " ")[:200]
+                      total += 1
+                      print(f"BULGU | {result.get('ruleId')} | {uri}:{line} | {text}")
+          print(f"Toplam bulgu: {total}")
+          PY
