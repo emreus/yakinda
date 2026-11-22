@@ -20,6 +20,10 @@ Kullanıcının yakınındaki etkinlikleri gösteren, etkinlik oluşturmayı ve 
 - **Katılım**: katıl / istek gönder / ayrıl; organizatör onaylar-reddeder; kontenjan yarışına karşı satır kilidi
 - **Puanlama**: sadece onaylı katılımcılar, 1–5 yıldız + yorum, sonradan güncellenebilir
 - **Organizatör puanı**: kullanıcının düzenlediği etkinliklere verilen *her oy* ortalamasını etkiler; profilde ortalama + yıldız dağılımı
+- **Bekleme listesi**: kontenjan doluysa katılmak isteyen sıraya girer; biri ayrılınca, çıkarılınca ya da kontenjan artınca sıradaki otomatik alınır (onaylı etkinlikte isteğe dönüşür) ve bildirim alır
+- **Etkinlik düzenleme**: organizatör başlamadan önce saat, yer, kontenjan vb. değiştirebilir; saat ya da yer değişirse katılımcılara bildirim gider, hatırlatma yeni saate göre kurulur
+- **Tekrarlayan etkinlik**: "her salı okey" için 4, 8 ya da 12 hafta boyunca ayrı etkinlikler
+- **Arama ve sıralama**: başlık/açıklama/mekan araması; yakınlık, zaman ya da organizatör puanına göre (Bayesian ortalama: tek oyla 5,0 alan, 200 oyla 4,8 alanın önüne geçmez)
 - **Bildirimler**: katılım isteği / yeni katılımcı, onay / ret, iptal, başlamadan 1 saat önce hatırlatma, bitince "puanla"; uygulama içi liste + push
 
 ---
@@ -258,6 +262,7 @@ formatındadır ve makine tarafından okunabilir bir `code` alanı içerir (ör.
 | GET | `/api/events/{id}/ratings` | Yorumlar |
 | GET | `/api/users/me` · `/api/users/{id}` | Profil + organizatör puanı + dağılım |
 | GET | `/api/users/me/events?role=organizing\|attending` | Etkinliklerim |
+| PUT | `/api/events/{id}` | Etkinliği düzenle (organizatör, başlamadan önce) |
 | GET | `/api/notifications?page&pageSize` | Bildirimlerim (en yeni önce) |
 | GET | `/api/notifications/unread-count` | `{ count }` okunmamış sayısı |
 | POST | `/api/notifications/{id}/read` · `/api/notifications/read-all` | Okundu yap |
@@ -287,8 +292,6 @@ kütüphanesine geçebilirsiniz. Mimari aynı kalır.
 ## Sonraki adımlar için öneriler
 
 1. **Bildirim tercihleri**: kullanıcı hangi bildirimleri almak istediğini seçebilsin; eski bildirimleri temizleyen bir iş.
-2. **Etkinlik düzenleme** ve organizatör ile katılımcılar arası basit **mesajlaşma**.
+2. Organizatör ile katılımcılar arası basit **mesajlaşma**.
 3. **Güven & güvenlik**: kullanıcı engelleme/şikayet, telefon doğrulama, rate limiting (`AddRateLimiter`).
-4. **Sıralamada Bayesian ortalama**: tek oyla 5,0 alan organizatörün 200 oyla 4,8 alanın önüne geçmemesi için
-   `(C·m + Σpuan) / (C + n)` gibi ağırlıklı skor (gösterimde ham ortalama kalabilir).
 6. Profil fotoğrafı / etkinlik görseli (S3/Blob + ön imzalı URL).

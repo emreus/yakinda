@@ -29,7 +29,7 @@ internal sealed class GetMyEventsQueryHandler(
 
         var filter = request.Role == MyEventsRole.Organizing
             ? "e.organizer_id = @UserId"
-            : "EXISTS (SELECT 1 FROM event_participants p WHERE p.event_id = e.id AND p.user_id = @UserId AND p.status IN (0, 1))";
+            : "EXISTS (SELECT 1 FROM event_participants p WHERE p.event_id = e.id AND p.user_id = @UserId AND p.status IN (0, 1, 4))"; // bekleyen, onaylı, bekleme listesi
 
         // Yaklaşanlar önce (en yakın tarih), ardından geçmişler (en yeni önce).
         var sql = $"""
